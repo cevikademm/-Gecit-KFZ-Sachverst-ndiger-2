@@ -37,3 +37,5 @@ build/
 GECIT-KFZ_Gutachten_*.pdf
 TUV_Bildirim_*.pdf
 Fatura_*.pdf
+
+.vercel
