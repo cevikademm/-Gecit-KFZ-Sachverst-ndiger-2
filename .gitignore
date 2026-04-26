@@ -1,0 +1,39 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Node (in case)
+node_modules/
+
+# Local env / secrets
+.env
+.env.local
+.env*.local
+
+# Vercel
+.vercel/
+
+# Build output
+dist/
+build/
+
+# Temp files
+*.tmp
+*.bak
+
+# Generated PDFs (test artifacts)
+GECIT-KFZ_Gutachten_*.pdf
+TUV_Bildirim_*.pdf
+Fatura_*.pdf
