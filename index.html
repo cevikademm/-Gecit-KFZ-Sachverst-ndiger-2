@@ -163,6 +163,10 @@
     })();
 
     const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // Helper: legalize IIFE-with-hooks pattern by giving each its own component fiber.
+    // Usage: <Iife>{() => { const [x,setX] = useState(0); return <div/>; }}</Iife>
+    function Iife({ children }) { return children(); }
     const {
       motion, useScroll, useTransform, useMotionValue, useSpring, useInView, AnimatePresence,
     } = window.Motion;
@@ -391,8 +395,11 @@
       return (
         <motion.nav initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.8, ease: easeOut }}
-          className="fixed top-4 z-40"
-          style={{ left: 16, right: 16, marginLeft: 'auto', marginRight: 'auto', maxWidth: 1200,
+          className="fixed z-40"
+          style={{ top: 'max(16px, calc(env(safe-area-inset-top) + 8px))',
+            left: 'max(16px, env(safe-area-inset-left))',
+            right: 'max(16px, env(safe-area-inset-right))',
+            marginLeft: 'auto', marginRight: 'auto', maxWidth: 1200,
             background: bgCss, backdropFilter: blCss, WebkitBackdropFilter: blCss,
             border: `1px solid ${brCss}`, borderRadius: 999 }}>
           <div className="flex items-center justify-between px-5 py-3">
@@ -449,12 +456,14 @@
                 </>
               ) : (
                 <button onClick={onLoginClick}
-                  className="hidden sm:inline-flex items-center text-sm px-4 py-2 rounded-full transition-colors hover:text-white"
-                  style={{ color: C.textDim }}>
-                  Giriş Yap
+                  className="inline-flex items-center gap-1.5 text-sm font-medium px-3.5 sm:px-4 py-2 rounded-full transition-all"
+                  style={{ background: 'rgba(167,139,250,0.12)', border: `1px solid ${C.neon}55`, color: C.neon }}>
+                  <Svg size={14}><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></Svg>
+                  <span className="hidden sm:inline">Giriş Yap</span>
+                  <span className="sm:hidden">Giriş</span>
                 </button>
               )}
-              <MagneticButton variant="primary" ariaLabel="Online Termin Al" className="text-sm" onClick={onBook}>
+              <MagneticButton variant="primary" ariaLabel="Online Termin Al" className="text-sm !px-4 sm:!px-7 !py-2.5 sm:!py-3.5" onClick={onBook}>
                 <span className="hidden sm:inline">Online Termin Al</span>
                 <span className="sm:hidden">Termin</span>
                 <ArrowRight size={16} />
@@ -575,6 +584,9 @@
                 role="dialog" aria-modal="true" aria-label="Giriş Yap"
                 className="fixed top-0 right-0 bottom-0 flex flex-col overflow-y-auto"
                 style={{ zIndex: 61, width: 'min(440px, 100vw)',
+                  paddingTop: 'env(safe-area-inset-top)',
+                  paddingBottom: 'env(safe-area-inset-bottom)',
+                  paddingRight: 'env(safe-area-inset-right)',
                   background: `linear-gradient(180deg, ${C.surface2} 0%, ${C.surface} 100%)`,
                   borderLeft: `1px solid ${C.border}`,
                   boxShadow: `-40px 0 80px -20px rgba(0,0,0,0.6), inset 1px 0 0 ${C.glow}` }}>
@@ -744,7 +756,7 @@
       const sphY = useTransform(scrollY, [0, 800], [0, -240]);
       const sphS = useTransform(scrollY, [0, 800], [1, 0.85]);
       return (
-        <section className="relative flex items-center overflow-hidden" style={{ minHeight: '100vh', paddingTop: 120, paddingBottom: 80 }}>
+        <section className="relative flex items-center overflow-hidden" style={{ minHeight: '100vh', paddingTop: 'calc(env(safe-area-inset-top) + 120px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}>
           <motion.div className="absolute left-1/2 top-1/2 pointer-events-none"
             style={{ y: sphY, scale: sphS, translateX: '-50%', translateY: '-50%', zIndex: 1 }}>
             <div className="relative" style={{ width: 600, height: 600 }}>
@@ -6015,7 +6027,7 @@
             </GlassCard>
             <GlassCard>
               <h3 className="text-lg font-semibold mb-4" style={{ color: C.text }}>Entegrasyonlar</h3>
-              {(() => {
+              {<Iife>{() => {
                 const [sbOpen, setSbOpen] = React.useState(false);
                 const [sbUrl, setSbUrl] = React.useState(SUPABASE_CONFIG.url);
                 const [sbKey, setSbKey] = React.useState(SUPABASE_CONFIG.anonKey);
@@ -6131,7 +6143,7 @@
                     ))}
                   </div>
                 );
-              })()}
+              }}</Iife>}
             </GlassCard>
           </div>
 
@@ -8414,7 +8426,7 @@
             )}
 
             {/* Tasks — Görevler */}
-            {section === 'tasks' && (() => {
+            {section === 'tasks' && <Iife>{() => {
               const [newTask, setNewTask] = React.useState('');
               const addTask = () => {
                 const t = newTask.trim();
@@ -8477,10 +8489,10 @@
                   </div>
                 </>
               );
-            })()}
+            }}</Iife>}
 
             {/* Messages — Lawyer messaging */}
-            {section === 'messages' && (() => {
+            {section === 'messages' && <Iife>{() => {
               const [msgText, setMsgText] = React.useState('');
               const [selectedContact, setSelectedContact] = React.useState(null);
               const messagesEndRef = React.useRef(null);
@@ -8579,10 +8591,10 @@
                   </div>
                 </>
               );
-            })()}
+            }}</Iife>}
 
             {/* Calendar — Mahkeme Takvimi */}
-            {section === 'calendar' && (() => {
+            {section === 'calendar' && <Iife>{() => {
               const [newDate, setNewDate] = React.useState({ date: '', time: '', court: '', description: '', customer_id: '' });
               const addCourtDate = () => {
                 if (!newDate.date || !newDate.court) return;
@@ -8664,7 +8676,7 @@
                   )}
                 </>
               );
-            })()}
+            }}</Iife>}
 
             {/* Ekspertiz Reports — Avukat erişimi */}
             {section === 'reports' && (
@@ -8713,7 +8725,7 @@
 
             {/* Performance Metrics */}
             {/* ═══ İtiraz Şablonları ═══ */}
-            {section === 'templates' && (() => {
+            {section === 'templates' && <Iife>{() => {
               const templates = db.objection_templates || [];
               const [selectedTpl, setSelectedTpl] = React.useState(null);
               const [editContent, setEditContent] = React.useState('');
@@ -8836,10 +8848,10 @@
                   </GecitKfzModal>
                 </>
               );
-            })()}
+            }}</Iife>}
 
             {/* ═══ Hasar Fark Raporu (müşteri talebi vs sigorta teklifi) ═══ */}
-            {section === 'diff_report' && (() => {
+            {section === 'diff_report' && <Iife>{() => {
               const [selCust, setSelCust] = React.useState('');
               const claims = selCust ? (db.insurance_claims || []).filter(c => c.customer_id === selCust) : [];
               const offers = (db.insurance_offers || []);
@@ -8925,10 +8937,10 @@
                   ) : null}
                 </>
               );
-            })()}
+            }}</Iife>}
 
             {/* ═══ Müvekkil Dosya Özeti (1-Sayfa) ═══ */}
-            {section === 'client_summary' && (() => {
+            {section === 'client_summary' && <Iife>{() => {
               const [selCust, setSelCust] = React.useState('');
 
               const generateSummary = () => {
@@ -9092,7 +9104,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   )}
                 </>
               );
-            })()}
+            }}</Iife>}
 
             {section === 'metrics' && (
               <>
@@ -9162,7 +9174,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
 
           {/* Case Creation Modal */}
           <GecitKfzModal open={caseOpen} onClose={() => setCaseOpen(false)} title="Yeni Dava Dosyası">
-            {(() => {
+            {<Iife>{() => {
               const [caseForm, setCaseForm] = React.useState({ title: '', customer_id: '', description: '', status: 'aktif' });
               const createCase = () => {
                 if (!caseForm.title || !caseForm.customer_id) return;
@@ -9195,7 +9207,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   </AdminButton>
                 </div>
               );
-            })()}
+            }}</Iife>}
           </GecitKfzModal>
         </div>
       );
@@ -9854,7 +9866,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
             )}
 
             {/* Documents Tab — Functional Upload + List */}
-            {section === 'documents' && (() => {
+            {section === 'documents' && <Iife>{() => {
               const [qrModal, setQrModal] = React.useState(false);
               const [qrDocId, setQrDocId] = React.useState(null);
               const qrCanvasRef = React.useRef(null);
@@ -10019,10 +10031,10 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                 </GecitKfzModal>
               </motion.div>
               );
-            })()}
+            }}</Iife>}
 
             {/* Messages Tab — Chat with Admin */}
-            {section === 'messages' && (() => {
+            {section === 'messages' && <Iife>{() => {
               const [msgText, setMsgText] = React.useState('');
               const messagesEndRef = React.useRef(null);
               React.useEffect(() => {
@@ -10120,7 +10132,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   </GlassCard>
                 </motion.div>
               );
-            })()}
+            }}</Iife>}
 
             {/* Appointments Tab */}
             {section === 'appointments' && (
@@ -10405,7 +10417,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
             )}
 
             {/* ═══ Hasar Fotoğraf Galerisi — Önce/Sonra Karşılaştırma ═══ */}
-            {section === 'photos' && (() => {
+            {section === 'photos' && <Iife>{() => {
               const [selectedVehicle, setSelVeh] = React.useState(myVehicles[0]?.id || '');
               const [compareMode, setCompareMode] = React.useState(false);
               const [lightbox, setLightbox] = React.useState(null);
@@ -10576,10 +10588,10 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   )}
                 </motion.div>
               );
-            })()}
+            }}</Iife>}
 
             {/* ═══ Sigorta Talebi Yönetimi ═══ */}
-            {section === 'insurance' && (() => {
+            {section === 'insurance' && <Iife>{() => {
               const [claimModal, setClaimModal] = React.useState(false);
               const [claimVehicle, setClaimVehicle] = React.useState(myVehicles[0]?.id || '');
               const [claimDesc, setClaimDesc] = React.useState('');
@@ -10760,7 +10772,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   </GecitKfzModal>
                 </motion.div>
               );
-            })()}
+            }}</Iife>}
 
             {/* ═══ Hasar Geçmişi Timeline ═══ */}
             {section === 'timeline' && (
@@ -10880,7 +10892,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
             )}
 
             {/* Mobile Bottom Nav — scrollable with all items */}
-            {(() => {
+            {<Iife>{() => {
               const [mobileMore, setMobileMore] = React.useState(false);
               const primaryNav = navItems.slice(0, 4);
               const secondaryNav = navItems.slice(4);
@@ -10948,7 +10960,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   </div>
                 </div>
               );
-            })()}
+            }}</Iife>}
           </main>
 
           {/* Floating WhatsApp Button — raised on mobile to avoid bottom nav overlap */}
@@ -10968,7 +10980,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
 
           {/* Satisfaction Survey Modal */}
           <GecitKfzModal open={surveyOpen} onClose={() => { setSurveyOpen(false); setSurveyAppraisal(null); }} title="Memnuniyet Anketi" subtitle="Deneyiminizi puanlayın">
-            {(() => {
+            {<Iife>{() => {
               const [rating, setRating] = React.useState(0);
               const [comment, setComment] = React.useState('');
               const submit = () => {
@@ -11012,7 +11024,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   </AdminButton>
                 </div>
               );
-            })()}
+            }}</Iife>}
           </GecitKfzModal>
         </div>
       );
@@ -11557,7 +11569,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
             )}
 
             {/* Messages */}
-            {section === 'messages' && (() => {
+            {section === 'messages' && <Iife>{() => {
               const [msgText, setMsgText] = React.useState('');
               const [selectedContact, setSelectedContact] = React.useState(null);
               const messagesEndRef = React.useRef(null);
@@ -11628,12 +11640,12 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   </div>
                 </>
               );
-            })()}
+            }}</Iife>}
           </main>
 
           {/* Offer Modal */}
           <GecitKfzModal open={offerOpen} onClose={() => setOfferOpen(false)} title="Kostenvoranschlag / Teklif">
-            {(() => {
+            {<Iife>{() => {
               const [offerForm, setOfferForm] = React.useState({ amount: '', description: '', notes: '' });
               const submitOffer = () => {
                 if (!offerForm.amount || !selectedClaim) return;
@@ -11682,7 +11694,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   </AdminButton>
                 </div>
               );
-            })()}
+            }}</Iife>}
           </GecitKfzModal>
         </div>
       );

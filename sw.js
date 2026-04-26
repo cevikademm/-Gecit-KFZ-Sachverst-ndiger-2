@@ -1,5 +1,5 @@
 // GECIT-KFZ Service Worker — PWA + Push Notifications
-const CACHE_NAME = 'gecit-kfz-cache-v1';
+const CACHE_NAME = 'gecit-kfz-cache-v4';
 const OFFLINE_URL = './index.html';
 
 // Install: cache the app shell
@@ -29,27 +29,37 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first, fallback to cache
+// Fetch: network-first; for HTML always go to network (never serve stale shell)
 self.addEventListener('fetch', (event) => {
   // Skip non-GET
   if (event.request.method !== 'GET') return;
 
+  const req = event.request;
+  const isHTML = req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
+
+  if (isHTML) {
+    // Always network for HTML; cache only as offline fallback
+    event.respondWith(
+      fetch(req, { cache: 'no-store' })
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(OFFLINE_URL, clone));
+          return response;
+        })
+        .catch(() => caches.match(OFFLINE_URL))
+    );
+    return;
+  }
+
+  // Other assets: network-first, fallback to cache
   event.respondWith(
-    fetch(event.request)
+    fetch(req)
       .then((response) => {
-        // Clone and cache successful responses
         const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, clone);
-        });
+        caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
         return response;
       })
-      .catch(() => {
-        // Offline fallback
-        return caches.match(event.request).then((cached) => {
-          return cached || caches.match(OFFLINE_URL);
-        });
-      })
+      .catch(() => caches.match(req).then((cached) => cached || caches.match(OFFLINE_URL)))
   );
 });
 
