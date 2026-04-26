@@ -1,5 +1,5 @@
 // GECIT-KFZ Service Worker — PWA + Push Notifications
-const CACHE_NAME = 'gecit-kfz-cache-v4';
+const CACHE_NAME = 'gecit-kfz-cache-v5';
 const OFFLINE_URL = './index.html';
 
 // Install: cache the app shell
