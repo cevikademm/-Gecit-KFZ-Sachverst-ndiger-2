@@ -452,4 +452,4 @@ ALTER PUBLICATION supabase_realtime ADD TABLE activity_logs;
 -- ═══ Seed Data (optional — comment out if migrating existing data) ═══
 -- INSERT INTO customers (id, full_name, email, phone, type) VALUES
 --   ('c1', 'Mehmet Yılmaz', 'mehmet@mail.com', '+49 176 123 4567', 'bireysel'),
---   ('c2', 'Ayşe Kara', 'ayse@mail.com', '+49 170 987 6543', 'bireysel');
+--   ('c2', 'Ayşe Kara', 'ayse@mail.com', '+49 170 987 6543', 'bireyse
