@@ -1,4 +1,4 @@
-# GECIT-KFZ Sachverständigenbüro
+# Gecit Kfz Sachverständiger
 
 Yapay zeka destekli oto ekspertiz platformu. Müşteri portalı, admin paneli, avukat ve sigorta panelleri tek çatı altında.
 

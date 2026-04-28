@@ -1,6 +1,6 @@
 {
-  "name": "GECIT-KFZ — Akıllı Oto Ekspertiz",
-  "short_name": "GECIT-KFZ",
+  "name": "Gecit Kfz Sachverständiger — Akıllı Oto Ekspertiz",
+  "short_name": "Gecit Kfz",
   "description": "Yapay zeka destekli oto ekspertiz ve müşteri portalı",
   "start_url": "./index.html",
   "scope": "./",

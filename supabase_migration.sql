@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
--- GECIT-KFZ — Supabase Migration (PostgreSQL)
+-- Gecit Kfz Sachverständiger — Supabase Migration (PostgreSQL)
 -- Tüm tabloları oluşturur, RLS politikalarını ayarlar
 -- Supabase Dashboard > SQL Editor'e yapıştırarak çalıştırın
 -- ═══════════════════════════════════════════════════════════════

@@ -1,5 +1,5 @@
-// GECIT-KFZ Service Worker — PWA + Push Notifications
-const CACHE_NAME = 'gecit-kfz-cache-v5';
+// Gecit Kfz Sachverständiger Service Worker — PWA + Push Notifications
+const CACHE_NAME = 'gecit-kfz-cache-v7';
 const OFFLINE_URL = './index.html';
 
 // Install: cache the app shell
@@ -65,7 +65,7 @@ self.addEventListener('fetch', (event) => {
 
 // Push notification received from server (for future FCM integration)
 self.addEventListener('push', (event) => {
-  let data = { title: 'GECIT-KFZ Bildirim', body: 'Yeni bir güncelleme var.', tag: 'gecit-kfz-push' };
+  let data = { title: 'Gecit Kfz Sachverständiger Bildirim', body: 'Yeni bir güncelleme var.', tag: 'gecit-kfz-push' };
 
   if (event.data) {
     try {
@@ -78,7 +78,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || data.message || '',
     icon: data.icon || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ctext y=".9em" font-size="80"%3E🚗%3C/text%3E%3C/svg%3E',
-    badge: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"%3E%3Crect width="96" height="96" rx="20" fill="%237C3AED"/%3E%3Ctext x="48" y="58" text-anchor="middle" font-size="50" font-weight="bold" fill="white" font-family="system-ui"%3EOX%3C/text%3E%3C/svg%3E',
+    badge: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"%3E%3Crect width="96" height="96" rx="20" fill="%237C3AED"/%3E%3Ctext x="48" y="58" text-anchor="middle" font-size="50" font-weight="bold" fill="white" font-family="system-ui"%3EGK%3C/text%3E%3C/svg%3E',
     tag: data.tag || 'gecit-kfz-push-' + Date.now(),
     requireInteraction: true,
     renotify: true,

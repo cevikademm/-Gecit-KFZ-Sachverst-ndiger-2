@@ -34,7 +34,7 @@ build/
 *.bak
 
 # Generated PDFs (test artifacts)
-GECIT-KFZ_Gutachten_*.pdf
+Gecit-KFZ_Gutachten_*.pdf
 TUV_Bildirim_*.pdf
 Fatura_*.pdf
 
