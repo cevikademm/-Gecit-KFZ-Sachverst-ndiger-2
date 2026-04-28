@@ -1,0 +1,29 @@
+{
+  "name": "Gecit Kfz Sachverständiger — Akıllı Oto Ekspertiz",
+  "short_name": "Gecit Kfz",
+  "description": "Yapay zeka destekli oto ekspertiz ve müşteri portalı",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "gecit-kfz-app",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"],
+  "background_color": "#07060B",
+  "theme_color": "#07060B",
+  "orientation": "portrait-primary",
+  "lang": "tr",
+  "categories": ["business", "utilities"],
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
