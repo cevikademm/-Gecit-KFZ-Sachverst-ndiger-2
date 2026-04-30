@@ -80,13 +80,13 @@ function MeshBackground() {
   const base = { position: 'absolute', borderRadius: '50%', filter: 'blur(120px)', pointerEvents: 'none' };
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ zIndex: 0, pointerEvents: 'none' }} aria-hidden="true">
-      <motion.div style={{ ...base, width: 560, height: 560, top: '-10%', left: '-5%', background: C.neon2, opacity: 0.35, x: offX, y: offY }}
+      <motion.div style={{ ...base, width: 560, height: 560, top: '-10%', left: '-5%', background: C.neon2, opacity: 0.06, x: offX, y: offY }}
         animate={rm ? {} : { x: [0, 60, -30, 0], y: [0, -40, 50, 0] }}
         transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div style={{ ...base, width: 480, height: 480, top: '40%', right: '-8%', background: C.cyan, opacity: 0.2 }}
+      <motion.div style={{ ...base, width: 480, height: 480, top: '40%', right: '-8%', background: C.cyan, opacity: 0.04 }}
         animate={rm ? {} : { x: [0, -80, 30, 0], y: [0, 40, -40, 0] }}
         transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div style={{ ...base, width: 520, height: 520, bottom: '-10%', left: '30%', background: C.magenta, opacity: 0.22 }}
+      <motion.div style={{ ...base, width: 520, height: 520, bottom: '-10%', left: '30%', background: C.magenta, opacity: 0.05 }}
         animate={rm ? {} : { x: [0, 50, -60, 0], y: [0, -60, 20, 0] }}
         transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }} />
     </div>
@@ -110,12 +110,11 @@ function MagneticButton({ children, variant = 'primary', className = '', onClick
     if (Math.sqrt(dx*dx + dy*dy) < 120) { mx.set(dx * 0.25); my.set(dy * 0.25); }
   };
   const handleLeave = () => { mx.set(0); my.set(0); };
-  const baseCls = 'relative inline-flex items-center justify-center gap-2 font-medium tracking-tight rounded-full px-7 py-3.5 transition-colors focus:outline-none';
+  const baseCls = 'relative inline-flex items-center justify-center gap-2 font-medium tracking-tight rounded-lg px-7 py-3.5 transition-colors focus:outline-none';
   const style = variant === 'primary'
-    ? { background: `linear-gradient(135deg, ${C.neon} 0%, ${C.neon2} 100%)`, color: '#0B0818',
-        boxShadow: `0 0 0 1px rgba(255,255,255,0.08), 0 12px 40px -12px ${C.glow}` }
-    : { background: 'rgba(255,255,255,0.04)', color: C.text, border: `1px solid ${C.border}`,
-        backdropFilter: 'blur(8px)' };
+    ? { background: '#E30613', color: '#FFFFFF',
+        boxShadow: '0 4px 20px -4px rgba(227,6,19,0.40)' }
+    : { background: 'transparent', color: C.text, border: `1px solid ${C.border}` };
   return (
     <motion.button ref={ref} data-magnetic onMouseMove={handleMove} onMouseLeave={handleLeave}
       onClick={onClick} aria-label={ariaLabel}
@@ -132,8 +131,8 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
   const blur = useTransform(scrollY, [0, 80], [6, 18]);
   const bgOp = useTransform(scrollY, [0, 80], [0.02, 0.08]);
   const brOp = useTransform(scrollY, [0, 80], [0.04, 0.14]);
-  const [bgCss, setBg] = useState('rgba(255,255,255,0.02)');
-  const [brCss, setBr] = useState('rgba(255,255,255,0.04)');
+  const [bgCss, setBg] = useState('rgba(0,0,0,0.03)');
+  const [brCss, setBr] = useState('rgba(0,0,0,0.05)');
   const [blCss, setBl] = useState('blur(6px)');
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
@@ -161,23 +160,23 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
           <span>fz</span>
         </a>
         <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: C.textDim }}>
-          {links.map(l => <a key={l} href="#" className="transition-colors hover:text-white">{l}</a>)}
+          {links.map(l => <a key={l} href="#" className="transition-colors hover:text-gray-900">{l}</a>)}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {user ? (
             <>
             <button onClick={onEnterApp}
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-full transition-all"
-              style={{ background: 'rgba(167,139,250,0.1)', border: `1px solid rgba(167,139,250,0.3)`, color: C.neon }}>
+              className="hidden sm:inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-md transition-all"
+              style={{ background: 'rgba(227,6,19,0.08)', border: '1px solid rgba(227,6,19,0.25)', color: C.neon }}>
               Panele Git
               <ArrowRight size={14} />
             </button>
             <div className="relative">
               <button onClick={() => setMenuOpen(v => !v)} onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
-                className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-full transition-colors"
-                style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)', color: C.text }}>
-                <span className="w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs"
-                  style={{ background: `linear-gradient(135deg, ${C.neon}, ${C.magenta})`, color: '#0B0818' }}>
+                className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-md transition-colors"
+                style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.10)', color: C.text }}>
+                <span className="w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold"
+                  style={{ background: '#E30613', color: '#FFFFFF' }}>
                   {initials}
                 </span>
                 <span className="hidden sm:inline" style={{ color: C.text }}>{user.role === 'super_admin' ? 'Süper Admin' : 'Kullanıcı'}</span>
@@ -187,8 +186,8 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
                   <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.15 }}
                     className="absolute right-0 mt-2 w-56 rounded-2xl p-2 text-sm"
-                    style={{ background: C.surface2, border: `1px solid ${C.border}`,
-                      boxShadow: `0 20px 40px -12px rgba(0,0,0,0.6), 0 0 30px ${C.glow}` }}>
+                    style={{ background: '#FFFFFF', border: `1px solid ${C.border}`,
+                      boxShadow: '0 12px 40px -8px rgba(0,0,0,0.15)' }}>
                     <div className="px-3 py-2" style={{ color: C.textDim }}>
                       <p className="truncate" style={{ color: C.text }}>{user.email}</p>
                       <p className="text-xs mt-0.5" style={{ color: C.neon }}>
@@ -197,7 +196,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
                     </div>
                     <div className="h-px my-1" style={{ background: C.border }} />
                     <button onMouseDown={(e) => { e.preventDefault(); onLogout(); setMenuOpen(false); }}
-                      className="w-full text-left px-3 py-2 rounded-xl transition-colors hover:bg-white/5"
+                      className="w-full text-left px-3 py-2 rounded-xl transition-colors hover:bg-black/5"
                       style={{ color: C.text }}>
                       Çıkış Yap
                     </button>
@@ -208,8 +207,8 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
             </>
           ) : (
             <button onClick={onLoginClick}
-              className="inline-flex items-center gap-1.5 text-sm font-medium px-3.5 sm:px-4 py-2 rounded-full transition-all"
-              style={{ background: 'rgba(167,139,250,0.12)', border: `1px solid ${C.neon}55`, color: C.neon }}>
+              className="inline-flex items-center gap-1.5 text-sm font-medium px-3.5 sm:px-4 py-2 rounded-md transition-all"
+              style={{ background: 'rgba(227,6,19,0.07)', border: `1px solid ${C.neon}55`, color: C.neon }}>
               <Svg size={14}><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></Svg>
               <span className="hidden sm:inline">Giriş Yap</span>
               <span className="sm:hidden">Giriş</span>
@@ -338,7 +337,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
                 <span>fz</span>
               </div>
               <button onClick={onClose} aria-label="Kapat"
-                className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5"
+                className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-black/5"
                 style={{ color: C.textDim, border: `1px solid ${C.border}` }}>
                 <Svg size={16}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Svg>
               </button>
@@ -365,7 +364,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
                     autoComplete="email"
                     placeholder="sen@sirket.com"
                     className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors"
-                    style={{ background: 'rgba(255,255,255,0.03)',
+                    style={{ background: 'rgba(0,0,0,0.04)',
                       border: `1px solid ${C.border}`, color: C.text }}
                     onFocus={(e) => e.target.style.border = `1px solid ${C.neon}`}
                     onBlur={(e) => e.target.style.border = `1px solid ${C.border}`} />
@@ -378,7 +377,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
                     autoComplete="current-password"
                     placeholder="••••••••"
                     className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors"
-                    style={{ background: 'rgba(255,255,255,0.03)',
+                    style={{ background: 'rgba(0,0,0,0.04)',
                       border: `1px solid ${C.border}`, color: C.text }}
                     onFocus={(e) => e.target.style.border = `1px solid ${C.neon}`}
                     onBlur={(e) => e.target.style.border = `1px solid ${C.border}`} />
@@ -388,8 +387,8 @@ function LoginDrawer({ open, onClose, onLogin }) {
                   {error && (
                     <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                       className="text-sm px-4 py-3 rounded-xl"
-                      style={{ background: 'rgba(244,114,182,0.08)',
-                        border: '1px solid rgba(244,114,182,0.3)', color: C.magenta }}>
+                      style={{ background: 'rgba(227,6,19,0.06)',
+                        border: '1px solid rgba(227,6,19,0.20)', color: '#B0050F' }}>
                       {error}
                     </motion.div>
                   )}
@@ -401,15 +400,14 @@ function LoginDrawer({ open, onClose, onLogin }) {
                       style={{ accentColor: C.neon }} />
                     Beni hatırla
                   </label>
-                  <a href="#" className="hover:text-white transition-colors">Şifremi unuttum</a>
+                  <a href="#" className="hover:text-gray-900 transition-colors">Şifremi unuttum</a>
                 </div>
 
                 <motion.button type="submit" disabled={loading}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full py-3.5 rounded-full font-medium text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
-                  style={{ background: `linear-gradient(135deg, ${C.neon} 0%, ${C.neon2} 100%)`,
-                    color: '#0B0818',
-                    boxShadow: `0 12px 40px -12px ${C.glow}` }}>
+                  className="w-full py-3.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
+                  style={{ background: '#E30613', color: '#FFFFFF',
+                    boxShadow: '0 4px 16px rgba(227,6,19,0.30)' }}>
                   {loading ? 'Giriş yapılıyor…' : <>Giriş Yap <ArrowRight size={16} /></>}
                 </motion.button>
               </form>
@@ -426,9 +424,9 @@ function LoginDrawer({ open, onClose, onLogin }) {
 
               <div className="grid grid-cols-2 gap-2.5">
                 {[
-                  { role: 'admin',     label: 'Admin',     desc: 'Yönetim Paneli', color: C.neon,   bg: 'rgba(167,139,250,0.10)', border: 'rgba(167,139,250,0.35)', icon: <Svg size={14}><path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></Svg> },
-                  { role: 'customer',  label: 'Müşteri',   desc: 'Müşteri Portalı', color: '#22D3EE', bg: 'rgba(34,211,238,0.10)',  border: 'rgba(34,211,238,0.35)',  icon: <Svg size={14}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></Svg> },
-                  { role: 'lawyer',    label: 'Avukat',    desc: 'Avukat Portalı',  color: '#F59E0B', bg: 'rgba(245,158,11,0.10)',  border: 'rgba(245,158,11,0.35)',  icon: <Svg size={14}><path d="M12 3v18"/><path d="M5 8h14"/><path d="M5 8l-2 6a4 4 0 0 0 8 0L9 8"/><path d="M19 8l-2 6a4 4 0 0 0 8 0l-2-6"/></Svg> },
+                  { role: 'admin',     label: 'Admin',     desc: 'Yönetim Paneli',  color: '#E30613', bg: 'rgba(227,6,19,0.06)',  border: 'rgba(227,6,19,0.20)',  icon: <Svg size={14}><path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></Svg> },
+                  { role: 'customer',  label: 'Müşteri',   desc: 'Müşteri Portalı', color: '#0A0A0A', bg: 'rgba(0,0,0,0.04)',      border: 'rgba(0,0,0,0.12)',     icon: <Svg size={14}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></Svg> },
+                  { role: 'lawyer',    label: 'Avukat',    desc: 'Avukat Portalı',  color: '#B0050F', bg: 'rgba(176,5,15,0.06)',  border: 'rgba(176,5,15,0.20)',  icon: <Svg size={14}><path d="M12 3v18"/><path d="M5 8h14"/><path d="M5 8l-2 6a4 4 0 0 0 8 0L9 8"/><path d="M19 8l-2 6a4 4 0 0 0 8 0l-2-6"/></Svg> },
                 ].map(b => (
                   <motion.button
                     key={b.role}
@@ -496,11 +494,11 @@ function Hero() {
         style={{ y: sphY, scale: sphS, translateX: '-50%', translateY: '-50%', zIndex: 1 }}>
         <div className="relative" style={{ width: 600, height: 600 }}>
           <motion.div className="absolute inset-0 rounded-full"
-            style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.2) 0%, transparent 65%)', border: `1px solid ${C.border}` }}
+            style={{ background: 'radial-gradient(circle, rgba(227,6,19,0.12) 0%, transparent 65%)', border: `1px solid ${C.border}` }}
             animate={rm ? {} : { rotate: 360 }}
             transition={{ duration: 60, repeat: Infinity, ease: 'linear' }} />
           <motion.div className="absolute rounded-full"
-            style={{ inset: 80, background: 'radial-gradient(circle, rgba(124,58,237,0.35) 0%, transparent 60%)', border: `1px dashed ${C.borderStrong}` }}
+            style={{ inset: 80, background: 'radial-gradient(circle, rgba(176,5,15,0.25) 0%, transparent 60%)', border: `1px dashed ${C.borderStrong}` }}
             animate={rm ? {} : { rotate: -360 }}
             transition={{ duration: 40, repeat: Infinity, ease: 'linear' }} />
           <div className="absolute rounded-full"
@@ -527,7 +525,7 @@ function Hero() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: easeOut }}
           className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-8 text-xs uppercase"
-          style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)',
+          style={{ background: 'rgba(227,6,19,0.07)', border: '1px solid rgba(227,6,19,0.25)',
             color: C.neon, letterSpacing: '0.2em', backdropFilter: 'blur(8px)' }}>
           <Sparkles size={12} /> Yapay Zeka Destekli Oto Ekspertiz
         </motion.div>
@@ -653,7 +651,7 @@ function BannerShowcase() {
               style={{ boxShadow: `0 20px 60px ${lightbox.accent}55, 0 0 80px ${lightbox.accent}22`, border: `1px solid ${lightbox.accent}44` }} />
             <button onClick={() => setLightbox(null)}
               className="absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center transition hover:scale-110"
-              style={{ background: 'rgba(255,255,255,0.08)', color: C.text, border: `1px solid ${C.border}`, backdropFilter: 'blur(8px)' }}>
+              style={{ background: 'rgba(0,0,0,0.07)', color: C.text, border: `1px solid ${C.border}`, backdropFilter: 'blur(8px)' }}>
               <XClose size={18} />
             </button>
           </motion.div>
@@ -714,12 +712,12 @@ function SpotlightCard({ children, className = '', size = 'md' }) {
         minHeight: size === 'lg' ? 360 : 260 }}>
       <div className="absolute inset-0 pointer-events-none transition-opacity duration-500"
         style={{ opacity: active ? 1 : 0,
-          background: `radial-gradient(600px circle at ${pos.x}px ${pos.y}px, rgba(167,139,250,0.18), transparent 40%)` }} />
+          background: `radial-gradient(600px circle at ${pos.x}px ${pos.y}px, rgba(227,6,19,0.08), transparent 40%)` }} />
       <div className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(400px circle at ${pos.x}px ${pos.y}px, rgba(167,139,250,0.4), transparent 40%)`,
+        style={{ background: `radial-gradient(400px circle at ${pos.x}px ${pos.y}px, rgba(227,6,19,0.18), transparent 40%)`,
           WebkitMask: `radial-gradient(400px circle at ${pos.x}px ${pos.y}px, black, transparent 40%)`,
           mask: `radial-gradient(400px circle at ${pos.x}px ${pos.y}px, black, transparent 40%)`,
-          opacity: active ? 0.5 : 0, transition: 'opacity 500ms',
+          opacity: active ? 0.4 : 0, transition: 'opacity 500ms',
           padding: 1, borderRadius: 24, border: `1px solid ${C.neon}` }} />
       <div className="relative z-10 h-full">{children}</div>
     </motion.div>
@@ -791,11 +789,7 @@ function KostenlosBanner() {
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.8, ease: easeOut }}
           className="relative rounded-3xl overflow-hidden"
-          style={{ background: `linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(124,58,237,0.08) 50%, rgba(34,211,238,0.08) 100%)`,
-            border: '1px solid rgba(239,68,68,0.2)' }}>
-          {/* Glow effects */}
-          <div className="absolute top-0 left-1/4 w-80 h-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(239,68,68,0.08), transparent 70%)', filter: 'blur(40px)' }} />
-          <div className="absolute bottom-0 right-1/4 w-80 h-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.06), transparent 70%)', filter: 'blur(40px)' }} />
+          style={{ background: 'rgba(227,6,19,0.04)', border: '1px solid rgba(227,6,19,0.15)' }}>
 
           <div className="relative p-10 md:p-16">
             <div className="flex flex-col md:flex-row items-center gap-10">
@@ -883,7 +877,7 @@ function RechteSection() {
               viewport={{ once: true, margin: '-40px' }}
               transition={{ duration: 0.6, ease: easeOut, delay: i * 0.1 }}
               className="rounded-2xl p-6 md:p-8 flex gap-5"
-              style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`,
+              style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}`,
                 backdropFilter: 'blur(4px)' }}>
               <div className="flex-shrink-0 mt-1">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center"
@@ -1041,7 +1035,7 @@ function WhyGecitKfz() {
             { icon: ShieldIcon, text: 'Deutsche Server' },
           ].map((t, i) => (
             <div key={i} className="flex items-center gap-2 px-4 py-2 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+              style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
               <t.icon size={14} strokeWidth={2} style={{ color: C.neon }} />
               <span className="text-xs font-medium" style={{ color: C.textDim }}>{t.text}</span>
             </div>
@@ -1188,8 +1182,7 @@ function Testimonial() {
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.9, ease: easeOut }}
           className="relative p-10 md:p-16 rounded-3xl"
-          style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.08), rgba(34,211,238,0.05))',
-            border: `1px solid ${C.border}`, backdropFilter: 'blur(16px)' }}>
+          style={{ background: '#F8F8F8', border: `1px solid ${C.border}` }}>
           <Quote size={48} style={{ color: C.neon, opacity: 0.6 }} />
           <blockquote className="mt-6 text-3xl md:text-5xl italic leading-tight"
             style={{ color: C.text, letterSpacing: '-0.02em', fontFamily: 'Georgia, "Times New Roman", serif' }}>
@@ -1197,7 +1190,7 @@ function Testimonial() {
           </blockquote>
           <div className="mt-10 flex items-center gap-4">
             <div className="w-12 h-12 rounded-full flex items-center justify-center font-mono text-lg"
-              style={{ background: `linear-gradient(135deg, ${C.neon}, ${C.magenta})`, color: '#0B0818' }}>MY</div>
+              style={{ background: '#E30613', color: '#FFFFFF' }}>MY</div>
             <div>
               <p style={{ color: C.text }} className="font-medium">Mehmet Yıldız</p>
               <p className="text-sm" style={{ color: C.textDim }}>Kurucu Ortak @ Yıldız Motors</p>
@@ -1215,13 +1208,12 @@ function PricingCard({ name, price, desc, features, highlighted, cta }) {
     <motion.div whileHover={{ y: -6 }} transition={spring}
       className="relative p-8 rounded-3xl h-full flex flex-col"
       style={{ background: highlighted ? C.surface2 : C.surface,
-        border: highlighted ? '1px solid rgba(167,139,250,0.35)' : `1px solid ${C.border}`,
+        border: highlighted ? '2px solid #E30613' : `1px solid ${C.border}`,
         boxShadow: highlighted ? `0 0 60px ${C.glow}` : 'none' }}>
       {highlighted && (
-        <div className="absolute px-4 py-1 rounded-full text-xs uppercase font-medium"
-          style={{ top: -12, left: '50%', transform: 'translateX(-50%)',
-            background: `linear-gradient(135deg, ${C.neon}, ${C.magenta})`, color: '#0B0818',
-            letterSpacing: '0.15em' }}>En Popüler</div>
+        <div className="absolute px-4 py-1 rounded-full text-xs uppercase font-bold"
+          style={{ top: -14, left: '50%', transform: 'translateX(-50%)',
+            background: '#E30613', color: '#FFFFFF', letterSpacing: '0.12em', whiteSpace: 'nowrap' }}>En Popüler</div>
       )}
       <p className="text-sm uppercase mb-4" style={{ color: C.neon, letterSpacing: '0.2em' }}>{name}</p>
       <div className="flex items-baseline gap-1 mb-2">
@@ -1237,10 +1229,10 @@ function PricingCard({ name, price, desc, features, highlighted, cta }) {
           </li>
         ))}
       </ul>
-      <button data-magnetic className="w-full py-3 rounded-full font-medium text-sm transition-colors"
+      <button data-magnetic className="w-full py-3 rounded-lg font-semibold text-sm transition-all"
         style={highlighted
-          ? { background: `linear-gradient(135deg, ${C.neon}, ${C.neon2})`, color: '#0B0818' }
-          : { background: 'rgba(255,255,255,0.04)', color: C.text, border: `1px solid ${C.border}` }}>
+          ? { background: '#E30613', color: '#FFFFFF', boxShadow: '0 4px 16px rgba(227,6,19,0.30)' }
+          : { background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }}>
         {cta}
       </button>
     </motion.div>
@@ -1281,7 +1273,7 @@ function FooterCTA() {
       style={{ minHeight: '100vh', zIndex: 2 }}>
       <motion.div className="absolute rounded-full pointer-events-none"
         style={{ width: 900, height: 900,
-          background: 'radial-gradient(circle, rgba(167,139,250,0.27) 0%, rgba(124,58,237,0.13) 40%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(227,6,19,0.12) 0%, rgba(176,5,15,0.06) 40%, transparent 70%)',
           filter: 'blur(40px)' }}
         animate={rm ? {} : { scale: [1, 1.15, 1], opacity: [0.7, 1, 0.7] }}
         transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }} />
@@ -1335,7 +1327,7 @@ function Footer() {
               <p className="text-xs uppercase mb-4" style={{ color: C.text, letterSpacing: '0.2em' }}>{col.title}</p>
               <ul className="space-y-3">
                 {col.links.map((l, j) => (
-                  <li key={j}><a href="#" className="text-sm transition-colors hover:text-white" style={{ color: C.textDim }}>{l}</a></li>
+                  <li key={j}><a href="#" className="text-sm transition-colors hover:text-gray-900" style={{ color: C.textDim }}>{l}</a></li>
                 ))}
               </ul>
             </div>
@@ -1366,12 +1358,24 @@ const DB_KEY = 'gecit_kfz_db_v6';
 //       'live'  = Supabase (production)
 // Tek switch ile canlıya geç: GECIT_KFZ_MODE = 'live'
 // ═══════════════════════════════════════════════════════
-const GECIT_KFZ_MODE = localStorage.getItem('gecit_kfz_mode') || 'local'; // 'local' | 'live'
+// Varsayılan Supabase bağlantısı (env yoksa hardcoded fallback kullanılır)
+const DEFAULT_SUPABASE_URL = 'https://kqbcbhtqxidegimidxfh.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxYmNiaHRxeGlkZWdpbWlkeGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NTMwMDIsImV4cCI6MjA5MzEyOTAwMn0.cauDwrs0bZCEwmWifU2nFRK0O_ooOaJA5-TSEgs13sY';
+
+const ENV_SUPABASE_URL = (import.meta.env?.VITE_SUPABASE_URL || '').trim();
+const ENV_SUPABASE_ANON_KEY = (import.meta.env?.VITE_SUPABASE_ANON_KEY || '').trim();
 
 const SUPABASE_CONFIG = {
-  url: localStorage.getItem('gecit_kfz_supabase_url') || 'https://YOUR_PROJECT.supabase.co',
-  anonKey: localStorage.getItem('gecit_kfz_supabase_key') || 'YOUR_ANON_KEY',
+  url: localStorage.getItem('gecit_kfz_supabase_url') || ENV_SUPABASE_URL || DEFAULT_SUPABASE_URL,
+  anonKey: localStorage.getItem('gecit_kfz_supabase_key') || ENV_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY,
 };
+
+// Env veya fallback ile geçerli bir URL/Key varsa otomatik canlı moda geç
+const HAS_VALID_SUPABASE = SUPABASE_CONFIG.url.startsWith('https://') &&
+  !SUPABASE_CONFIG.url.includes('YOUR_PROJECT') &&
+  SUPABASE_CONFIG.anonKey.length > 20;
+
+const GECIT_KFZ_MODE = localStorage.getItem('gecit_kfz_mode') || (HAS_VALID_SUPABASE ? 'live' : 'local');
 
 // Table name mapping — localStorage keys → Supabase table names
 const TABLE_MAP = {
@@ -1409,10 +1413,14 @@ const TABLE_MAP = {
 let _supabase = null;
 function getSupabase() {
   if (_supabase) return _supabase;
-  if (true) {
-    _supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
-    console.log('[Gecit-KFZ] Supabase client initialized');
+  if (!HAS_VALID_SUPABASE) {
+    console.warn('[Gecit-KFZ] Supabase URL/anonKey eksik — local moda fallback. Ayarlar > Veri Kaynagi sekmesinden ekleyin.');
+    return null;
   }
+  _supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  });
+  console.log('[Gecit-KFZ] Supabase client initialized →', SUPABASE_CONFIG.url);
   return _supabase;
 }
 
@@ -1647,67 +1655,67 @@ const DataService = {
 // In live mode: initial load from Supabase, writes go to both
 //              + realtime subscription auto-updates state
 const STAGES = [
-  { key: 'bekliyor',   label: 'Kabul Edildi',       pct: 20,  color: '#8B85A8' },
-  { key: 'mekanik',    label: 'Mekanik Kontrol',    pct: 45,  color: '#22D3EE' },
-  { key: 'kaporta',    label: 'Kaporta / Boya',     pct: 70,  color: '#F472B6' },
-  { key: 'rapor',      label: 'Rapor Hazırlanıyor', pct: 90,  color: '#A78BFA' },
-  { key: 'tamamlandi', label: 'Rapor Hazır',        pct: 100, color: '#34D399' },
+  { key: 'bekliyor',   label: 'Kabul Edildi',       pct: 20,  color: '#6B6B6B' },
+  { key: 'mekanik',    label: 'Mekanik Kontrol',    pct: 45,  color: '#E30613' },
+  { key: 'kaporta',    label: 'Kaporta / Boya',     pct: 70,  color: '#B0050F' },
+  { key: 'rapor',      label: 'Rapor Hazırlanıyor', pct: 90,  color: '#7A0309' },
+  { key: 'tamamlandi', label: 'Rapor Hazır',        pct: 100, color: '#16A34A' },
 ];
 
 // ─── Document Categories (from Akte system) ─────
 const DOC_CATEGORIES = [
-  { key: 'keine_kategorie',              label: 'Keine Kategorie',                      group: 'Genel',       color: '#8B85A8' },
-  { key: 'abrechnungsschreiben',          label: 'Abrechnungsschreiben',                 group: 'Abrechnung',  color: '#7C3AED' },
-  { key: 'abrechnungsschreiben_rsv',      label: 'Abrechnungsschreiben RSV',             group: 'Abrechnung',  color: '#7C3AED' },
+  { key: 'keine_kategorie',              label: 'Keine Kategorie',                      group: 'Genel',       color: '#8B8B8B' },
+  { key: 'abrechnungsschreiben',          label: 'Abrechnungsschreiben',                 group: 'Abrechnung',  color: '#E30613' },
+  { key: 'abrechnungsschreiben_rsv',      label: 'Abrechnungsschreiben RSV',             group: 'Abrechnung',  color: '#E30613' },
   { key: 'abschleppkosten',               label: 'Abschleppkosten',                      group: 'Kosten',      color: '#F59E0B' },
   { key: 'abtretungserklaerung',          label: 'Abtretungserklärung',                  group: 'Vertrag',     color: '#34D399' },
   { key: 'abtretungserklaerung_mietwagen', label: 'Abtretungserklärung Mietwagen',       group: 'Vertrag',     color: '#34D399' },
   { key: 'abtretungserklaerung_reparatur', label: 'Abtretungserklärung Reparatur',       group: 'Vertrag',     color: '#34D399' },
   { key: 'abtretungserklaerung_zug',      label: 'Abtretungserklärung Zug um Zug',      group: 'Vertrag',     color: '#34D399' },
-  { key: 'achsvermessung_protokoll',       label: 'Achsvermessung Protokoll',             group: 'Prüfung',    color: '#22D3EE' },
-  { key: 'anschreiben_gutachter',          label: 'Anschreiben Gutachter',               group: 'Gutachten',   color: '#A78BFA' },
+  { key: 'achsvermessung_protokoll',       label: 'Achsvermessung Protokoll',             group: 'Prüfung',    color: '#B0050F' },
+  { key: 'anschreiben_gutachter',          label: 'Anschreiben Gutachter',               group: 'Gutachten',   color: '#E30613' },
   { key: 'arbeitsunfaehigkeit',            label: 'Arbeitsunfähigkeitsbescheinigung',    group: 'Medizinisch', color: '#EF4444' },
   { key: 'aerztliches_attest',             label: 'Ärztliches Attest',                   group: 'Medizinisch', color: '#EF4444' },
-  { key: 'aufnahmebogen',                  label: 'Aufnahmebogen',                       group: 'Genel',       color: '#8B85A8' },
-  { key: 'ausweisdokument',                label: 'Ausweisdokument',                     group: 'Dokument',    color: '#F472B6' },
-  { key: 'diagnosebericht',                label: 'Diagnosebericht',                     group: 'Prüfung',    color: '#22D3EE' },
+  { key: 'aufnahmebogen',                  label: 'Aufnahmebogen',                       group: 'Genel',       color: '#8B8B8B' },
+  { key: 'ausweisdokument',                label: 'Ausweisdokument',                     group: 'Dokument',    color: '#7A0309' },
+  { key: 'diagnosebericht',                label: 'Diagnosebericht',                     group: 'Prüfung',    color: '#B0050F' },
   { key: 'fahrzeugbrief',                  label: 'Fahrzeugbrief',                       group: 'Fahrzeug',    color: '#06B6D4' },
   { key: 'fahrzeugschein',                 label: 'Fahrzeugschein',                      group: 'Fahrzeug',    color: '#06B6D4' },
-  { key: 'ga_hilfestellung',               label: 'GA Hilfestellung',                    group: 'Gutachten',   color: '#A78BFA' },
+  { key: 'ga_hilfestellung',               label: 'GA Hilfestellung',                    group: 'Gutachten',   color: '#E30613' },
   { key: 'gruene_karte',                   label: 'Grüne Karte',                         group: 'Versicherung', color: '#10B981' },
   { key: 'gruene_karte_ablehnung',         label: 'Grüne Karte (Ablehnung)',             group: 'Versicherung', color: '#10B981' },
   { key: 'gruene_karte_zwischenbescheid',  label: 'Grüne Karte (Zwischenbescheid)',      group: 'Versicherung', color: '#10B981' },
-  { key: 'gutachten',                      label: 'Gutachten',                           group: 'Gutachten',   color: '#A78BFA' },
-  { key: 'honorarvereinbarung',            label: 'Honorarvereinbarung (Gutachten)',      group: 'Gutachten',   color: '#A78BFA' },
-  { key: 'hu_bericht',                     label: 'HU Bericht',                          group: 'Prüfung',    color: '#22D3EE' },
+  { key: 'gutachten',                      label: 'Gutachten',                           group: 'Gutachten',   color: '#E30613' },
+  { key: 'honorarvereinbarung',            label: 'Honorarvereinbarung (Gutachten)',      group: 'Gutachten',   color: '#E30613' },
+  { key: 'hu_bericht',                     label: 'HU Bericht',                          group: 'Prüfung',    color: '#B0050F' },
   { key: 'kaufvertrag',                    label: 'Kaufvertrag',                         group: 'Vertrag',     color: '#34D399' },
   { key: 'kostenvoranschlag',              label: 'Kostenvoranschlag',                   group: 'Kosten',      color: '#F59E0B' },
-  { key: 'lackschichtdickenmessung',       label: 'Lackschichtdickenmessung',            group: 'Prüfung',    color: '#22D3EE' },
-  { key: 'marktanalyse',                   label: 'Marktanalyse',                        group: 'Gutachten',   color: '#A78BFA' },
-  { key: 'marktwertanalyse',               label: 'Marktwertanalyse',                    group: 'Gutachten',   color: '#A78BFA' },
+  { key: 'lackschichtdickenmessung',       label: 'Lackschichtdickenmessung',            group: 'Prüfung',    color: '#B0050F' },
+  { key: 'marktanalyse',                   label: 'Marktanalyse',                        group: 'Gutachten',   color: '#E30613' },
+  { key: 'marktwertanalyse',               label: 'Marktwertanalyse',                    group: 'Gutachten',   color: '#E30613' },
   { key: 'mietvertrag',                    label: 'Mietvertrag',                         group: 'Vertrag',     color: '#34D399' },
-  { key: 'minderwertreport',               label: 'Minderwertreport',                    group: 'Gutachten',   color: '#A78BFA' },
-  { key: 'polizeibericht',                 label: 'Polizeibericht',                      group: 'Dokument',    color: '#F472B6' },
-  { key: 'pruefbericht',                   label: 'Prüfbericht',                         group: 'Prüfung',    color: '#22D3EE' },
-  { key: 'pruefbericht_repko',             label: 'Prüfbericht RepKo',                   group: 'Prüfung',    color: '#22D3EE' },
-  { key: 'pruefbericht_sv_kosten',         label: 'Prüfbericht SV-Kosten',               group: 'Prüfung',    color: '#22D3EE' },
+  { key: 'minderwertreport',               label: 'Minderwertreport',                    group: 'Gutachten',   color: '#E30613' },
+  { key: 'polizeibericht',                 label: 'Polizeibericht',                      group: 'Dokument',    color: '#7A0309' },
+  { key: 'pruefbericht',                   label: 'Prüfbericht',                         group: 'Prüfung',    color: '#B0050F' },
+  { key: 'pruefbericht_repko',             label: 'Prüfbericht RepKo',                   group: 'Prüfung',    color: '#B0050F' },
+  { key: 'pruefbericht_sv_kosten',         label: 'Prüfbericht SV-Kosten',               group: 'Prüfung',    color: '#B0050F' },
   { key: 'rechnung_achsvermessung',        label: 'Rechnung Achsvermessung',             group: 'Rechnung',    color: '#F59E0B' },
   { key: 'rechnung_gutachten',             label: 'Rechnung Gutachten',                  group: 'Rechnung',    color: '#F59E0B' },
   { key: 'rechnung_kostenvoranschlag',     label: 'Rechnung Kostenvoranschlag',          group: 'Rechnung',    color: '#F59E0B' },
   { key: 'rechnung_leihwagen',             label: 'Rechnung Leihwagen',                  group: 'Rechnung',    color: '#F59E0B' },
   { key: 'rechnung_werkstatt',             label: 'Rechnung Werkstatt',                  group: 'Rechnung',    color: '#F59E0B' },
   { key: 'reparaturbestaetigung',          label: 'Reparaturbestätigung',                group: 'Reparatur',   color: '#06B6D4' },
-  { key: 'restwertangebot_sv',             label: 'Restwertangebot SV',                  group: 'Gutachten',   color: '#A78BFA' },
+  { key: 'restwertangebot_sv',             label: 'Restwertangebot SV',                  group: 'Gutachten',   color: '#E30613' },
   { key: 'scheckheft',                     label: 'Scheckheft/Serviceheft',              group: 'Fahrzeug',    color: '#06B6D4' },
-  { key: 'schuldeingestaendnis',           label: 'Schuldeingeständnis',                 group: 'Dokument',    color: '#F472B6' },
+  { key: 'schuldeingestaendnis',           label: 'Schuldeingeständnis',                 group: 'Dokument',    color: '#7A0309' },
   { key: 'schweigepflicht',                label: 'Schweigepflicht Entbindungserklärung', group: 'Medizinisch', color: '#EF4444' },
-  { key: 'sonstige_dokumente',             label: 'Sonstige Dokumente',                  group: 'Genel',       color: '#8B85A8' },
-  { key: 'stellungnahme_gutachter',        label: 'Stellungnahme Gutachter',             group: 'Gutachten',   color: '#A78BFA' },
-  { key: 'unfallskizze',                   label: 'Unfallskizze',                        group: 'Dokument',    color: '#F472B6' },
+  { key: 'sonstige_dokumente',             label: 'Sonstige Dokumente',                  group: 'Genel',       color: '#8B8B8B' },
+  { key: 'stellungnahme_gutachter',        label: 'Stellungnahme Gutachter',             group: 'Gutachten',   color: '#E30613' },
+  { key: 'unfallskizze',                   label: 'Unfallskizze',                        group: 'Dokument',    color: '#7A0309' },
   { key: 'versicherungsdaten_gegner',      label: 'Versicherungsdaten des Gegners',      group: 'Versicherung', color: '#10B981' },
   { key: 'vollmacht',                      label: 'Vollmacht',                           group: 'Vertrag',     color: '#34D399' },
   { key: 'zentralruf',                     label: 'Zentralruf',                          group: 'Versicherung', color: '#10B981' },
-  { key: 'zeugenaussage',                  label: 'Zeugenaussage',                       group: 'Dokument',    color: '#F472B6' },
+  { key: 'zeugenaussage',                  label: 'Zeugenaussage',                       group: 'Dokument',    color: '#7A0309' },
 ];
 
 const DOC_GROUPS = [...new Set(DOC_CATEGORIES.map(c => c.group))];
@@ -1776,12 +1784,12 @@ function seedDB() {
     },
     documents: [],
     vehicle_notes: [
-      { id: 'vn1', vehicle_id: 'v1', type: 'boya', part: 'Arka Sol Tampon', detail: 'Lokal boyalı, 180 mikron', color: '#F472B6', created_at: '2026-04-22' },
+      { id: 'vn1', vehicle_id: 'v1', type: 'boya', part: 'Arka Sol Tampon', detail: 'Lokal boyalı, 180 mikron', color: '#7A0309', created_at: '2026-04-22' },
       { id: 'vn2', vehicle_id: 'v1', type: 'degisen', part: 'Sağ Ön Çamurluk', detail: 'Değişmiş, orijinal yedek parça', color: '#EF4444', created_at: '2026-04-22' },
       { id: 'vn3', vehicle_id: 'v1', type: 'mekanik', part: 'Motor', detail: 'Yağ kaçağı yok, sağlıklı', color: '#34D399', created_at: '2026-04-22' },
       { id: 'vn4', vehicle_id: 'v2', type: 'orijinal', part: 'Tüm Paneller', detail: 'Orijinal boyalı, hasarsız', color: '#34D399', created_at: '2026-04-18' },
-      { id: 'vn5', vehicle_id: 'v3', type: 'boya', part: 'Motor Kaputu', detail: 'Komple boyalı, 200+ mikron', color: '#F472B6', created_at: '2026-04-24' },
-      { id: 'vn6', vehicle_id: 'v3', type: 'mekanik', part: 'Şanzıman', detail: 'DSG bakım yapılmış, sorunsuz', color: '#22D3EE', created_at: '2026-04-24' },
+      { id: 'vn5', vehicle_id: 'v3', type: 'boya', part: 'Motor Kaputu', detail: 'Komple boyalı, 200+ mikron', color: '#7A0309', created_at: '2026-04-24' },
+      { id: 'vn6', vehicle_id: 'v3', type: 'mekanik', part: 'Şanzıman', detail: 'DSG bakım yapılmış, sorunsuz', color: '#B0050F', created_at: '2026-04-24' },
     ],
     reminders: [
       { id: 'r1', customer_id: 'c1', vehicle_id: 'v1', title: 'Ekspertiz raporu hazır', message: 'Ali Bey\'in Mercedes C180 raporu teslim edilecek', due_date: '2026-04-25', due_time: '17:00', repeat: 'none', status: 'active', created_at: '2026-04-22' },
@@ -2042,12 +2050,12 @@ function buildCustomerPdfDoc({ customer_id, customerLabel = '', title, body,
 // Centralized audit trail. Every mutation that should be visible in the
 // admin "Aktivite Logları" panel must go through `makeLogEntry` + `logActivity`.
 const ACTOR_ROLES = {
-  super_admin: { label: 'Süper Admin', color: '#A78BFA', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.35)' },
-  admin:       { label: 'Admin',       color: '#A78BFA', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.35)' },
-  lawyer:      { label: 'Avukat',      color: '#F59E0B', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.35)'  },
-  customer:    { label: 'Müşteri',     color: '#22D3EE', bg: 'rgba(34,211,238,0.12)',  border: 'rgba(34,211,238,0.35)'  },
-  ekspert:     { label: 'Eksper',      color: '#EC4899', bg: 'rgba(236,72,153,0.12)',  border: 'rgba(236,72,153,0.35)'  },
-  system:      { label: 'Sistem',      color: '#6B7280', bg: 'rgba(107,114,128,0.12)', border: 'rgba(107,114,128,0.35)' },
+  super_admin: { label: 'Süper Admin', color: '#E30613', bg: 'rgba(227,6,19,0.08)',  border: 'rgba(227,6,19,0.25)'  },
+  admin:       { label: 'Admin',       color: '#E30613', bg: 'rgba(227,6,19,0.08)',  border: 'rgba(227,6,19,0.25)'  },
+  lawyer:      { label: 'Avukat',      color: '#B0050F', bg: 'rgba(176,5,15,0.08)',  border: 'rgba(176,5,15,0.25)'  },
+  customer:    { label: 'Müşteri',     color: '#0A0A0A', bg: 'rgba(0,0,0,0.05)',     border: 'rgba(0,0,0,0.15)'     },
+  ekspert:     { label: 'Eksper',      color: '#7A0309', bg: 'rgba(122,3,9,0.08)',   border: 'rgba(122,3,9,0.25)'   },
+  system:      { label: 'Sistem',      color: '#6B7280', bg: 'rgba(107,114,128,0.08)',border: 'rgba(107,114,128,0.25)'},
 };
 
 const ACTION_META = {
@@ -2108,9 +2116,9 @@ const ACTION_META = {
 };
 
 const SEVERITY_META = {
-  info:     { color: '#22D3EE', bg: 'rgba(34,211,238,0.10)' },
-  warning:  { color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-  critical: { color: '#EF4444', bg: 'rgba(239,68,68,0.12)'  },
+  info:     { color: '#6B6B6B', bg: 'rgba(0,0,0,0.05)'       },
+  warning:  { color: '#B0050F', bg: 'rgba(176,5,15,0.08)'    },
+  critical: { color: '#E30613', bg: 'rgba(227,6,19,0.10)'    },
 };
 
 function describeUser(user) {
@@ -2168,7 +2176,7 @@ function withLogs(updater, entries) {
 function GlassCard({ children, className = '', padding = 'p-6', ...rest }) {
   return (
     <div className={`rounded-2xl ${padding} ${className}`}
-      style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`, backdropFilter: 'blur(6px)' }}
+      style={{ background: C.surface, border: `1px solid ${C.border}` }}
       {...rest}>{children}</div>
   );
 }
@@ -2176,13 +2184,13 @@ function GlassCard({ children, className = '', padding = 'p-6', ...rest }) {
 function AdminButton({ children, variant = 'ghost', size = 'md', onClick, type = 'button', disabled, className = '' }) {
   const sizeCls = size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2.5 text-sm';
   const style = variant === 'primary'
-    ? { background: `linear-gradient(135deg, ${C.neon} 0%, ${C.neon2} 100%)`, color: '#0B0818', boxShadow: `0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px -8px ${C.glow}` }
+    ? { background: '#E30613', color: '#FFFFFF', boxShadow: '0 4px 16px rgba(227,6,19,0.30)' }
     : variant === 'danger'
-    ? { background: 'rgba(244,114,182,0.1)', border: '1px solid rgba(244,114,182,0.3)', color: C.magenta }
-    : { background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text };
+    ? { background: 'rgba(227,6,19,0.08)', border: '1px solid rgba(227,6,19,0.25)', color: '#B0050F' }
+    : { background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text };
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      className={`inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all hover:opacity-90 disabled:opacity-50 ${sizeCls} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all hover:opacity-90 disabled:opacity-50 ${sizeCls} ${className}`}
       style={style}>{children}</button>
   );
 }
@@ -2204,7 +2212,7 @@ function TextInput({ value, onChange, placeholder, type = 'text', required }) {
     <input type={type} value={value || ''} onChange={onChange} placeholder={placeholder} required={required}
       onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
       className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors"
-      style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${focus ? C.neon : C.border}`, color: C.text }} />
+      style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${focus ? C.neon : C.border}`, color: C.text }} />
   );
 }
 
@@ -2212,8 +2220,8 @@ function SelectInput({ value, onChange, options, placeholder }) {
   return (
     <select value={value || ''} onChange={onChange}
       className="w-full px-4 py-3 rounded-xl text-sm outline-none appearance-none cursor-pointer"
-      style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, color: C.text,
-        backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238B85A8' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>")`,
+      style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text,
+        backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B6B6B' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>")`,
         backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', paddingRight: 40 }}>
       {placeholder && <option value="">{placeholder}</option>}
       {options.map(o => <option key={o.value} value={o.value} style={{ background: C.surface2, color: C.text }}>{o.label}</option>)}
@@ -2237,18 +2245,18 @@ function AdminTopbar({ title, subtitle, action }) {
 // ─── Mobile Topbar (hamburger + role badge) ─────────
 function MobileTopbar({ onMenuClick, role = 'admin', sectionLabel, onLogout }) {
   const roleConfig = {
-    admin:     { label: 'ADMIN',    color: C.neon,    bg: 'rgba(167,139,250,0.10)', border: `${C.neon}44` },
-    customer:  { label: 'MÜŞTERİ',  color: C.cyan,    bg: 'rgba(34,211,238,0.10)',   border: 'rgba(34,211,238,0.4)' },
-    lawyer:    { label: 'AVUKAT',   color: '#F59E0B', bg: 'rgba(245,158,11,0.10)',   border: 'rgba(245,158,11,0.4)' },
-    insurance: { label: 'SİGORTA',  color: C.cyan,    bg: 'rgba(34,211,238,0.10)',   border: 'rgba(34,211,238,0.4)' },
+    admin:     { label: 'ADMIN',    color: '#E30613', bg: 'rgba(227,6,19,0.08)',  border: 'rgba(227,6,19,0.30)'  },
+    customer:  { label: 'MÜŞTERİ', color: '#0A0A0A', bg: 'rgba(0,0,0,0.05)',     border: 'rgba(0,0,0,0.20)'    },
+    lawyer:    { label: 'AVUKAT',   color: '#B0050F', bg: 'rgba(176,5,15,0.08)',  border: 'rgba(176,5,15,0.30)'  },
+    insurance: { label: 'SİGORTA',  color: '#6B6B6B', bg: 'rgba(0,0,0,0.05)',    border: 'rgba(0,0,0,0.15)'    },
   };
   const cfg = roleConfig[role] || roleConfig.admin;
   return (
-    <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 backdrop-blur-md"
-      style={{ background: 'rgba(7,6,11,0.85)', borderBottom: `1px solid ${C.border}` }}>
+    <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3"
+      style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderBottom: `1px solid ${C.border}` }}>
       <button onClick={onMenuClick} aria-label="Menü"
         className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95"
-        style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+        style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
         </svg>
@@ -2265,7 +2273,7 @@ function MobileTopbar({ onMenuClick, role = 'admin', sectionLabel, onLogout }) {
       {onLogout ? (
         <button onClick={onLogout} aria-label="Çıkış"
           className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95"
-          style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.textDim }}>
+          style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.textDim }}>
           <LogOutIcon size={16} />
         </button>
       ) : <div className="w-10 h-10" />}
@@ -2285,13 +2293,13 @@ function MobileBottomNav({ items, active, onChange, onHome, onLogout, primaryCou
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)',
-        background: 'rgba(7,6,11,0.92)', backdropFilter: 'blur(20px)',
+        background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)', borderTop: `1px solid ${C.border}` }}>
       <AnimatePresence>
         {moreOpen && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
             className="absolute bottom-full left-0 right-0 p-3 grid grid-cols-3 gap-2 overflow-y-auto"
-            style={{ background: 'rgba(7,6,11,0.95)', backdropFilter: 'blur(20px)',
+            style={{ background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)', borderTop: `1px solid ${C.border}`, maxHeight: '60vh' }}>
             {secondary.map(t => {
               const I = t.icon;
@@ -2299,7 +2307,7 @@ function MobileBottomNav({ items, active, onChange, onHome, onLogout, primaryCou
                 <button key={t.key} onClick={() => handleSelect(t.key)}
                   className="flex flex-col items-center gap-1.5 p-3 rounded-xl relative transition-all"
                   style={{
-                    background: active === t.key ? `${C.neon}15` : 'rgba(255,255,255,0.03)',
+                    background: active === t.key ? `${C.neon}15` : 'rgba(0,0,0,0.03)',
                     border: `1px solid ${active === t.key ? C.neon + '44' : C.border}`,
                     color: active === t.key ? C.neon : C.textDim,
                   }}>
@@ -2312,7 +2320,7 @@ function MobileBottomNav({ items, active, onChange, onHome, onLogout, primaryCou
             {onHome && (
               <button onClick={() => { onHome(); setMoreOpen(false); }}
                 className="flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all"
-                style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, color: C.textDim }}>
+                style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}`, color: C.textDim }}>
                 <ArrowRight size={18} style={{ transform: 'rotate(180deg)' }} />
                 <span className="text-[10px]">Ana Sayfa</span>
               </button>
@@ -2406,7 +2414,7 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
           <span style={{ color: C.neon, textShadow: `0 0 12px ${C.glow}` }}>C</span>
           <span>IT</span>
         </div>
-        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: C.neon, border: `1px solid ${C.neon}44`, background: 'rgba(167,139,250,0.08)', letterSpacing: '0.15em' }}>ADMIN</span>
+        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#E30613', border: '1px solid rgba(227,6,19,0.30)', background: 'rgba(227,6,19,0.07)', letterSpacing: '0.15em' }}>ADMIN</span>
       </div>
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {items.map(it => {
@@ -2415,10 +2423,9 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
             <button key={it.key} onClick={() => handleNav(it.key)}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-left transition-all active:scale-[0.98]"
               style={{
-                background: isActive ? `linear-gradient(135deg, rgba(167,139,250,0.15), rgba(124,58,237,0.08))` : 'transparent',
-                border: `1px solid ${isActive ? 'rgba(167,139,250,0.3)' : 'transparent'}`,
-                color: isActive ? C.text : C.textDim,
-                boxShadow: isActive ? `0 0 24px ${C.glow}` : 'none',
+                background: isActive ? 'rgba(227,6,19,0.08)' : 'transparent',
+                border: `1px solid ${isActive ? 'rgba(227,6,19,0.20)' : 'transparent'}`,
+                color: isActive ? '#E30613' : C.textDim,
               }}>
               <it.icon size={18} strokeWidth={1.8} />
               <span className={isActive ? 'font-medium' : ''}>{it.label}</span>
@@ -2434,11 +2441,11 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
         })}
       </nav>
       <div className="p-4 space-y-2" style={{ borderTop: `1px solid ${C.border}` }}>
-        <button onClick={() => { onHome(); closeOnMobile(); }} className="w-full text-xs px-3 py-2 rounded-full transition-colors hover:bg-white/5"
+        <button onClick={() => { onHome(); closeOnMobile(); }} className="w-full text-xs px-3 py-2 rounded-full transition-colors hover:bg-black/5"
           style={{ color: C.textDim, border: `1px solid ${C.border}` }}>← Landing'e Dön</button>
-        <div className="flex items-center gap-3 px-2 py-3 rounded-xl" style={{ background: 'rgba(167,139,250,0.06)' }}>
-          <div className="w-9 h-9 rounded-full flex items-center justify-center font-mono text-xs flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${C.neon}, ${C.magenta})`, color: '#0B0818' }}>
+        <div className="flex items-center gap-3 px-2 py-3 rounded-xl" style={{ background: 'rgba(227,6,19,0.05)' }}>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center font-mono text-xs font-bold flex-shrink-0"
+            style={{ background: '#E30613', color: '#FFFFFF' }}>
             {(user?.name || user?.email || 'A').slice(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
@@ -2446,7 +2453,7 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
             <p className="text-xs truncate" style={{ color: C.textDim }}>{user?.email}</p>
           </div>
           <button onClick={onLogout} title="Çıkış Yap"
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/5 transition"
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/5 transition"
             style={{ color: C.textDim }}><LogOutIcon size={14} /></button>
         </div>
       </div>
@@ -2516,13 +2523,13 @@ function AdminHome({ db }) {
         transition={{ duration: 0.6, ease: 'easeOut' }} className="flex flex-col items-center">
         <div className="relative w-32 h-32">
           <svg className="w-full h-full" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
+            <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth="3" />
             <motion.circle cx="60" cy="60" r={radius} fill="none" stroke={color} strokeWidth="3"
               strokeLinecap="round" initial={{ strokeDashoffset: circumference }}
               animate={{ strokeDashoffset: offset }}
               transition={{ duration: 1.2, ease: 'easeOut' }}
               style={{ strokeDasharray: circumference, transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }}
-              filter="drop-shadow(0 0 8px rgba(167,139,250,0.4))" />
+              filter="drop-shadow(0 0 8px rgba(227,6,19,0.25))" />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <p className="text-2xl font-bold font-mono" style={{ color: C.text }}>{value}/{max}</p>
@@ -2603,7 +2610,7 @@ function AdminHome({ db }) {
                       <s.icon size={20} strokeWidth={1.5} />
                     </motion.div>
                   </div>
-                  <div className="h-1 rounded-full overflow-hidden mt-4" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                  <div className="h-1 rounded-full overflow-hidden mt-4" style={{ background: 'rgba(0,0,0,0.05)' }}>
                     <motion.div initial={{ width: 0 }} animate={{ width: '72%' }} transition={{ duration: 1.2, delay: 0.3 + i * 0.1 }}
                       className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${s.color}, ${C.neon})`, boxShadow: `0 0 8px ${s.color}66` }} />
                   </div>
@@ -2639,7 +2646,7 @@ function AdminHome({ db }) {
                 <h3 className="text-lg font-semibold" style={{ color: C.text }}>Yaklaşan Terminler</h3>
                 <p className="text-xs mt-1" style={{ color: C.textDim }}>Sonraki 7 gün — tüm zaman dilimleri</p>
               </div>
-              <span className="text-xs px-3 py-1 rounded-full animate-pulse" style={{ background: 'rgba(167,139,250,0.08)', color: C.neon, border: `1px solid ${C.neon}33` }}>● Canlı Senkron</span>
+              <span className="text-xs px-3 py-1 rounded-full animate-pulse" style={{ background: 'rgba(227,6,19,0.06)', color: C.neon, border: `1px solid ${C.neon}33` }}>● Canlı Senkron</span>
             </div>
             <div className="grid grid-cols-7 gap-2 mb-6">
               {days.map((d, dayIdx) => {
@@ -2650,8 +2657,8 @@ function AdminHome({ db }) {
                     transition={{ delay: dayIdx * 0.05, duration: 0.3 }}
                     className="rounded-xl p-3 text-center cursor-pointer transition-all hover:scale-105"
                     style={{
-                      background: isToday ? `linear-gradient(135deg, ${C.neon}20, ${C.neon}10)` : count > 0 ? 'rgba(167,139,250,0.08)' : 'rgba(255,255,255,0.02)',
-                      border: isToday ? `2px solid ${C.neon}` : `1px solid ${count > 0 ? 'rgba(167,139,250,0.25)' : C.border}`,
+                      background: isToday ? `linear-gradient(135deg, ${C.neon}20, ${C.neon}10)` : count > 0 ? 'rgba(227,6,19,0.06)' : 'rgba(0,0,0,0.03)',
+                      border: isToday ? `2px solid ${C.neon}` : `1px solid ${count > 0 ? 'rgba(227,6,19,0.18)' : C.border}`,
                       boxShadow: isToday ? `0 0 16px ${C.glow}` : 'none'
                     }}>
                     <p className="text-[10px] uppercase font-medium" style={{ color: isToday ? C.neon : C.textDim, letterSpacing: '0.15em' }}>{d.label.split(' ')[0]}</p>
@@ -2672,10 +2679,10 @@ function AdminHome({ db }) {
                 return (
                   <motion.div key={a.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.6 + idx * 0.1 }}
-                    className="flex items-center gap-4 p-3 rounded-xl transition-all hover:bg-white/[0.04]"
+                    className="flex items-center gap-4 p-3 rounded-xl transition-all hover:bg-black/[0.04]"
                     style={{ border: `1px solid ${C.border}` }}>
                     <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-center"
-                      style={{ background: 'rgba(167,139,250,0.08)', border: `1px solid rgba(167,139,250,0.2)` }}>
+                      style={{ background: 'rgba(227,6,19,0.06)', border: `1px solid rgba(227,6,19,0.12)` }}>
                       <div>
                         <p className="text-xs font-mono" style={{ color: C.textDim }}>{a.date.slice(5)}</p>
                         <p className="font-bold text-sm" style={{ color: C.neon }}>{a.time}</p>
@@ -2687,9 +2694,9 @@ function AdminHome({ db }) {
                     </div>
                     <span className="text-xs px-2.5 py-1 rounded-full flex-shrink-0 capitalize font-medium"
                       style={{
-                        background: a.status === 'onaylandi' ? 'rgba(52,211,153,0.1)' : 'rgba(167,139,250,0.1)',
+                        background: a.status === 'onaylandi' ? 'rgba(52,211,153,0.1)' : 'rgba(227,6,19,0.07)',
                         color: a.status === 'onaylandi' ? '#34D399' : C.neon,
-                        border: `1px solid ${a.status === 'onaylandi' ? 'rgba(52,211,153,0.3)' : 'rgba(167,139,250,0.3)'}`
+                        border: `1px solid ${a.status === 'onaylandi' ? 'rgba(52,211,153,0.3)' : 'rgba(227,6,19,0.18)'}`
                       }}>
                       {a.status === 'onaylandi' ? '✓' : '○'}
                     </span>
@@ -2713,7 +2720,7 @@ function AdminHome({ db }) {
                   <div className="flex-shrink-0 w-2 h-2 rounded-full mt-2"
                     style={{ background: act.dot, boxShadow: `0 0 8px ${act.dot}66` }} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm group-hover:text-white transition-colors" style={{ color: C.text }}>{act.text}</p>
+                    <p className="text-sm group-hover:text-gray-900 transition-colors" style={{ color: C.text }}>{act.text}</p>
                     <p className="text-xs mt-1" style={{ color: C.textDim }}>{act.time}</p>
                   </div>
                 </motion.div>
@@ -2728,9 +2735,9 @@ function AdminHome({ db }) {
         transition={{ duration: 0.6, delay: 0.7 }}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { icon: UsersIcon, label: 'Yeni Müşteri', desc: 'Bireysel veya kurumsal', color: C.neon, bg: 'rgba(167,139,250,0.08)' },
-            { icon: CalendarIcon, label: 'Termin Oluştur', desc: 'Hızlı randevu ata', color: C.magenta, bg: 'rgba(244,114,182,0.08)' },
-            { icon: Wrench, label: 'Ekspertiz Başlat', desc: 'Yeni araç analizi', color: C.cyan, bg: 'rgba(34,211,238,0.08)' },
+            { icon: UsersIcon, label: 'Yeni Müşteri', desc: 'Bireysel veya kurumsal', color: C.neon, bg: 'rgba(227,6,19,0.06)' },
+            { icon: CalendarIcon, label: 'Termin Oluştur', desc: 'Hızlı randevu ata', color: C.magenta, bg: 'rgba(227,6,19,0.06)' },
+            { icon: Wrench, label: 'Ekspertiz Başlat', desc: 'Yeni araç analizi', color: C.cyan, bg: 'rgba(0,0,0,0.04)' },
             { icon: Receipt, label: 'Fatura Kes', desc: 'Hızlı faturalandır', color: '#34D399', bg: 'rgba(52,211,153,0.08)' },
           ].map((action, idx) => (
             <motion.div key={idx}
@@ -2769,8 +2776,8 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
 
   const isKurum = type === 'kurumsal';
   const accent = isKurum ? C.cyan : C.neon;
-  const accentSecondary = isKurum ? '#0EA5E9' : C.magenta;
-  const accentRgb = isKurum ? '34,211,238' : '167,139,250';
+  const accentSecondary = isKurum ? C.neon2 : C.magenta;
+  const accentRgb = isKurum ? '176,5,15' : '122,3,9';
 
   const allOfType = db.customers.filter(c => c.type === type);
   const totalCustomers = allOfType.length;
@@ -2818,8 +2825,8 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
   };
 
   const avatarPalettes = isKurum
-    ? [['#22D3EE', '#0EA5E9'], ['#06B6D4', '#0284C7'], ['#0EA5E9', '#3B82F6'], ['#10B981', '#059669'], ['#8B5CF6', '#6366F1']]
-    : [['#A78BFA', '#7C3AED'], ['#F472B6', '#DB2777'], ['#FBBF24', '#F59E0B'], ['#34D399', '#10B981'], ['#F87171', '#DC2626']];
+    ? [['#B0050F', '#0EA5E9'], ['#06B6D4', '#0284C7'], ['#0EA5E9', '#3B82F6'], ['#10B981', '#059669'], ['#8B5CF6', '#6366F1']]
+    : [['#E30613', '#E30613'], ['#7A0309', '#DB2777'], ['#FBBF24', '#F59E0B'], ['#34D399', '#10B981'], ['#F87171', '#DC2626']];
   const paletteFor = (id) => {
     let h = 0;
     for (const ch of (id || '')) h = (h * 31 + ch.charCodeAt(0)) | 0;
@@ -2867,15 +2874,15 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
           <SearchIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.textDim }} />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder={isKurum ? 'Firma, vergi no, yetkili ara…' : 'Ad, e-posta, telefon ara…'}
             className="w-full pl-11 pr-4 py-2.5 rounded-full text-sm outline-none"
-            style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, color: C.text }} />
+            style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
         </div>
         <select value={sortBy} onChange={e => setSortBy(e.target.value)}
           className="text-xs px-3 py-2.5 rounded-full outline-none cursor-pointer"
-          style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, color: C.text }}>
+          style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
           <option value="recent">En Yeni</option>
           <option value="name">İsme Göre</option>
         </select>
-        <div className="inline-flex rounded-full p-1" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+        <div className="inline-flex rounded-full p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
           {[
             { k: 'grid', icon: Layers, label: 'Grid' },
             { k: 'list', icon: FileText, label: 'Liste' },
@@ -2884,7 +2891,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
               className="px-3 py-1.5 rounded-full text-xs flex items-center gap-1.5 transition-all"
               style={{
                 background: viewMode === v.k ? `linear-gradient(135deg, ${accent}, ${accentSecondary})` : 'transparent',
-                color: viewMode === v.k ? '#0B0818' : C.textDim,
+                color: viewMode === v.k ? '#FFFFFF' : C.textDim,
                 fontWeight: viewMode === v.k ? 600 : 400,
               }}>
               <v.icon size={12} /> {v.label}
@@ -2900,7 +2907,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
       {/* Empty state */}
       {list.length === 0 && (
         <div className="rounded-3xl py-20 text-center"
-          style={{ background: 'rgba(255,255,255,0.02)', border: `1px dashed ${C.border}` }}>
+          style={{ background: 'rgba(0,0,0,0.03)', border: `1px dashed ${C.border}` }}>
           <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4"
             style={{ background: `${accent}10`, border: `1px solid ${accent}30` }}>
             {isKurum ? <Building size={28} style={{ color: accent }} /> : <UsersIcon size={28} style={{ color: accent }} />}
@@ -2937,7 +2944,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                   <div className="flex items-start gap-4 mb-4">
                     <div className="relative flex-shrink-0">
                       <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-base font-bold"
-                        style={{ background: `linear-gradient(135deg, ${g1}, ${g2})`, color: '#0B0818',
+                        style={{ background: `linear-gradient(135deg, ${g1}, ${g2})`, color: '#FFFFFF',
                           boxShadow: `0 8px 24px ${g1}33` }}>
                         {getInitials(c)}
                       </div>
@@ -2983,7 +2990,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                       { v: activeAprs, l: 'Aktif', icon: TrendingUp, col: C.magenta },
                     ].map((s, idx) => (
                       <div key={idx} className="rounded-xl p-2 text-center"
-                        style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+                        style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
                         <s.icon size={11} style={{ color: s.col, margin: '0 auto 2px' }} />
                         <p className="text-base font-bold font-mono leading-none" style={{ color: C.text }}>{s.v}</p>
                         <p className="text-[9px] uppercase mt-0.5" style={{ color: C.textDim, letterSpacing: '0.1em' }}>{s.l}</p>
@@ -3001,7 +3008,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                       )}
                       {insurer && (
                         <span className="text-[10px] px-2 py-1 rounded-full inline-flex items-center gap-1"
-                          style={{ background: 'rgba(34,211,238,0.08)', color: C.cyan, border: '1px solid rgba(34,211,238,0.2)' }}>
+                          style={{ background: 'rgba(0,0,0,0.04)', color: C.cyan, border: '1px solid rgba(0,0,0,0.08)' }}>
                           <ShieldIcon size={10} /> {insurer.company}
                         </span>
                       )}
@@ -3064,12 +3071,12 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
               <motion.div key={c.id}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(i * 0.02, 0.3) }}
                 onClick={() => onOpenCustomer(c)}
-                className="grid gap-0 items-center px-6 py-3 text-sm cursor-pointer transition-colors hover:bg-white/[0.03]"
+                className="grid gap-0 items-center px-6 py-3 text-sm cursor-pointer transition-colors hover:bg-black/[0.05]"
                 style={{ gridTemplateColumns: isKurum ? '60px 2fr 1.5fr 1.4fr 1.2fr 140px 100px' : '60px 2fr 1.5fr 1.4fr 140px 100px',
                   borderBottom: `1px solid ${C.border}`, color: C.text }}>
                 <div>
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold"
-                    style={{ background: `linear-gradient(135deg, ${g1}, ${g2})`, color: '#0B0818' }}>
+                    style={{ background: `linear-gradient(135deg, ${g1}, ${g2})`, color: '#FFFFFF' }}>
                     {getInitials(c)}
                   </div>
                 </div>
@@ -3084,7 +3091,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                   {lawyer && <span className="w-5 h-5 rounded-md flex items-center justify-center" title={lawyer.name}
                     style={{ background: 'rgba(245,158,11,0.1)', color: '#F59E0B' }}><ScaleIcon size={10} /></span>}
                   {insurer && <span className="w-5 h-5 rounded-md flex items-center justify-center" title={insurer.company}
-                    style={{ background: 'rgba(34,211,238,0.1)', color: C.cyan }}><ShieldIcon size={10} /></span>}
+                    style={{ background: 'rgba(0,0,0,0.05)', color: C.cyan }}><ShieldIcon size={10} /></span>}
                   {!lawyer && !insurer && <span className="text-[10px]" style={{ color: C.textDim }}>—</span>}
                 </div>
                 <div className="text-right"><span style={{ color: accent }} className="text-xs">Detay <ChevronRight size={12} style={{ display: 'inline' }} /></span></div>
@@ -3305,7 +3312,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
   ];
 
   const TabSwitcher = () => (
-    <div className="mb-6 inline-flex rounded-full p-1 flex-wrap" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+    <div className="mb-6 inline-flex rounded-full p-1 flex-wrap" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
       {tabs.map(t => (
         <button key={t.k} type="button" onClick={() => switchType(t.k)}
           className="px-5 py-2 rounded-full text-sm font-medium transition-all"
@@ -3314,10 +3321,10 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
               ? (t.k === 'avukat'
                   ? 'linear-gradient(135deg, #F59E0B, #FBBF24)'
                   : t.k === 'sigorta'
-                    ? 'linear-gradient(135deg, #22D3EE, #06B6D4)'
+                    ? 'linear-gradient(135deg, #B0050F, #7A0309)'
                     : `linear-gradient(135deg, ${C.neon}, ${C.neon2})`)
               : 'transparent',
-            color: type === t.k ? '#0B0818' : C.textDim,
+            color: type === t.k ? '#FFFFFF' : C.textDim,
           }}>
           {t.l}
         </button>
@@ -3343,9 +3350,9 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
                   style={{
-                    background: active ? `linear-gradient(135deg, ${C.neon}, ${C.magenta})` : done ? '#34D39920' : 'rgba(255,255,255,0.03)',
+                    background: active ? `linear-gradient(135deg, ${C.neon}, ${C.magenta})` : done ? '#34D39920' : 'rgba(0,0,0,0.04)',
                     border: `1px solid ${active ? 'transparent' : done ? '#34D39955' : C.border}`,
-                    color: active ? '#0B0818' : done ? '#34D399' : C.textDim,
+                    color: active ? '#FFFFFF' : done ? '#34D399' : C.textDim,
                     boxShadow: active ? `0 0 16px ${C.neon}55` : 'none',
                   }}>
                   {done ? <Check size={14} /> : <s.icon size={14} />}
@@ -3429,7 +3436,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
                   </p>
                 </div>
               </div>
-              <label className="block rounded-3xl p-10 text-center cursor-pointer transition-all hover:bg-white/[0.02]"
+              <label className="block rounded-3xl p-10 text-center cursor-pointer transition-all hover:bg-black/[0.03]"
                 style={{ border: `2px dashed ${C.border}` }}>
                 <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => onRuhsatFile(e.target.files?.[0])} />
                 <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4"
@@ -3460,7 +3467,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
                   boxShadow: `0 0 40px ${C.glow}` }} />
               <p className="text-lg font-medium" style={{ color: C.text }}>Ruhsat Analiz Ediliyor…</p>
               <p className="text-sm mt-2" style={{ color: C.textDim }}>AI OCR çalışıyor · sahip bilgileri ve araç künyesi okunuyor</p>
-              <div className="mt-4 inline-block text-xs px-3 py-1 rounded-full" style={{ background: 'rgba(167,139,250,0.08)', color: C.neon, border: `1px solid ${C.neon}33`, letterSpacing: '0.15em' }}>● VISION API ACTIVE</div>
+              <div className="mt-4 inline-block text-xs px-3 py-1 rounded-full" style={{ background: 'rgba(227,6,19,0.06)', color: C.neon, border: `1px solid ${C.neon}33`, letterSpacing: '0.15em' }}>● VISION API ACTIVE</div>
             </div>
           )}
 
@@ -3490,7 +3497,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
                     style={{ border: `1px solid ${C.border}` }} />
                 )}
                 <button type="button" onClick={() => { setStage('upload'); setRuhsatPreview(null); setForm({}); setOcrConfidence(null); }}
-                  className="text-xs px-3 py-1.5 rounded-lg transition hover:bg-white/5 flex-shrink-0"
+                  className="text-xs px-3 py-1.5 rounded-lg transition hover:bg-black/5 flex-shrink-0"
                   style={{ color: C.textDim, border: `1px solid ${C.border}` }}>
                   Yeniden Yükle
                 </button>
@@ -3605,8 +3612,8 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
   const textareaRef = useRef(null);
 
   const NOTE_CATEGORIES = [
-    { key: 'genel', label: 'Genel', color: '#8B85A8', icon: '💬' },
-    { key: 'teknik', label: 'Teknik', color: '#22D3EE', icon: '🔧' },
+    { key: 'genel', label: 'Genel', color: '#8B8B8B', icon: '💬' },
+    { key: 'teknik', label: 'Teknik', color: '#B0050F', icon: '🔧' },
     { key: 'finansal', label: 'Finansal', color: '#34D399', icon: '💰' },
     { key: 'sozlesme', label: 'Sözleşme', color: '#F59E0B', icon: '📄' },
     { key: 'onemli', label: 'Önemli', color: '#EF4444', icon: '⚠️' },
@@ -3679,7 +3686,7 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
       {/* Contact info section */}
       <div>
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.1)' }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(227,6,19,0.07)' }}>
             <SettingsIcon size={14} style={{ color: C.neon }} />
           </div>
           <h3 className="text-sm font-semibold" style={{ color: C.text }}>Kişi Bilgileri</h3>
@@ -3722,7 +3729,7 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
             </button>
             <a href={`tel:${customer.phone}`}
               className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition hover:scale-105"
-              style={{ background: 'rgba(34,211,238,0.08)', color: C.cyan, border: `1px solid rgba(34,211,238,0.25)` }}>
+              style={{ background: 'rgba(0,0,0,0.04)', color: C.cyan, border: `1px solid rgba(0,0,0,0.10)` }}>
               Ara
             </a>
           </div>
@@ -3734,7 +3741,7 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
           const assignedLawyer = assignment ? (db.lawyers || []).find(l => l.id === assignment.lawyer_id) : null;
           const availableLawyers = (db.lawyers || []).filter(l => l.active);
           return (
-            <div className="mt-5 p-4 rounded-xl" style={{ background: 'rgba(124,58,237,0.04)', border: `1px solid ${C.border}` }}>
+            <div className="mt-5 p-4 rounded-xl" style={{ background: 'rgba(227,6,19,0.03)', border: `1px solid ${C.border}` }}>
               <div className="flex items-center gap-2 mb-3">
                 <ScaleIcon size={14} style={{ color: '#F59E0B' }} />
                 <span className="text-xs font-semibold uppercase" style={{ color: '#F59E0B', letterSpacing: '0.1em' }}>İlgili Avukat</span>
@@ -3764,7 +3771,7 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
                         }
                       }}
                       className="text-xs rounded-lg px-2 py-1.5 outline-none"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: C.text, border: `1px solid ${C.border}` }}>
+                      style={{ background: 'rgba(0,0,0,0.05)', color: C.text, border: `1px solid ${C.border}` }}>
                       <option value="">Kaldır</option>
                       {availableLawyers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                     </select>
@@ -3784,7 +3791,7 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
                         }));
                       }}
                       className="w-full text-sm rounded-lg px-3 py-2.5 outline-none"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: C.text, border: `1px solid ${C.border}` }}>
+                      style={{ background: 'rgba(0,0,0,0.05)', color: C.text, border: `1px solid ${C.border}` }}>
                       <option value="">Avukat seçiniz...</option>
                       {availableLawyers.map(l => <option key={l.id} value={l.id}>{l.name} — {l.baro}</option>)}
                     </select>
@@ -3801,7 +3808,7 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
           const assignedInsurer = insAssignment ? (db.insurers || []).find(i => i.id === insAssignment.insurer_id) : null;
           const availableInsurers = (db.insurers || []).filter(i => i.active);
           return (
-            <div className="mt-4 p-4 rounded-xl" style={{ background: 'rgba(34,211,238,0.04)', border: `1px solid ${C.border}` }}>
+            <div className="mt-4 p-4 rounded-xl" style={{ background: 'rgba(227,6,19,0.03)', border: `1px solid ${C.border}` }}>
               <div className="flex items-center gap-2 mb-3">
                 <ShieldIcon size={14} style={{ color: C.cyan }} />
                 <span className="text-xs font-semibold uppercase" style={{ color: C.cyan, letterSpacing: '0.1em' }}>İlgili Sigorta Şirketi</span>
@@ -3810,7 +3817,7 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold"
-                      style={{ background: 'rgba(34,211,238,0.1)', color: C.cyan }}>
+                      style={{ background: 'rgba(0,0,0,0.05)', color: C.cyan }}>
                       {(assignedInsurer.company || '?').slice(0,2).toUpperCase()}
                     </div>
                     <div>
@@ -3831,7 +3838,7 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
                         }
                       }}
                       className="text-xs rounded-lg px-2 py-1.5 outline-none"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: C.text, border: `1px solid ${C.border}` }}>
+                      style={{ background: 'rgba(0,0,0,0.05)', color: C.text, border: `1px solid ${C.border}` }}>
                       <option value="">Kaldır</option>
                       {availableInsurers.map(i => <option key={i.id} value={i.id}>{i.company}</option>)}
                     </select>
@@ -3851,7 +3858,7 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
                         }));
                       }}
                       className="w-full text-sm rounded-lg px-3 py-2.5 outline-none"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: C.text, border: `1px solid ${C.border}` }}>
+                      style={{ background: 'rgba(0,0,0,0.05)', color: C.text, border: `1px solid ${C.border}` }}>
                       <option value="">Sigorta şirketi seçiniz...</option>
                       {availableInsurers.map(i => <option key={i.id} value={i.id}>{i.company}</option>)}
                     </select>
@@ -3870,17 +3877,17 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
       <div>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.1)' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.05)' }}>
               <MessageIcon size={14} style={{ color: C.cyan }} />
             </div>
             <h3 className="text-sm font-semibold" style={{ color: C.text }}>Özel Notlar</h3>
             <span className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.05)', color: C.textDim }}>{myNotes.length}</span>
+              style={{ background: 'rgba(0,0,0,0.05)', color: C.textDim }}>{myNotes.length}</span>
           </div>
         </div>
 
         {/* Add note form */}
-        <div className="rounded-2xl p-4 mb-4" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+        <div className="rounded-2xl p-4 mb-4" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
           <textarea
             ref={textareaRef}
             value={noteText}
@@ -3932,7 +3939,7 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
                   initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                   className="rounded-xl p-4 group transition-all"
                   style={{
-                    background: note.pinned ? `${C.neon}06` : 'rgba(255,255,255,0.02)',
+                    background: note.pinned ? `${C.neon}06` : 'rgba(0,0,0,0.03)',
                     border: `1px solid ${note.pinned ? C.neon + '30' : C.border}`,
                   }}>
                   {/* Header: category + actions */}
@@ -3951,13 +3958,13 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
                     </div>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => togglePin(note.id)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                         title={note.pinned ? 'Sabitlemeyi kaldır' : 'Sabitle'}
                         style={{ color: note.pinned ? C.neon : C.textDim }}>
                         <PinIcon size={13} />
                       </button>
                       <button onClick={() => startEdit(note)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                         title="Düzenle" style={{ color: C.textDim }}>
                         <EditIcon size={13} />
                       </button>
@@ -3973,7 +3980,7 @@ function CustomerInfoAndNotes({ customer, db, setDb }) {
                     <div>
                       <textarea value={editText} onChange={(e) => setEditText(e.target.value)}
                         rows={3} className="w-full resize-none text-sm outline-none rounded-lg p-3"
-                        style={{ background: 'rgba(255,255,255,0.03)', color: C.text,
+                        style={{ background: 'rgba(0,0,0,0.04)', color: C.text,
                           border: `1px solid ${C.neon}44`, fontFamily: 'inherit', lineHeight: 1.6 }}
                         autoFocus />
                       <div className="flex items-center gap-2 mt-2 justify-end">
@@ -4008,8 +4015,8 @@ function generateGutachtenPDF({ vehicle, customer, appraisal, paintData, db, out
   const usable = W - margin * 2;
 
   // Colors
-  const purple = [124, 58, 237];
-  const dark = [7, 6, 11];
+  const purple = [227, 6, 19]; // brand red
+  const dark = [10, 10, 10];
   const gray = [120, 113, 108];
   const white = [255, 255, 255];
   const green = [52, 211, 153];
@@ -4479,7 +4486,7 @@ function PaintMap({ vehicleId, db, setDb }) {
 
   const getPartFill = (partId) => {
     const data = getPartStatus(partId);
-    if (!data) return 'rgba(255,255,255,0.04)';
+    if (!data) return 'rgba(0,0,0,0.05)';
     return getStatusInfo(data.status).bg;
   };
 
@@ -4551,7 +4558,7 @@ function PaintMap({ vehicleId, db, setDb }) {
           <button key={s.key} onClick={() => setActiveTool(s.key)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{
-              background: activeTool === s.key ? s.bg : 'rgba(255,255,255,0.03)',
+              background: activeTool === s.key ? s.bg : 'rgba(0,0,0,0.04)',
               border: `1.5px solid ${activeTool === s.key ? s.border : C.border}`,
               color: activeTool === s.key ? s.color : C.textDim,
               boxShadow: activeTool === s.key ? `0 0 12px ${s.color}25` : 'none',
@@ -4566,13 +4573,13 @@ function PaintMap({ vehicleId, db, setDb }) {
       <div className="flex gap-4">
         {/* SVG Car Diagram */}
         <div className="flex-1 rounded-2xl p-4 flex items-center justify-center"
-          style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`, minHeight: 380 }}>
+          style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}`, minHeight: 380 }}>
           <svg viewBox="0 0 240 440" width="220" xmlns="http://www.w3.org/2000/svg">
             {/* Car body outline hint */}
             <defs>
               <linearGradient id="carBodyGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(167,139,250,0.03)" />
-                <stop offset="100%" stopColor="rgba(34,211,238,0.03)" />
+                <stop offset="0%" stopColor="rgba(227,6,19,0.02)" />
+                <stop offset="100%" stopColor="rgba(0,0,0,0.02)" />
               </linearGradient>
             </defs>
 
@@ -4623,7 +4630,7 @@ function PaintMap({ vehicleId, db, setDb }) {
 
             {/* Wheel hints */}
             {[[18, 122, 12], [222, 122, 12], [18, 294, 12], [222, 294, 12]].map(([cx, cy, r], i) => (
-              <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" strokeDasharray="3 2" />
+              <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth="1" strokeDasharray="3 2" />
             ))}
 
             {/* Direction arrow */}
@@ -4642,7 +4649,7 @@ function PaintMap({ vehicleId, db, setDb }) {
             const data = getPartStatus(selectedPart);
             const statusInfo = data ? getStatusInfo(data.status) : null;
             return (
-              <div className="rounded-xl p-3 space-y-2" style={{ background: statusInfo ? statusInfo.bg : 'rgba(255,255,255,0.03)', border: `1px solid ${statusInfo ? statusInfo.border : C.border}` }}>
+              <div className="rounded-xl p-3 space-y-2" style={{ background: statusInfo ? statusInfo.bg : 'rgba(0,0,0,0.04)', border: `1px solid ${statusInfo ? statusInfo.border : C.border}` }}>
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold" style={{ color: C.text }}>{part?.label}</p>
                   {data && <button onClick={() => clearPart(selectedPart)} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#EF4444', background: 'rgba(239,68,68,0.1)' }}>Sıfırla</button>}
@@ -4669,20 +4676,20 @@ function PaintMap({ vehicleId, db, setDb }) {
                       }
                     }}
                     className="w-full px-2 py-1.5 rounded-lg text-xs outline-none"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
+                    style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
                 </div>
               </div>
             );
           })()}
 
           {/* Stats summary */}
-          <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+          <div className="rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
             <p className="text-[10px] uppercase font-bold mb-2" style={{ color: C.textDim, letterSpacing: '0.1em' }}>Özet</p>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs" style={{ color: C.textDim }}>Tamamlanan</span>
               <span className="text-xs font-mono font-bold" style={{ color: C.text }}>{filledParts}/{totalParts}</span>
             </div>
-            <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: 'rgba(0,0,0,0.05)' }}>
               <div className="h-full rounded-full" style={{ width: `${(filledParts / totalParts) * 100}%`, background: `linear-gradient(90deg, ${C.neon}, ${C.cyan})`, transition: 'width 0.3s' }} />
             </div>
             <div className="space-y-1">
@@ -4719,7 +4726,7 @@ function PaintMap({ vehicleId, db, setDb }) {
             <button key={part.id} onClick={() => { setSelectedPart(part.id); }}
               className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all"
               style={{
-                background: isSelected ? (statusInfo ? statusInfo.bg : `${C.neon}10`) : 'rgba(255,255,255,0.02)',
+                background: isSelected ? (statusInfo ? statusInfo.bg : `${C.neon}10`) : 'rgba(0,0,0,0.03)',
                 border: `1px solid ${isSelected ? (statusInfo ? statusInfo.border : C.neon + '44') : C.border}`,
               }}>
               <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: statusInfo ? statusInfo.color : 'rgba(255,255,255,0.1)' }} />
@@ -4743,7 +4750,7 @@ function AppraisalCard({ ap, customer, db, setDb, onPreview, isPreviewing, curre
     <div onClick={onPreview ? () => onPreview() : undefined}
       className="rounded-2xl overflow-hidden transition-all"
       style={{
-        background: isPreviewing ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.02)',
+        background: isPreviewing ? 'rgba(239,68,68,0.06)' : 'rgba(0,0,0,0.03)',
         border: `1px solid ${isPreviewing ? 'rgba(239,68,68,0.4)' : C.border}`,
         cursor: onPreview ? 'pointer' : 'default',
         boxShadow: isPreviewing ? '0 0 24px rgba(239,68,68,0.15)' : 'none',
@@ -4778,8 +4785,8 @@ function AppraisalCard({ ap, customer, db, setDb, onPreview, isPreviewing, curre
           <button onClick={() => setShowPaintMap(!showPaintMap)}
             className="flex-1 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all justify-center"
             style={{
-              background: showPaintMap ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${showPaintMap ? 'rgba(167,139,250,0.3)' : C.border}`,
+              background: showPaintMap ? 'rgba(227,6,19,0.07)' : 'rgba(0,0,0,0.04)',
+              border: `1px solid ${showPaintMap ? 'rgba(227,6,19,0.18)' : C.border}`,
               color: showPaintMap ? C.neon : C.textDim,
             }}>
             <PaletteIcon size={14} />
@@ -5043,7 +5050,7 @@ function MessagesTab({ customer, db, setDb }) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                 <p className="text-xs font-semibold" style={{ color: '#25D366' }}>Hazır Mesaj Şablonları</p>
               </div>
-              <button onClick={() => setTplOpen(false)} className="text-xs px-2 py-0.5 rounded" style={{ color: C.textDim, background: 'rgba(255,255,255,0.04)' }}>Kapat</button>
+              <button onClick={() => setTplOpen(false)} className="text-xs px-2 py-0.5 rounded" style={{ color: C.textDim, background: 'rgba(0,0,0,0.05)' }}>Kapat</button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" style={{ maxHeight: 220, overflowY: 'auto' }}>
               {(db.whatsapp_templates || []).map(tpl => (
@@ -5052,7 +5059,7 @@ function MessagesTab({ customer, db, setDb }) {
                   setMsgText(filled);
                   setTplOpen(false);
                 }} className="text-left p-2.5 rounded-lg transition hover:opacity-90"
-                  style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+                  style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
                   <p className="text-xs font-medium mb-1" style={{ color: C.text }}>{tpl.name}</p>
                   <p className="text-[10px] leading-relaxed" style={{ color: C.textDim, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{tpl.message}</p>
                 </button>
@@ -5245,7 +5252,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
     if (previewDoc?.id === docId) setPreviewDoc(null);
   };
 
-  const getDocTypeInfo = (type) => DOC_CATEGORIES.find(d => d.key === type) || { key: type, label: type, group: 'Genel', color: '#8B85A8' };
+  const getDocTypeInfo = (type) => DOC_CATEGORIES.find(d => d.key === type) || { key: type, label: type, group: 'Genel', color: '#8B8B8B' };
 
   return (
     <AnimatePresence>
@@ -5361,7 +5368,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                 };
                 return (
                   <div className="inline-flex items-center gap-2 pl-3 pr-1 py-1.5 rounded-full w-fit"
-                    style={{ background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.25)' }}>
+                    style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.10)' }}>
                     <ShieldIcon size={12} style={{ color: C.cyan }} />
                     <span className="text-xs font-medium" style={{ color: C.cyan }}>
                       {assignedInsurer ? 'Yetkili Sigorta:' : 'Sigorta Ata:'}
@@ -5385,13 +5392,13 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={onClose}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all hover:scale-[1.02]"
-              style={{ background: 'rgba(167,139,250,0.1)', color: C.text,
+              style={{ background: 'rgba(227,6,19,0.07)', color: C.text,
                 border: `1px solid ${C.neon}55` }}>
               <ArrowRight size={14} style={{ transform: 'rotate(180deg)' }} />
               Ana Sayfa
             </button>
             <button onClick={onClose} aria-label="Kapat"
-              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/5 transition"
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-black/5 transition"
               style={{ color: C.textDim, border: `1px solid ${C.border}` }}>
               <XClose size={16} />
             </button>
@@ -5413,7 +5420,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
               <t.icon size={14} />
               {t.l}
               {t.cnt !== null && <span className="text-xs px-1.5 py-0.5 rounded-full"
-                style={{ background: tab === t.k ? `${C.neon}20` : 'rgba(255,255,255,0.05)',
+                style={{ background: tab === t.k ? `${C.neon}20` : 'rgba(0,0,0,0.05)',
                   color: tab === t.k ? C.neon : C.textDim, fontSize: 11 }}>{t.cnt}</span>}
               {tab === t.k && <span className="absolute left-0 right-0 bottom-0 h-0.5" style={{ background: C.neon, boxShadow: `0 0 8px ${C.neon}` }} />}
             </button>
@@ -5445,7 +5452,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                     const stage = STAGES.find(s => s.key === (apr?.status || 'bekliyor'));
                     const vDocs = myDocs.filter(d => d.vehicle_id === v.id);
                     return (
-                      <div key={v.id} className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+                      <div key={v.id} className="rounded-2xl p-5" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
                         <div className="flex items-start justify-between mb-3">
                           <div>
                             <p className="font-mono text-lg tracking-wider" style={{ color: C.text }}>{v.plate}</p>
@@ -5469,7 +5476,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                             <span style={{ color: C.textDim }}>Ekspertiz Süreci</span>
                             <span className="font-mono" style={{ color: stage.color }}>%{stage.pct}</span>
                           </div>
-                          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.05)' }}>
                             <motion.div initial={{ width: 0 }} animate={{ width: `${stage.pct}%` }}
                               transition={{ duration: 1, ease: easeOut }}
                               className="h-full rounded-full"
@@ -5497,10 +5504,10 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                   e.currentTarget.style.borderColor = C.border;
                   if (e.dataTransfer.files?.length) handleDropFiles(e.dataTransfer.files);
                 }}
-                style={{ border: `2px dashed ${C.border}`, background: 'rgba(124,58,237,0.03)',
+                style={{ border: `2px dashed ${C.border}`, background: 'rgba(227,6,19,0.02)',
                   borderRadius: 16 }}>
                 <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center"
-                  style={{ background: 'rgba(124,58,237,0.1)' }}>
+                  style={{ background: 'rgba(227,6,19,0.07)' }}>
                   <UploadIcon size={24} style={{ color: C.neon }} />
                 </div>
                 <p className="text-sm font-medium mb-1" style={{ color: C.text }}>Belge Yükle</p>
@@ -5514,7 +5521,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
               <GecitKfzModal open={uploadModalOpen} onClose={() => { setUploadModalOpen(false); setPendingFiles([]); }} title="Kategori Seç & Yükle">
                 {pendingFiles.length > 0 && (
                   <div className="space-y-4">
-                    <div className="p-3 rounded-xl" style={{ background: 'rgba(124,58,237,0.06)', border: `1px solid ${C.border}` }}>
+                    <div className="p-3 rounded-xl" style={{ background: 'rgba(227,6,19,0.04)', border: `1px solid ${C.border}` }}>
                       <p className="text-xs mb-1" style={{ color: C.textDim }}>Seçilen dosya(lar):</p>
                       {pendingFiles.map((f, i) => (
                         <p key={i} className="text-sm font-mono truncate" style={{ color: C.text }}>{f.name}</p>
@@ -5523,7 +5530,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                     <Field label="Kategorie / Kategori *">
                       <select value={uploadCategory} onChange={(e) => setUploadCategory(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                        style={{ background: 'rgba(255,255,255,0.04)', color: C.text, border: `1px solid ${C.border}` }}>
+                        style={{ background: 'rgba(0,0,0,0.05)', color: C.text, border: `1px solid ${C.border}` }}>
                         <option value="">Kategori seçiniz...</option>
                         {DOC_GROUPS.map(group => (
                           <optgroup key={group} label={`── ${group} ──`}>
@@ -5559,7 +5566,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                 <button onClick={() => setDocFilter('all')}
                   className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
                   style={{
-                    background: docFilter === 'all' ? `${C.neon}20` : 'rgba(255,255,255,0.03)',
+                    background: docFilter === 'all' ? `${C.neon}20` : 'rgba(0,0,0,0.04)',
                     color: docFilter === 'all' ? C.neon : C.textDim,
                     border: `1px solid ${docFilter === 'all' ? C.neon + '44' : C.border}`,
                   }}>Tümü ({myDocs.length})</button>
@@ -5574,7 +5581,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                     <button key={group} onClick={() => setDocFilter('group:' + group)}
                       className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
                       style={{
-                        background: docFilter === 'group:' + group ? `${groupColor}20` : 'rgba(255,255,255,0.03)',
+                        background: docFilter === 'group:' + group ? `${groupColor}20` : 'rgba(0,0,0,0.04)',
                         color: docFilter === 'group:' + group ? groupColor : C.textDim,
                         border: `1px solid ${docFilter === 'group:' + group ? groupColor + '44' : C.border}`,
                       }}>{group} ({cnt})</button>
@@ -5603,7 +5610,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                         className="rounded-xl p-4 cursor-pointer transition-all"
                         onClick={() => { isRuhsatDoc(doc.type) ? setRuhsatPanelDoc(doc) : setPreviewDoc(doc); }}
                         style={{
-                          background: isActive ? `${C.neon}08` : 'rgba(255,255,255,0.02)',
+                          background: isActive ? `${C.neon}08` : 'rgba(0,0,0,0.03)',
                           border: `1px solid ${isActive ? C.neon + '44' : C.border}`,
                           boxShadow: isActive ? `0 0 20px ${C.neon}10` : 'none',
                         }}>
@@ -5635,14 +5642,14 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                           <div className="flex items-center gap-1">
                             {isRuhsatDoc(doc.type) && (
                               <button onClick={(e) => { e.stopPropagation(); setRuhsatPanelDoc(doc); }}
-                                className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] font-medium hover:bg-white/5 transition"
+                                className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] font-medium hover:bg-black/5 transition"
                                 title="Ruhsat Detayı"
                                 style={{ color: C.cyan, border: `1px solid ${C.cyan}44`, background: `${C.cyan}10` }}>
                                 <FileText size={12} /> Ruhsat
                               </button>
                             )}
                             <button onClick={(e) => { e.stopPropagation(); setPreviewDoc(doc); }}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                               title="Görüntüle" style={{ color: C.neon }}>
                               <EyeIcon size={15} />
                             </button>
@@ -5724,7 +5731,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                       aria-pressed={!!i.favorite}
                       className="w-8 h-8 rounded-lg flex items-center justify-center transition-all flex-shrink-0 hover:scale-110"
                       style={{
-                        background: i.favorite ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.03)',
+                        background: i.favorite ? 'rgba(245,158,11,0.15)' : 'rgba(0,0,0,0.04)',
                         color: i.favorite ? '#F59E0B' : C.textDim,
                         border: `1px solid ${i.favorite ? '#F59E0B66' : C.border}`,
                       }}>
@@ -5774,17 +5781,17 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <a href={previewAppraisal.dataUrl} download={previewAppraisal.filename}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                     style={{ color: C.neon }} title="İndir">
                     <DownloadIcon size={16} />
                   </a>
                   <button onClick={() => window.open(previewAppraisal.dataUrl, '_blank')}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                     style={{ color: C.textDim }} title="Yeni sekmede aç">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                   </button>
                   <button onClick={() => setPreviewAppraisal(null)}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                     style={{ color: C.textDim }}><XClose size={16} /></button>
                 </div>
               </div>
@@ -5820,7 +5827,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                   {/* Download button */}
                   {previewDoc.data && (
                     <a href={previewDoc.data} download={previewDoc.name}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                       style={{ color: C.neon }} title="İndir">
                       <DownloadIcon size={16} />
                     </a>
@@ -5841,7 +5848,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                       options={DOC_CATEGORIES.map(t => ({ value: t.key, label: t.label }))} />
                   </div>
                   <button onClick={() => setPreviewDoc(null)}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                     style={{ color: C.textDim }}><XClose size={16} /></button>
                 </div>
               </div>
@@ -5882,7 +5889,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                 ) : (
                   <div className="text-center p-10">
                     <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-                      style={{ background: 'rgba(124,58,237,0.1)' }}>
+                      style={{ background: 'rgba(227,6,19,0.07)' }}>
                       <FileText size={36} style={{ color: C.neon }} />
                     </div>
                     <p className="text-sm font-medium mb-2" style={{ color: C.text }}>{previewDoc.name}</p>
@@ -5974,7 +5981,7 @@ function RuhsatUploadModal({ open, onClose, customerId, onSave }) {
     <GecitKfzModal open={open} onClose={onClose} title="Yeni Araç Ekle" subtitle="Ruhsatı yükle, AI bilgileri otomatik doldursun" width={680}>
       {stage === 'upload' && (
         <div>
-          <label className="block rounded-3xl p-10 text-center cursor-pointer transition-all hover:bg-white/[0.02]"
+          <label className="block rounded-3xl p-10 text-center cursor-pointer transition-all hover:bg-black/[0.03]"
             style={{ border: `2px dashed ${C.border}` }}>
             <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
             <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4"
@@ -6001,7 +6008,7 @@ function RuhsatUploadModal({ open, onClose, customerId, onSave }) {
               boxShadow: `0 0 40px ${C.glow}` }} />
           <p className="text-lg font-medium" style={{ color: C.text }}>Ruhsat Analiz Ediliyor…</p>
           <p className="text-sm mt-2" style={{ color: C.textDim }}>AI OCR çalışıyor · şasi, plaka ve araç bilgisi okunuyor</p>
-          <div className="mt-4 inline-block text-xs px-3 py-1 rounded-full" style={{ background: 'rgba(167,139,250,0.08)', color: C.neon, border: `1px solid ${C.neon}33`, letterSpacing: '0.15em' }}>● VISION API ACTIVE</div>
+          <div className="mt-4 inline-block text-xs px-3 py-1 rounded-full" style={{ background: 'rgba(227,6,19,0.06)', color: C.neon, border: `1px solid ${C.neon}33`, letterSpacing: '0.15em' }}>● VISION API ACTIVE</div>
         </div>
       )}
       {stage === 'result' && (
@@ -6019,7 +6026,7 @@ function RuhsatUploadModal({ open, onClose, customerId, onSave }) {
             <Field label="TÜV Tarihi (HU)"><TextInput type="date" value={form.tuv_date || ''} onChange={(e) => setForm(f => ({ ...f, tuv_date: e.target.value }))} /></Field>
           </div>
           {history && (
-            <div className="rounded-2xl p-5 mb-6" style={{ background: 'rgba(34,211,238,0.04)', border: '1px solid rgba(34,211,238,0.25)' }}>
+            <div className="rounded-2xl p-5 mb-6" style={{ background: 'rgba(227,6,19,0.03)', border: '1px solid rgba(0,0,0,0.10)' }}>
               <div className="flex items-center gap-2 mb-3">
                 <Shield size={16} style={{ color: C.cyan }} />
                 <p className="text-sm font-medium" style={{ color: C.text }}>Araç Geçmişi (Tramer)</p>
@@ -6167,11 +6174,11 @@ function AdminSettings({ user, db, setDb }) {
               <div className="space-y-3">
                 {/* Supabase — interactive config */}
                 <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${isLive ? '#34D39944' : C.border}` }}>
-                  <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/[0.02] transition"
+                  <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-black/[0.03] transition"
                     onClick={() => setSbOpen(!sbOpen)}>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                        style={{ background: isLive ? 'rgba(52,211,153,0.1)' : 'rgba(167,139,250,0.1)' }}>
+                        style={{ background: isLive ? 'rgba(52,211,153,0.1)' : 'rgba(227,6,19,0.07)' }}>
                         <Zap size={16} style={{ color: isLive ? '#34D399' : C.neon }} />
                       </div>
                       <div>
@@ -6191,7 +6198,7 @@ function AdminSettings({ user, db, setDb }) {
                     </div>
                   </div>
                   {sbOpen && (
-                    <div className="p-4 space-y-3" style={{ borderTop: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.01)' }}>
+                    <div className="p-4 space-y-3" style={{ borderTop: `1px solid ${C.border}`, background: C.surface2 }}>
                       <Field label="Supabase Project URL">
                         <TextInput value={sbUrl} onChange={e => setSbUrl(e.target.value)} placeholder="https://abc123.supabase.co" />
                       </Field>
@@ -6225,7 +6232,7 @@ function AdminSettings({ user, db, setDb }) {
                           {testStatus === 'no_lib' && '✕ Supabase kütüphanesi yüklenemedi. İnternet bağlantısını kontrol edin.'}
                         </div>
                       )}
-                      <div className="text-[10px] p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)', color: C.textDim, border: `1px solid ${C.border}` }}>
+                      <div className="text-[10px] p-2 rounded-lg" style={{ background: 'rgba(0,0,0,0.03)', color: C.textDim, border: `1px solid ${C.border}` }}>
                         Canlıya geçtiğinizde: Tüm veriler Supabase'den okunur, yazılır ve realtime güncellenir. localStorage yedek olarak devam eder.
                       </div>
                     </div>
@@ -6297,7 +6304,7 @@ function AdminSettings({ user, db, setDb }) {
       <div className="mt-6">
         <GlassCard>
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(34,211,238,0.1)' }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.05)' }}>
               <ShieldIcon size={20} style={{ color: C.cyan }} />
             </div>
             <div>
@@ -6436,7 +6443,7 @@ function TuvNotifyModal({ open, onClose, vehicle, customer, db }) {
         <Field label="Şablon">
           <select value={tplId} onChange={(e) => setTplId(e.target.value)}
             className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-            style={{ background: 'rgba(255,255,255,0.04)', color: C.text, border: `1px solid ${C.border}` }}>
+            style={{ background: 'rgba(0,0,0,0.05)', color: C.text, border: `1px solid ${C.border}` }}>
             {tuvTemplates.length === 0 && <option value="">Şablon tanımlı değil</option>}
             {tuvTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
@@ -6445,9 +6452,9 @@ function TuvNotifyModal({ open, onClose, vehicle, customer, db }) {
           <textarea value={message} onChange={(e) => setMessage(e.target.value)}
             rows={10}
             className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-y"
-            style={{ background: 'rgba(255,255,255,0.04)', color: C.text, border: `1px solid ${C.border}`, fontFamily: 'inherit', lineHeight: 1.5, minHeight: 200 }} />
+            style={{ background: 'rgba(0,0,0,0.05)', color: C.text, border: `1px solid ${C.border}`, fontFamily: 'inherit', lineHeight: 1.5, minHeight: 200 }} />
         </Field>
-        <div className="text-xs p-3 rounded-xl" style={{ background: 'rgba(124,58,237,0.06)', border: `1px solid ${C.border}`, color: C.textDim }}>
+        <div className="text-xs p-3 rounded-xl" style={{ background: 'rgba(227,6,19,0.04)', border: `1px solid ${C.border}`, color: C.textDim }}>
           <strong style={{ color: C.text }}>Alıcı:</strong> {customer?.full_name || customer?.company || '—'}
           {customer?.phone ? ` · ${customer.phone}` : ' · (telefon yok)'}
         </div>
@@ -6554,7 +6561,7 @@ function BulkTuvActionsModal({ open, onClose, vehicles, db }) {
         <Field label="Şablon">
           <select value={tplId} onChange={(e) => setTplId(e.target.value)}
             className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-            style={{ background: 'rgba(255,255,255,0.04)', color: C.text, border: `1px solid ${C.border}` }}>
+            style={{ background: 'rgba(0,0,0,0.05)', color: C.text, border: `1px solid ${C.border}` }}>
             <option value="auto">Otomatik (her aracın TÜV durumuna göre)</option>
             {tuvTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
@@ -6562,7 +6569,7 @@ function BulkTuvActionsModal({ open, onClose, vehicles, db }) {
 
         <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}`, maxHeight: 240, overflowY: 'auto' }}>
           <table className="w-full text-xs">
-            <thead style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <thead style={{ background: 'rgba(0,0,0,0.04)' }}>
               <tr>
                 <th className="text-left px-3 py-2" style={{ color: C.textDim }}>Plaka</th>
                 <th className="text-left px-3 py-2" style={{ color: C.textDim }}>Sahip</th>
@@ -6590,12 +6597,12 @@ function BulkTuvActionsModal({ open, onClose, vehicles, db }) {
         </div>
 
         {running && (
-          <div className="rounded-xl p-3" style={{ background: 'rgba(167,139,250,0.06)', border: `1px solid ${C.border}` }}>
+          <div className="rounded-xl p-3" style={{ background: 'rgba(227,6,19,0.05)', border: `1px solid ${C.border}` }}>
             <div className="flex items-center justify-between text-xs mb-2">
               <span style={{ color: C.text }}>PDF üretiliyor...</span>
               <span style={{ color: C.neon }}>{progress} / {items.length}</span>
             </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.05)' }}>
               <div className="h-full transition-all" style={{
                 width: `${(progress / Math.max(items.length, 1)) * 100}%`,
                 background: `linear-gradient(90deg, ${C.neon}, ${C.cyan})`
@@ -6729,7 +6736,7 @@ function AdminTuvTracking({ db, setDb }) {
   const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
   const monthShort = ['OCA', 'ŞUB', 'MAR', 'NİS', 'MAY', 'HAZ', 'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
   const monthIntensity = (count) => {
-    if (count === 0) return { bg: 'rgba(255,255,255,0.02)', border: C.border, color: C.textDim };
+    if (count === 0) return { bg: 'rgba(0,0,0,0.03)', border: C.border, color: C.textDim };
     if (count <= 2) return { bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.30)', color: '#34D399' };
     if (count <= 5) return { bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.30)', color: '#FBBF24' };
     if (count <= 10) return { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.30)', color: '#F59E0B' };
@@ -6749,10 +6756,10 @@ function AdminTuvTracking({ db, setDb }) {
         } />
 
       {/* Mode toggle: TÜV / Sigorta */}
-      <div className="mb-5 inline-flex rounded-full p-1" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+      <div className="mb-5 inline-flex rounded-full p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
         {[
           { k: 'tuv',       l: 'TÜV (Hauptuntersuchung)', icon: Shield,     color: C.neon },
-          { k: 'insurance', l: 'Sigorta',                  icon: ShieldIcon, color: '#22D3EE' },
+          { k: 'insurance', l: 'Sigorta',                  icon: ShieldIcon, color: '#B0050F' },
         ].map(t => {
           const active = mode === t.k;
           return (
@@ -6760,7 +6767,7 @@ function AdminTuvTracking({ db, setDb }) {
               className="flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all"
               style={{
                 background: active ? `linear-gradient(135deg, ${t.color}, ${t.color}cc)` : 'transparent',
-                color: active ? '#0B0818' : C.textDim,
+                color: active ? '#FFFFFF' : C.textDim,
               }}>
               <t.icon size={14} />
               {t.l}
@@ -6771,7 +6778,7 @@ function AdminTuvTracking({ db, setDb }) {
 
       {/* Year Selector + Month Strip */}
       <div className="rounded-2xl mb-5 overflow-hidden"
-        style={{ background: `linear-gradient(135deg, rgba(167,139,250,0.06), rgba(34,211,238,0.04))`,
+        style={{ background: `linear-gradient(135deg, rgba(227,6,19,0.05), rgba(227,6,19,0.03))`,
           border: `1px solid ${C.border}` }}>
         {/* Year header */}
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -6789,19 +6796,19 @@ function AdminTuvTracking({ db, setDb }) {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setYear(y => y - 1)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition hover:bg-white/5"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition hover:bg-black/5"
               style={{ color: C.textDim, border: `1px solid ${C.border}` }}>‹</button>
             <select value={year} onChange={(e) => setYear(parseInt(e.target.value))}
               className="px-4 py-1.5 rounded-lg text-sm font-mono font-bold outline-none cursor-pointer"
-              style={{ background: `rgba(167,139,250,0.1)`, color: C.text, border: `1px solid ${C.neon}40` }}>
+              style={{ background: `rgba(227,6,19,0.07)`, color: C.text, border: `1px solid ${C.neon}40` }}>
               {allYears.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
             <button onClick={() => setYear(y => y + 1)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition hover:bg-white/5"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition hover:bg-black/5"
               style={{ color: C.textDim, border: `1px solid ${C.border}` }}>›</button>
             <button onClick={() => { setYear(today.getFullYear()); setMonth('all'); }}
-              className="ml-2 px-3 py-1.5 rounded-lg text-xs transition hover:bg-white/5"
-              style={{ color: C.cyan, background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.25)' }}>
+              className="ml-2 px-3 py-1.5 rounded-lg text-xs transition hover:bg-black/5"
+              style={{ color: C.cyan, background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.10)' }}>
               Bugün
             </button>
           </div>
@@ -6812,9 +6819,9 @@ function AdminTuvTracking({ db, setDb }) {
           <button onClick={() => setMonth('all')}
             className="flex flex-col items-center justify-center py-3 rounded-xl transition-all"
             style={{
-              background: month === 'all' ? `linear-gradient(135deg, ${C.neon}, ${C.magenta})` : 'rgba(255,255,255,0.02)',
+              background: month === 'all' ? `linear-gradient(135deg, ${C.neon}, ${C.magenta})` : 'rgba(0,0,0,0.03)',
               border: `1px solid ${month === 'all' ? 'transparent' : C.border}`,
-              color: month === 'all' ? '#0B0818' : C.text,
+              color: month === 'all' ? '#FFFFFF' : C.text,
               fontWeight: month === 'all' ? 600 : 400,
             }}>
             <span className="text-[9px] uppercase tracking-widest" style={{ opacity: 0.7 }}>Tümü</span>
@@ -6831,7 +6838,7 @@ function AdminTuvTracking({ db, setDb }) {
                 style={{
                   background: active ? `linear-gradient(135deg, ${intensity.color}, ${intensity.color}cc)` : intensity.bg,
                   border: `1px solid ${active ? 'transparent' : intensity.border}`,
-                  color: active ? '#0B0818' : intensity.color,
+                  color: active ? '#FFFFFF' : intensity.color,
                   transform: active ? 'translateY(-2px)' : 'none',
                   boxShadow: active ? `0 8px 20px ${intensity.color}44` : 'none',
                 }}>
@@ -6843,7 +6850,7 @@ function AdminTuvTracking({ db, setDb }) {
                   <span className="lg:hidden">{monthShort[i]}</span>
                   <span className="hidden lg:inline">{m.slice(0, 3)}</span>
                 </span>
-                <span className="text-xl font-mono font-bold mt-0.5" style={{ color: active ? '#0B0818' : (count > 0 ? intensity.color : C.text) }}>
+                <span className="text-xl font-mono font-bold mt-0.5" style={{ color: active ? '#FFFFFF' : (count > 0 ? intensity.color : C.text) }}>
                   {count}
                 </span>
               </button>
@@ -6857,7 +6864,7 @@ function AdminTuvTracking({ db, setDb }) {
           <div className="flex items-center gap-3">
             <span className="uppercase tracking-widest">Yoğunluk:</span>
             {[
-              { l: '0', c: { bg: 'rgba(255,255,255,0.02)', color: C.textDim, border: C.border } },
+              { l: '0', c: { bg: 'rgba(0,0,0,0.03)', color: C.textDim, border: C.border } },
               { l: '1-2', c: monthIntensity(1) },
               { l: '3-5', c: monthIntensity(3) },
               { l: '6-10', c: monthIntensity(6) },
@@ -6884,7 +6891,7 @@ function AdminTuvTracking({ db, setDb }) {
             <button key={c.key} onClick={() => setFilter(c.key)}
               className="px-3 py-3 rounded-xl text-left transition-all"
               style={{
-                background: active ? `${c.color}15` : 'rgba(255,255,255,0.02)',
+                background: active ? `${c.color}15` : 'rgba(0,0,0,0.03)',
                 border: `1px solid ${active ? c.color : C.border}`,
                 color: active ? c.color : C.textDim,
               }}>
@@ -6899,7 +6906,7 @@ function AdminTuvTracking({ db, setDb }) {
         <input value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="Plaka, marka veya müşteri ara..."
           className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-          style={{ background: 'rgba(255,255,255,0.03)', color: C.text, border: `1px solid ${C.border}` }} />
+          style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }} />
       </div>
 
       <GlassCard>
@@ -6943,7 +6950,7 @@ function AdminTuvTracking({ db, setDb }) {
                       <td className="py-3 px-2" style={{ color: C.text }}>
                         {insurer ? (
                           <div className="flex items-center gap-2">
-                            <ShieldIcon size={12} style={{ color: '#22D3EE' }} />
+                            <ShieldIcon size={12} style={{ color: '#B0050F' }} />
                             <span className="text-xs">{insurer.company}</span>
                           </div>
                         ) : <span className="text-xs" style={{ color: C.textDim }}>Atanmamış</span>}
@@ -7027,7 +7034,7 @@ function AdminLiveDashboard({ db, setDb }) {
   const bekleyen = todayFeed.filter(f => f.status === 'bekliyor' || f.status === 'islemde').length;
 
   const feedColors = { gelen: C.cyan, giden: C.magenta, tamamlandi: '#34D399' };
-  const statusColors = { bekliyor: '#8B85A8', islemde: C.neon, bitti: '#34D399' };
+  const statusColors = { bekliyor: '#8B8B8B', islemde: C.neon, bitti: '#34D399' };
   const statusLabels = { bekliyor: 'Bekliyor', islemde: 'İşlemde', bitti: 'Tamamlandı' };
 
   const addFeed = (e) => {
@@ -7097,7 +7104,7 @@ function AdminLiveDashboard({ db, setDb }) {
             {todayFeed.map((f, idx) => (
               <motion.div key={f.id} initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                className="flex items-center gap-4 p-4 rounded-xl transition-all hover:bg-white/[0.03]"
+                className="flex items-center gap-4 p-4 rounded-xl transition-all hover:bg-black/[0.05]"
                 style={{ border: `1px solid ${C.border}` }}>
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
                   style={{ background: `${feedColors[f.type] || C.neon}15`, color: feedColors[f.type] || C.neon }}>
@@ -7151,7 +7158,7 @@ function AdminLiveDashboard({ db, setDb }) {
                 <button key={t.k} type="button" onClick={() => setFeedForm(f => ({ ...f, type: t.k }))}
                   className="flex-1 px-4 py-2.5 rounded-xl text-xs font-medium transition-all text-center"
                   style={{
-                    background: feedForm.type === t.k ? `${t.c}15` : 'rgba(255,255,255,0.03)',
+                    background: feedForm.type === t.k ? `${t.c}15` : 'rgba(0,0,0,0.04)',
                     border: `1px solid ${feedForm.type === t.k ? t.c : C.border}`,
                     color: feedForm.type === t.k ? t.c : C.textDim,
                   }}>{t.l}</button>
@@ -7679,12 +7686,12 @@ function AdminReminders({ db, setDb }) {
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button onClick={() => toggleReminder(r.id)} title="Tamamlandı"
-                          className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/5 transition"
+                          className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-black/5 transition"
                           style={{ color: '#34D399', border: '1px solid rgba(52,211,153,0.3)' }}>
                           <Check size={16} />
                         </button>
                         <button onClick={() => deleteReminder(r.id)} title="Sil"
-                          className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/5 transition"
+                          className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-black/5 transition"
                           style={{ color: C.textDim, border: `1px solid ${C.border}` }}>
                           <TrashIcon size={14} />
                         </button>
@@ -7730,12 +7737,12 @@ function AdminReminders({ db, setDb }) {
             <Field label="Tarih" required>
               <input type="date" value={form.due_date} onChange={(e) => setForm(f => ({ ...f, due_date: e.target.value }))} required
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, color: C.text, colorScheme: 'dark' }} />
+                style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text, colorScheme: 'dark' }} />
             </Field>
             <Field label="Saat" required>
               <input type="time" value={form.due_time} onChange={(e) => setForm(f => ({ ...f, due_time: e.target.value }))} required
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, color: C.text, colorScheme: 'dark' }} />
+                style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text, colorScheme: 'dark' }} />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -7776,10 +7783,10 @@ function AdminPartners({ db, setDb, currentUser }) {
   const insurerCount = (db.insurers || []).length;
   return (
     <>
-      <div className="mb-5 inline-flex rounded-full p-1" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+      <div className="mb-5 inline-flex rounded-full p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
         {[
           { k: 'lawyers',  l: 'Avukatlar',         cnt: lawyerCount,  color: C.neon,  icon: ScaleIcon },
-          { k: 'insurers', l: 'Sigorta Şirketleri', cnt: insurerCount, color: '#22D3EE', icon: ShieldIcon },
+          { k: 'insurers', l: 'Sigorta Şirketleri', cnt: insurerCount, color: '#B0050F', icon: ShieldIcon },
         ].map(t => {
           const active = tab === t.k;
           return (
@@ -7787,12 +7794,12 @@ function AdminPartners({ db, setDb, currentUser }) {
               className="flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all"
               style={{
                 background: active ? `linear-gradient(135deg, ${t.color}, ${t.color}cc)` : 'transparent',
-                color: active ? '#0B0818' : C.textDim,
+                color: active ? '#FFFFFF' : C.textDim,
               }}>
               <t.icon size={14} />
               {t.l}
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono"
-                style={{ background: active ? 'rgba(11,8,24,0.18)' : 'rgba(255,255,255,0.05)', color: active ? '#0B0818' : C.textDim }}>
+                style={{ background: active ? 'rgba(11,8,24,0.18)' : 'rgba(0,0,0,0.05)', color: active ? '#FFFFFF' : C.textDim }}>
                 {t.cnt}
               </span>
             </button>
@@ -7889,7 +7896,7 @@ function AdminInsurers({ db, setDb, currentUser }) {
         <input value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="Sigorta şirketi ara... (firma, yetkili, e-posta)"
           className="w-full pl-11 pr-4 py-3 rounded-xl text-sm outline-none"
-          style={{ background: 'rgba(255,255,255,0.03)', color: C.text, border: `1px solid ${C.border}` }} />
+          style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }} />
       </div>
 
       {insurers.length === 0 ? (
@@ -7906,8 +7913,8 @@ function AdminInsurers({ db, setDb, currentUser }) {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.3)' }}>
-                    <ShieldIcon size={18} style={{ color: '#22D3EE' }} />
+                    style={{ background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.12)' }}>
+                    <ShieldIcon size={18} style={{ color: '#B0050F' }} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate" style={{ color: C.text }}>{ins.company || '—'}</p>
@@ -7916,7 +7923,7 @@ function AdminInsurers({ db, setDb, currentUser }) {
                 </div>
                 <span className="text-[9px] px-2 py-1 rounded-full uppercase tracking-wider"
                   style={{
-                    background: ins.active ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.04)',
+                    background: ins.active ? 'rgba(52,211,153,0.12)' : 'rgba(0,0,0,0.05)',
                     color: ins.active ? '#34D399' : C.textDim,
                     border: `1px solid ${ins.active ? 'rgba(52,211,153,0.3)' : C.border}`,
                   }}>
@@ -8058,7 +8065,7 @@ function AdminLawyers({ db, setDb, currentUser }) {
         <input value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="Avukat ara... (isim, e-posta, baro)"
           className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none"
-          style={{ background: 'rgba(255,255,255,0.03)', color: C.text, border: `1px solid ${C.border}` }} />
+          style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }} />
       </div>
 
       {/* Lawyer cards */}
@@ -8068,7 +8075,7 @@ function AdminLawyers({ db, setDb, currentUser }) {
           return (
             <motion.div key={l.id} whileHover={{ scale: 1.01 }}
               className="rounded-2xl p-5 transition-all"
-              style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${l.active ? C.border : 'rgba(239,68,68,0.2)'}`,
+              style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${l.active ? C.border : 'rgba(239,68,68,0.2)'}`,
                 opacity: l.active ? 1 : 0.6 }}>
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -8106,7 +8113,7 @@ function AdminLawyers({ db, setDb, currentUser }) {
                   <div className="flex flex-wrap gap-1.5">
                     {customers.map(c => (
                       <span key={c.id} className="text-xs px-2 py-1 rounded-lg"
-                        style={{ background: 'rgba(124,58,237,0.1)', color: C.neon, border: `1px solid ${C.neon}22` }}>
+                        style={{ background: 'rgba(227,6,19,0.07)', color: C.neon, border: `1px solid ${C.neon}22` }}>
                         {c.type === 'kurumsal' ? c.company : c.full_name}
                       </span>
                     ))}
@@ -8326,24 +8333,24 @@ function LawyerApp({ user, onLogout, onHome }) {
               }}>
               <it.icon size={18} strokeWidth={1.8} />
               <span className={section === it.key ? 'font-medium' : ''}>{it.label}</span>
-              {it.badge > 0 && <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: '#F59E0B', color: '#0B0818' }}>{it.badge}</span>}
+              {it.badge > 0 && <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: '#F59E0B', color: '#FFFFFF' }}>{it.badge}</span>}
               {section === it.key && !it.badge && <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#F59E0B', boxShadow: '0 0 8px #F59E0B' }} />}
             </button>
           ))}
         </nav>
         <div className="p-4 space-y-2" style={{ borderTop: `1px solid ${C.border}` }}>
-          <button onClick={() => { onHome(); setMobileNavOpen(false); }} className="w-full text-xs px-3 py-2 rounded-full transition-colors hover:bg-white/5"
+          <button onClick={() => { onHome(); setMobileNavOpen(false); }} className="w-full text-xs px-3 py-2 rounded-full transition-colors hover:bg-black/5"
             style={{ color: C.textDim, border: `1px solid ${C.border}` }}>← Ana Sayfa</button>
           <div className="flex items-center gap-3 px-2 py-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.06)' }}>
             <div className="w-9 h-9 rounded-full flex items-center justify-center font-mono text-xs flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#0B0818' }}>
+              style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#FFFFFF' }}>
               <ScaleIcon size={16} />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm truncate" style={{ color: C.text }}>{user?.name}</p>
               <p className="text-xs truncate" style={{ color: C.textDim }}>{user?.email}</p>
             </div>
-            <button onClick={handleLogout} className="p-1.5 rounded-lg hover:bg-white/5 transition" style={{ color: C.textDim }}>
+            <button onClick={handleLogout} className="p-1.5 rounded-lg hover:bg-black/5 transition" style={{ color: C.textDim }}>
               <LogOutIcon size={14} />
             </button>
           </div>
@@ -8359,7 +8366,7 @@ function LawyerApp({ user, onLogout, onHome }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               {[
                 { label: 'Atanmış Müşteri', value: myCustomers.length, color: '#F59E0B', icon: UsersIcon },
-                { label: 'Toplam Belge', value: myCustomerIds.reduce((sum, id) => sum + getCustomerDocs(id).length, 0), color: '#22D3EE', icon: FolderIcon },
+                { label: 'Toplam Belge', value: myCustomerIds.reduce((sum, id) => sum + getCustomerDocs(id).length, 0), color: '#B0050F', icon: FolderIcon },
                 { label: 'Toplam Araç', value: myCustomerIds.reduce((sum, id) => sum + getCustomerVehicles(id).length, 0), color: '#34D399', icon: CarIcon },
               ].map((s, i) => (
                 <GlassCard key={i}>
@@ -8377,7 +8384,7 @@ function LawyerApp({ user, onLogout, onHome }) {
             <div className="space-y-2">
               {myCustomers.map(c => (
                 <div key={c.id} onClick={() => { setSelectedCustomer(c); setSection('customers'); }}
-                  className="rounded-xl p-4 cursor-pointer hover:bg-white/[0.02] transition-all"
+                  className="rounded-xl p-4 cursor-pointer hover:bg-black/[0.03] transition-all"
                   style={{ border: `1px solid ${C.border}` }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -8419,7 +8426,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                     whileHover={{ y: -4, scale: 1.01 }}
                     className="relative rounded-2xl p-5 cursor-pointer overflow-hidden transition-all group"
                     style={{
-                      background: `linear-gradient(135deg, ${accent}10 0%, rgba(255,255,255,0.02) 60%)`,
+                      background: `linear-gradient(135deg, ${accent}10 0%, rgba(0,0,0,0.03) 60%)`,
                       border: `1px solid ${C.border}`,
                       boxShadow: `0 4px 24px rgba(0,0,0,0.2)`,
                     }}>
@@ -8431,12 +8438,12 @@ function LawyerApp({ user, onLogout, onHome }) {
                     <div className="relative flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center text-base font-bold flex-shrink-0"
-                          style={{ background: `linear-gradient(135deg, ${accent}, ${accent}88)`, color: '#0B0818',
+                          style={{ background: `linear-gradient(135deg, ${accent}, ${accent}88)`, color: '#FFFFFF',
                             boxShadow: `0 8px 24px ${accent}33` }}>
                           {initials}
                           {activeCases > 0 && (
                             <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-                              style={{ background: '#34D399', color: '#0B0818', border: `2px solid ${C.surface}` }}>
+                              style={{ background: '#34D399', color: '#FFFFFF', border: `2px solid ${C.surface}` }}>
                               {activeCases}
                             </span>
                           )}
@@ -8470,7 +8477,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                         { icon: Wrench,     label: 'Rapor', value: apps.length, color: '#34D399' },
                       ].map(s => (
                         <div key={s.label} className="rounded-xl p-2.5 text-center"
-                          style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+                          style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
                           <s.icon size={14} style={{ color: s.color, margin: '0 auto 4px' }} />
                           <p className="text-base font-semibold leading-none" style={{ color: C.text }}>{s.value}</p>
                           <p className="text-[10px] mt-1" style={{ color: C.textDim }}>{s.label}</p>
@@ -8530,10 +8537,10 @@ function LawyerApp({ user, onLogout, onHome }) {
                 style={{ background: `radial-gradient(circle, ${accent}33, transparent 70%)`, filter: 'blur(60px)' }} />
               <div className="relative flex items-start gap-4 md:gap-6">
                 <button onClick={() => { setSelectedCustomer(null); setPreviewDoc(null); }}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-white/5 transition flex-shrink-0"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-black/5 transition flex-shrink-0"
                   style={{ border: `1px solid ${C.border}`, color: C.textDim }}>←</button>
                 <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center text-xl md:text-2xl font-bold flex-shrink-0"
-                  style={{ background: `linear-gradient(135deg, ${accent}, ${accent}88)`, color: '#0B0818',
+                  style={{ background: `linear-gradient(135deg, ${accent}, ${accent}88)`, color: '#FFFFFF',
                     boxShadow: `0 12px 32px ${accent}44` }}>
                   {initials}
                 </div>
@@ -8564,7 +8571,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                   { icon: Wrench,     label: 'Rapor',  value: apps.length,     color: '#34D399' },
                 ].map(s => (
                   <div key={s.label} className="rounded-xl p-3 flex items-center gap-3"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}` }}>
+                    style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}` }}>
                     <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{ background: `${s.color}15` }}>
                       <s.icon size={15} style={{ color: s.color }} />
@@ -8591,7 +8598,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {vehicles.map(v => (
                         <div key={v.id} className="p-3 rounded-xl"
-                          style={{ background: 'rgba(34,211,238,0.04)', border: `1px solid ${C.border}` }}>
+                          style={{ background: 'rgba(227,6,19,0.03)', border: `1px solid ${C.border}` }}>
                           <p className="font-mono text-sm font-semibold" style={{ color: C.text }}>{v.plate}</p>
                           <p className="text-xs mt-0.5" style={{ color: C.textDim }}>{v.brand} {v.model} · {v.year}</p>
                         </div>
@@ -8648,11 +8655,11 @@ function LawyerApp({ user, onLogout, onHome }) {
                           const ub = uploaderBadge(doc);
                           return (
                             <div key={doc.id} onClick={() => setPreviewDoc(doc)}
-                              className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all hover:bg-white/[0.03]"
+                              className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all hover:bg-black/[0.05]"
                               style={{ border: `1px solid ${previewDoc?.id === doc.id ? C.neon + '44' : C.border}`,
-                                background: previewDoc?.id === doc.id ? `${C.neon}08` : 'rgba(255,255,255,0.02)' }}>
+                                background: previewDoc?.id === doc.id ? `${C.neon}08` : 'rgba(0,0,0,0.03)' }}>
                               <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                                style={{ background: 'rgba(124,58,237,0.1)' }}>
+                                style={{ background: 'rgba(227,6,19,0.07)' }}>
                                 <FileText size={16} style={{ color: C.neon }} />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -8723,7 +8730,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                     <div className="space-y-2">
                       {notes.map(n => (
                         <div key={n.id} className="p-3 rounded-xl text-sm"
-                          style={{ background: 'rgba(244,114,182,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                          style={{ background: 'rgba(227,6,19,0.03)', border: `1px solid ${C.border}`, color: C.text }}>
                           {n.text}
                           <p className="text-[11px] mt-1.5" style={{ color: C.textDim }}>{new Date(n.created_at).toLocaleDateString('tr-TR')}</p>
                         </div>
@@ -8745,11 +8752,11 @@ function LawyerApp({ user, onLogout, onHome }) {
                     <div className="flex items-center gap-2">
                       {previewDoc.data && (
                         <a href={previewDoc.data} download={previewDoc.name}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                           style={{ color: C.neon }}><DownloadIcon size={16} /></a>
                       )}
                       <button onClick={() => setPreviewDoc(null)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                         style={{ color: C.textDim }}><XClose size={16} /></button>
                     </div>
                   </div>
@@ -8858,7 +8865,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                     onKeyDown={(e) => { if (e.key === 'Enter') addTask(); }}
                     placeholder="Yeni görev ekle..."
                     className="flex-1 rounded-xl px-4 py-3 text-sm outline-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                    style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
                   <AdminButton variant="primary" onClick={addTask}><CheckSquare size={14} /> Ekle</AdminButton>
                 </div>
               </GlassCard>
@@ -8967,7 +8974,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                           <div key={m.id} className={`flex ${m.sender === 'lawyer' ? 'justify-end' : 'justify-start'}`}>
                             <div className="max-w-[70%] rounded-2xl px-4 py-2.5"
                               style={{
-                                background: m.sender === 'lawyer' ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.04)',
+                                background: m.sender === 'lawyer' ? 'rgba(245,158,11,0.15)' : 'rgba(0,0,0,0.05)',
                                 border: `1px solid ${m.sender === 'lawyer' ? 'rgba(245,158,11,0.3)' : C.border}`,
                               }}>
                               <p className="text-sm" style={{ color: C.text, whiteSpace: 'pre-wrap' }}>{m.text}</p>
@@ -8984,10 +8991,10 @@ function LawyerApp({ user, onLogout, onHome }) {
                           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }}}
                           placeholder="Mesajınızı yazın..." rows={1}
                           className="flex-1 rounded-xl px-4 py-3 text-sm resize-none outline-none"
-                          style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                          style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
                         <button onClick={sendMsg}
                           className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#0B0818' }}>
+                          style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#FFFFFF' }}>
                           <ArrowRight size={18} />
                         </button>
                       </div>
@@ -9034,20 +9041,20 @@ function LawyerApp({ user, onLogout, onHome }) {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                   <input type="date" value={newDate.date} onChange={(e) => setNewDate(d => ({ ...d, date: e.target.value }))}
                     className="rounded-xl px-3 py-2.5 text-sm outline-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                    style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
                   <input type="time" value={newDate.time} onChange={(e) => setNewDate(d => ({ ...d, time: e.target.value }))}
                     className="rounded-xl px-3 py-2.5 text-sm outline-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                    style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
                   <input placeholder="Mahkeme adı" value={newDate.court} onChange={(e) => setNewDate(d => ({ ...d, court: e.target.value }))}
                     className="rounded-xl px-3 py-2.5 text-sm outline-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                    style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
                   <SelectInput value={newDate.customer_id}
                     onChange={(e) => setNewDate(d => ({ ...d, customer_id: e.target.value }))}
                     options={[{ value: '', label: 'Müşteri...' }, ...myCustomers.map(c => ({ value: c.id, label: c.type === 'kurumsal' ? c.company : c.full_name }))]} />
                 </div>
                 <input placeholder="Açıklama" value={newDate.description} onChange={(e) => setNewDate(d => ({ ...d, description: e.target.value }))}
                   className="w-full rounded-xl px-3 py-2.5 text-sm outline-none mb-3"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                  style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
                 <AdminButton variant="primary" onClick={addCourtDate}><CalendarIcon size={14} /> Ekle</AdminButton>
               </GlassCard>
               {upcoming.length > 0 && (
@@ -9222,7 +9229,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                     <textarea value={editContent} onChange={e => setEditContent(e.target.value)}
                       rows={15}
                       className="w-full rounded-xl px-4 py-3 text-sm resize-none outline-none font-mono"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text, lineHeight: 1.8 }} />
+                      style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text, lineHeight: 1.8 }} />
                     <div className="flex items-center gap-2 mt-4">
                       <AdminButton variant="primary" onClick={() => { setFillModal(true); }}>
                         Müşteri ile Doldur
@@ -9246,7 +9253,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                   {fillCustomer && selectedTpl && (
                     <>
                       <div className="p-4 rounded-xl font-mono text-xs leading-relaxed whitespace-pre-wrap"
-                        style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text, maxHeight: 300, overflowY: 'auto' }}>
+                        style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text, maxHeight: 300, overflowY: 'auto' }}>
                         {fillTemplate(selectedTpl)}
                       </div>
                       <div className="flex items-center gap-2">
@@ -9391,7 +9398,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                               <p className="text-[10px] uppercase mb-1" style={{ color: '#EF4444', letterSpacing: '0.1em' }}>Hasar Tutarı</p>
                               <p className="text-2xl font-bold font-mono" style={{ color: '#EF4444' }}>€{claimAmt.toLocaleString('tr-TR')}</p>
                             </div>
-                            <div className="p-4 rounded-xl text-center" style={{ background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.2)' }}>
+                            <div className="p-4 rounded-xl text-center" style={{ background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.08)' }}>
                               <p className="text-[10px] uppercase mb-1" style={{ color: C.cyan, letterSpacing: '0.1em' }}>Sigorta Teklifi</p>
                               <p className="text-2xl font-bold font-mono" style={{ color: C.cyan }}>€{offerAmt.toLocaleString('tr-TR')}</p>
                             </div>
@@ -9538,7 +9545,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                         <CarIcon size={16} style={{ color: C.cyan }} /> Araçlar
                       </p>
                       {data.vehicles.map(v => (
-                        <div key={v.id} className="flex items-center justify-between p-3 rounded-xl mb-2" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+                        <div key={v.id} className="flex items-center justify-between p-3 rounded-xl mb-2" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
                           <div>
                             <span className="font-mono font-bold" style={{ color: C.text }}>{v.plate}</span>
                             <span className="text-xs ml-2" style={{ color: C.textDim }}>{v.brand} {v.model} · {v.year}</span>
@@ -9558,7 +9565,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                       {data.claims.map(c => {
                         const insurer = (db.insurers || []).find(i => i.id === c.insurer_id);
                         return (
-                          <div key={c.id} className="p-3 rounded-xl mb-2" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+                          <div key={c.id} className="p-3 rounded-xl mb-2" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
                             <div className="flex items-center justify-between">
                               <span className="text-sm" style={{ color: C.text }}>{c.damage_description?.slice(0, 60)}</span>
                               <span className="text-xs px-2 py-0.5 rounded-full capitalize" style={{ color: '#F59E0B', background: 'rgba(245,158,11,0.1)' }}>{c.status}</span>
@@ -9633,7 +9640,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   const aprs = getCustomerAppraisals(c.id);
                   const cases = myCases.filter(cs => cs.customer_id === c.id);
                   return (
-                    <div key={c.id} className="flex items-center gap-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+                    <div key={c.id} className="flex items-center gap-4 p-3 rounded-xl" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold"
                         style={{ background: 'rgba(245,158,11,0.1)', color: '#F59E0B' }}>
                         {(c.full_name || c.company || '?')[0]}
@@ -9710,7 +9717,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                 <input value={caseForm.title} onChange={(e) => setCaseForm(f => ({ ...f, title: e.target.value }))}
                   placeholder="Örn: Kaza hasar davası"
                   className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                  style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
               </Field>
               <Field label="Müşteri *">
                 <SelectInput value={caseForm.customer_id}
@@ -9722,7 +9729,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                   placeholder="Dava detayları..."
                   rows={3}
                   className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                  style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
               </Field>
               <AdminButton variant="primary" onClick={createCase}>
                 <FolderIcon size={14} /> Dava Oluştur
@@ -9795,44 +9802,44 @@ function PWAInstallBanner() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 80 }}
         style={{ position: 'fixed', bottom: 20, left: 16, right: 16, zIndex: 9999,
-          background: 'linear-gradient(135deg, #1a1030 0%, #0E0B18 100%)',
-          border: '1px solid rgba(124,58,237,0.3)', borderRadius: 20,
-          padding: '20px', boxShadow: '0 8px 40px rgba(124,58,237,0.2)' }}>
+          background: '#FFFFFF',
+          border: '1px solid rgba(0,0,0,0.12)', borderRadius: 20,
+          padding: '20px', boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(124,58,237,0.15)',
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(227,6,19,0.08)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24 }}>
             📲
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#EDE9FE', marginBottom: 4 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#0A0A0A', marginBottom: 4 }}>
               Gecit Kfz Sachverständiger'u Ana Ekrana Ekle
             </div>
             {isIOS ? (
-              <div style={{ fontSize: 13, color: '#8B85A8', lineHeight: 1.5 }}>
-                <span style={{ color: '#22D3EE' }}>Safari</span>'de alttaki{' '}
-                <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(124,58,237,0.15)',
+              <div style={{ fontSize: 13, color: '#6B6B6B', lineHeight: 1.5 }}>
+                <span style={{ color: '#E30613' }}>Safari</span>'de alttaki{' '}
+                <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(227,6,19,0.08)',
                   borderRadius: 6, padding: '2px 6px', fontSize: 12, verticalAlign: 'middle' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.5">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E30613" strokeWidth="2.5">
                     <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/>
                     <line x1="12" y1="2" x2="12" y2="15"/>
                   </svg>
                 </span>{' '}
-                paylaş butonuna bas, sonra <strong style={{ color: '#EDE9FE' }}>"Ana Ekrana Ekle"</strong> seç.
+                paylaş butonuna bas, sonra <strong style={{ color: '#0A0A0A' }}>"Ana Ekrana Ekle"</strong> seç.
                 Push bildirimleri sadece PWA'da çalışır.
               </div>
             ) : (
-              <div style={{ fontSize: 13, color: '#8B85A8', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 13, color: '#6B6B6B', lineHeight: 1.5 }}>
                 Uygulamayı telefonuna yükle — push bildirimleri al, çevrimdışı çalış.
               </div>
             )}
           </div>
-          <button onClick={dismiss} style={{ background: 'none', border: 'none', color: '#8B85A8',
+          <button onClick={dismiss} style={{ background: 'none', border: 'none', color: '#6B6B6B',
             fontSize: 20, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
         </div>
         {!isIOS && deferredPrompt && (
           <button onClick={handleInstall}
             style={{ width: '100%', marginTop: 14, padding: '12px 0', borderRadius: 12,
-              background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
+              background: '#E30613',
               border: 'none', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
             Şimdi Yükle
           </button>
@@ -9943,13 +9950,13 @@ function ActivityLogPanel({ db, setDb }) {
             <input value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder="Kullanıcı, hedef veya detay ara..."
               className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none"
-              style={{ background: 'rgba(255,255,255,0.03)', color: C.text, border: `1px solid ${C.border}` }} />
+              style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }} />
           </div>
 
           {/* Role filter pills */}
           <div className="flex flex-wrap gap-1.5">
             {roles.map(r => {
-              const meta = r === 'all' ? { label: 'Hepsi', color: C.text, bg: 'rgba(255,255,255,0.06)', border: C.border } : ACTOR_ROLES[r];
+              const meta = r === 'all' ? { label: 'Hepsi', color: C.text, bg: 'rgba(0,0,0,0.06)', border: C.border } : ACTOR_ROLES[r];
               if (!meta) return null;
               const cnt = r === 'all' ? counts.total : (counts.byRole[r] || 0) + (r === 'admin' ? (counts.byRole.super_admin || 0) : 0);
               const active = roleFilter === r;
@@ -9958,7 +9965,7 @@ function ActivityLogPanel({ db, setDb }) {
                   className="text-xs px-2.5 py-1 rounded-full transition-all flex items-center gap-1.5"
                   style={{
                     background: active ? meta.color : meta.bg,
-                    color: active ? '#0B0818' : meta.color,
+                    color: active ? '#FFFFFF' : meta.color,
                     border: `1px solid ${active ? meta.color : (meta.border || C.border)}`,
                     fontWeight: active ? 600 : 500,
                   }}>
@@ -9973,7 +9980,7 @@ function ActivityLogPanel({ db, setDb }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)}
               className="text-xs px-3 py-2 rounded-xl outline-none cursor-pointer"
-              style={{ background: 'rgba(255,255,255,0.03)', color: C.text, border: `1px solid ${C.border}` }}>
+              style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }}>
               {actionKeys.map(a => (
                 <option key={a} value={a} style={{ background: C.surface }}>
                   {a === 'all' ? '— Tüm İşlemler —' : (ACTION_META[a]?.label || a)}
@@ -9982,7 +9989,7 @@ function ActivityLogPanel({ db, setDb }) {
             </select>
             <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)}
               className="text-xs px-3 py-2 rounded-xl outline-none cursor-pointer"
-              style={{ background: 'rgba(255,255,255,0.03)', color: C.text, border: `1px solid ${C.border}` }}>
+              style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }}>
               {severities.map(s => (
                 <option key={s} value={s} style={{ background: C.surface }}>
                   {s === 'all' ? '— Tüm Önem Seviyeleri —' : s === 'info' ? 'Bilgi' : s === 'warning' ? 'Uyarı' : 'Kritik'}
@@ -10013,8 +10020,8 @@ function ActivityLogPanel({ db, setDb }) {
               return (
                 <div key={log.id}
                   onClick={() => setExpandedId(isOpen ? null : log.id)}
-                  className="rounded-xl p-3 cursor-pointer transition-colors hover:bg-white/[0.03]"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+                  className="rounded-xl p-3 cursor-pointer transition-colors hover:bg-black/[0.05]"
+                  style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
                   <div className="flex items-start gap-3">
                     {/* Actor avatar */}
                     <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-xs"
@@ -10032,7 +10039,7 @@ function ActivityLogPanel({ db, setDb }) {
                           {action.label}
                         </span>
                         {log.target?.label && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.04)', color: C.textDim, border: `1px solid ${C.border}` }}>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(0,0,0,0.05)', color: C.textDim, border: `1px solid ${C.border}` }}>
                             → {log.target.label}
                           </span>
                         )}
@@ -10056,7 +10063,7 @@ function ActivityLogPanel({ db, setDb }) {
                         </div>
                       )}
                       {isOpen && log.metadata && Object.keys(log.metadata).length > 0 && (
-                        <div className="mt-2 rounded-lg p-2 text-[11px] font-mono" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`, color: C.textDim }}>
+                        <div className="mt-2 rounded-lg p-2 text-[11px] font-mono" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}`, color: C.textDim }}>
                           <p className="text-[9px] uppercase mb-1" style={{ letterSpacing: '0.15em', color: C.text }}>Metadata</p>
                           {JSON.stringify(log.metadata, null, 2)}
                         </div>
@@ -10217,7 +10224,7 @@ function AdminApp({ user, onLogout, onHome }) {
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                            style={{ background: flow.active ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.04)',
+                            style={{ background: flow.active ? 'rgba(52,211,153,0.1)' : 'rgba(0,0,0,0.05)',
                               border: `1px solid ${flow.active ? 'rgba(52,211,153,0.3)' : C.border}` }}>
                             <Zap size={18} style={{ color: flow.active ? '#34D399' : C.textDim }} />
                           </div>
@@ -10381,7 +10388,7 @@ function CustomerApp({ user, onLogout, onHome }) {
       <MeshBackground />
       {/* Premium sticky header */}
       <header className="sticky top-0 z-30"
-        style={{ background: 'rgba(7,6,11,0.85)', backdropFilter: 'blur(20px)', borderBottom: `1px solid ${C.border}`,
+        style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(20px)', borderBottom: `1px solid ${C.border}`,
           paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="mx-auto px-3 md:px-4 lg:px-6 py-2 md:py-3 flex items-center gap-3 md:gap-4" style={{ maxWidth: 1400 }}>
           <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-shrink-0">
@@ -10390,18 +10397,18 @@ function CustomerApp({ user, onLogout, onHome }) {
               <span style={{ color: C.neon, textShadow: `0 0 12px ${C.glow}` }}>C</span>
               <span>IT</span>
               <span className="ml-2 lg:ml-3 text-[10px] md:text-xs px-2 lg:px-2.5 py-1 rounded-full font-medium hidden md:inline-flex flex-shrink-0 max-w-[180px] lg:max-w-[260px] truncate"
-                style={{ color: C.cyan, border: `1px solid ${C.cyan}44`, background: 'rgba(34,211,238,0.08)', letterSpacing: '0.05em' }}
+                style={{ color: C.cyan, border: `1px solid ${C.cyan}44`, background: 'rgba(0,0,0,0.04)', letterSpacing: '0.05em' }}
                 title={myRecord.type === 'kurumsal' ? (myRecord.company || myRecord.full_name) : myRecord.full_name}>
                 {myRecord.type === 'kurumsal' ? (myRecord.company || myRecord.full_name) : myRecord.full_name}
               </span>
             </div>
             {/* Mobile: show current section label */}
-            <span className="md:hidden text-xs truncate px-2 py-1 rounded-full" style={{ color: C.cyan, border: `1px solid ${C.cyan}33`, background: 'rgba(34,211,238,0.06)', maxWidth: 120 }}>
+            <span className="md:hidden text-xs truncate px-2 py-1 rounded-full" style={{ color: C.cyan, border: `1px solid ${C.cyan}33`, background: 'rgba(0,0,0,0.03)', maxWidth: 120 }}>
               {navItems.find(n => n.k === section)?.l || 'Genel Bakış'}
             </span>
           </div>
           <nav className="hidden md:flex items-center gap-0.5 rounded-full p-1 flex-1 min-w-0 overflow-x-auto scrollbar-hide"
-            style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+            style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
             {navItems.map(t => (
               <button key={t.k} onClick={() => setSection(t.k)}
                 className="flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-full text-xs lg:text-sm transition-all relative flex-shrink-0"
@@ -10418,22 +10425,22 @@ function CustomerApp({ user, onLogout, onHome }) {
           </nav>
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
             {/* Notification Bell */}
-            <button onClick={() => setSection('notifications')} className="relative w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center hover:bg-white/5 transition"
+            <button onClick={() => setSection('notifications')} className="relative w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center hover:bg-black/5 transition"
               style={{ color: C.textDim, border: `1px solid ${C.border}` }}>
               <BellIcon size={15} />
               {unreadNotifs > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center" style={{ background: '#EF4444', color: '#fff' }}>{unreadNotifs}</span>}
             </button>
             {/* Ana Sayfa - her boyutta gozuksun */}
             <button onClick={onHome} title="Ana Sayfa"
-              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-colors hover:bg-white/5"
-              style={{ color: C.text, border: `1px solid ${C.neon}55`, background: 'rgba(167,139,250,0.08)' }}>
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-colors hover:bg-black/5"
+              style={{ color: C.text, border: `1px solid ${C.neon}55`, background: 'rgba(227,6,19,0.06)' }}>
               <ArrowRight size={12} style={{ transform: 'rotate(180deg)' }} />
               <span className="hidden sm:inline">Ana Sayfa</span>
             </button>
             <div className="hidden sm:flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-full"
-              style={{ background: 'rgba(167,139,250,0.06)', border: `1px solid ${C.border}` }}>
+              style={{ background: 'rgba(227,6,19,0.05)', border: `1px solid ${C.border}` }}>
               <div className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center font-mono text-[10px] md:text-xs"
-                style={{ background: `linear-gradient(135deg, ${C.neon}, ${C.magenta})`, color: '#0B0818' }}>
+                style={{ background: `linear-gradient(135deg, ${C.neon}, ${C.magenta})`, color: '#FFFFFF' }}>
                 {(myRecord.full_name || 'M').slice(0,2).toUpperCase()}
               </div>
               <span className="hidden md:inline text-sm" style={{ color: C.text }}>{myRecord.full_name?.split(' ')[0]}</span>
@@ -10466,7 +10473,7 @@ function CustomerApp({ user, onLogout, onHome }) {
               <div className="relative p-8 md:p-10">
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
                   className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs uppercase mb-4"
-                  style={{ background: 'rgba(167,139,250,0.1)', border: `1px solid ${C.neon}33`, color: C.neon, letterSpacing: '0.2em' }}>
+                  style={{ background: 'rgba(227,6,19,0.07)', border: `1px solid ${C.neon}33`, color: C.neon, letterSpacing: '0.2em' }}>
                   <Sparkles size={12} /> {greeting}
                 </motion.div>
                 <h1 className="text-3xl md:text-5xl font-bold mb-3" style={{ color: C.text, letterSpacing: '-0.03em' }}>
@@ -10558,7 +10565,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                                   className="flex items-center justify-center rounded-full flex-shrink-0"
                                   style={{
                                     width: 32, height: 32,
-                                    background: s.pct <= stage.pct ? `${stage.color}20` : 'rgba(255,255,255,0.04)',
+                                    background: s.pct <= stage.pct ? `${stage.color}20` : 'rgba(0,0,0,0.05)',
                                     border: `2px solid ${s.pct <= stage.pct ? stage.color : C.border}`,
                                     boxShadow: s.key === stage.key ? `0 0 12px ${stage.color}66` : 'none',
                                   }}>
@@ -10570,7 +10577,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                                 </motion.div>
                                 {sIdx < STAGES.length - 1 && (
                                   <div className="flex-1 h-0.5 rounded-full"
-                                    style={{ background: s.pct < stage.pct ? stage.color : 'rgba(255,255,255,0.06)',
+                                    style={{ background: s.pct < stage.pct ? stage.color : 'rgba(0,0,0,0.06)',
                                       boxShadow: s.pct < stage.pct ? `0 0 6px ${stage.color}44` : 'none' }} />
                                 )}
                               </React.Fragment>
@@ -10586,7 +10593,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                           </div>
                           {apr?.notes && (
                             <div className="mt-4 p-3 rounded-xl text-sm flex items-start gap-2"
-                              style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+                              style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
                               <FileText size={14} style={{ color: C.neon, marginTop: 2, flexShrink: 0 }} />
                               <span style={{ color: C.textDim }}>{apr.notes}</span>
                             </div>
@@ -10647,7 +10654,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                         <div className="flex flex-col md:flex-row md:items-center gap-6">
                           <div className="flex items-center gap-4 flex-1">
                             <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
-                              style={{ background: 'rgba(34,211,238,0.08)', color: C.cyan, border: `1px solid rgba(34,211,238,0.2)` }}>
+                              style={{ background: 'rgba(0,0,0,0.04)', color: C.cyan, border: `1px solid rgba(0,0,0,0.08)` }}>
                               <CarIcon size={24} />
                             </div>
                             <div>
@@ -10661,7 +10668,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                               <span style={{ color: C.textDim }}>Ekspertiz</span>
                               <span className="font-mono font-medium" style={{ color: stage.color }}>{stage.label} · %{stage.pct}</span>
                             </div>
-                            <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                            <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.05)' }}>
                               <motion.div initial={{ width: 0 }} animate={{ width: `${stage.pct}%` }}
                                 transition={{ duration: 1.2, ease: easeOut }}
                                 className="h-full rounded-full"
@@ -10674,7 +10681,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                           </span>
                         </div>
                         {apr?.notes && (
-                          <p className="text-sm p-3 rounded-xl mt-4" style={{ background: 'rgba(255,255,255,0.03)', color: C.textDim, border: `1px solid ${C.border}` }}>
+                          <p className="text-sm p-3 rounded-xl mt-4" style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim, border: `1px solid ${C.border}` }}>
                             {apr.notes}
                           </p>
                         )}
@@ -10760,7 +10767,7 @@ function CustomerApp({ user, onLogout, onHome }) {
 
             {/* Upload Zone */}
             <GlassCard className="mb-6">
-              <div className="rounded-2xl p-8 text-center cursor-pointer transition-all hover:bg-white/[0.02]"
+              <div className="rounded-2xl p-8 text-center cursor-pointer transition-all hover:bg-black/[0.03]"
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = C.neon; }}
                 onDragLeave={(e) => { e.currentTarget.style.borderColor = C.border; }}
@@ -10784,7 +10791,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                     <GlassCard padding="p-4">
                       <div className="flex items-center gap-4">
                         <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ background: doc.mime?.startsWith('image') ? 'rgba(34,211,238,0.1)' : 'rgba(167,139,250,0.1)',
+                          style={{ background: doc.mime?.startsWith('image') ? 'rgba(0,0,0,0.05)' : 'rgba(227,6,19,0.07)',
                             color: doc.mime?.startsWith('image') ? C.cyan : C.neon }}>
                           <FileText size={18} />
                         </div>
@@ -10793,13 +10800,13 @@ function CustomerApp({ user, onLogout, onHome }) {
                           <p className="text-xs" style={{ color: C.textDim }}>{doc.uploaded_at} · {doc.size < 1048576 ? (doc.size / 1024).toFixed(1) + ' KB' : (doc.size / 1048576).toFixed(1) + ' MB'}</p>
                         </div>
                         <button onClick={() => { setQrDocId(doc.id); setQrModal(true); }}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                          className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                           style={{ color: C.cyan, border: `1px solid ${C.border}` }} title="QR ile Paylaş">
                           <QrCodeIcon size={16} />
                         </button>
                         {doc.data && (
                           <a href={doc.data} download={doc.name}
-                            className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-white/5 transition"
+                            className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                             style={{ color: C.neon, border: `1px solid ${C.border}` }}>
                             <DownloadIcon size={16} />
                           </a>
@@ -10905,7 +10912,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                 {/* Kapat / Genel bakisa don */}
                 <button onClick={() => setSection('overview')}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition hover:scale-[1.02] flex-shrink-0"
-                  style={{ background: 'rgba(167,139,250,0.10)', color: C.text,
+                  style={{ background: 'rgba(227,6,19,0.07)', color: C.text,
                     border: `1px solid ${C.neon}55` }}>
                   <ArrowRight size={14} style={{ transform: 'rotate(180deg)' }} />
                   <span className="hidden sm:inline">Genel Bakış</span>
@@ -10924,14 +10931,14 @@ function CustomerApp({ user, onLogout, onHome }) {
                     <React.Fragment key={date}>
                       <div className="flex items-center gap-3 my-3">
                         <div className="flex-1 h-px" style={{ background: C.border }} />
-                        <span className="text-[10px] uppercase px-3 py-1 rounded-full" style={{ color: C.textDim, background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>{date}</span>
+                        <span className="text-[10px] uppercase px-3 py-1 rounded-full" style={{ color: C.textDim, background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>{date}</span>
                         <div className="flex-1 h-px" style={{ background: C.border }} />
                       </div>
                       {msgs.map(m => (
                         <div key={m.id} className={`flex ${m.sender === 'customer' ? 'justify-end' : 'justify-start'}`}>
                           <div className="max-w-[75%] rounded-2xl px-4 py-3"
                             style={{
-                              background: m.sender === 'customer' ? `linear-gradient(135deg, ${C.neon}25, ${C.neon2}15)` : 'rgba(255,255,255,0.04)',
+                              background: m.sender === 'customer' ? `linear-gradient(135deg, ${C.neon}25, ${C.neon2}15)` : 'rgba(0,0,0,0.05)',
                               border: `1px solid ${m.sender === 'customer' ? C.neon + '44' : C.border}`,
                               borderBottomRightRadius: m.sender === 'customer' ? 4 : 16,
                               borderBottomLeftRadius: m.sender === 'admin' ? 4 : 16,
@@ -10953,7 +10960,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                     placeholder="Mesajınızı yazın..."
                     rows={1}
                     className="flex-1 rounded-xl px-4 py-3 text-sm resize-none outline-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text, maxHeight: 120 }} />
+                    style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text, maxHeight: 120 }} />
                   <button onClick={sendMessage}
                     className="w-11 h-11 rounded-xl flex items-center justify-center transition-all flex-shrink-0"
                     style={{ background: `linear-gradient(135deg, ${C.neon}, ${C.neon2})`, color: '#fff' }}>
@@ -11100,16 +11107,16 @@ function CustomerApp({ user, onLogout, onHome }) {
                             aria-pressed={!!inv.favorite}
                             className="w-9 h-9 rounded-xl flex items-center justify-center transition-all flex-shrink-0 hover:scale-110"
                             style={{
-                              background: inv.favorite ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.03)',
+                              background: inv.favorite ? 'rgba(245,158,11,0.15)' : 'rgba(0,0,0,0.04)',
                               color: inv.favorite ? '#F59E0B' : C.textDim,
                               border: `1px solid ${inv.favorite ? '#F59E0B66' : C.border}`,
                             }}>
                             <StarIcon size={16} filled={!!inv.favorite} />
                           </button>
                           <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                            style={{ background: inv.status === 'ödendi' ? 'rgba(52,211,153,0.1)' : 'rgba(244,114,182,0.1)',
+                            style={{ background: inv.status === 'ödendi' ? 'rgba(52,211,153,0.1)' : 'rgba(227,6,19,0.07)',
                               color: inv.status === 'ödendi' ? '#34D399' : C.magenta,
-                              border: `1px solid ${inv.status === 'ödendi' ? 'rgba(52,211,153,0.25)' : 'rgba(244,114,182,0.25)'}` }}>
+                              border: `1px solid ${inv.status === 'ödendi' ? 'rgba(52,211,153,0.25)' : 'rgba(227,6,19,0.18)'}` }}>
                             <Receipt size={20} />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -11117,9 +11124,9 @@ function CustomerApp({ user, onLogout, onHome }) {
                             <p className="text-xs mt-1" style={{ color: C.textDim }}>{inv.date}</p>
                           </div>
                           <span className="text-xs px-2.5 py-1 rounded-full capitalize"
-                            style={{ background: inv.status === 'ödendi' ? 'rgba(52,211,153,0.1)' : 'rgba(244,114,182,0.1)',
+                            style={{ background: inv.status === 'ödendi' ? 'rgba(52,211,153,0.1)' : 'rgba(227,6,19,0.07)',
                               color: inv.status === 'ödendi' ? '#34D399' : C.magenta,
-                              border: `1px solid ${inv.status === 'ödendi' ? 'rgba(52,211,153,0.3)' : 'rgba(244,114,182,0.3)'}` }}>
+                              border: `1px solid ${inv.status === 'ödendi' ? 'rgba(52,211,153,0.3)' : 'rgba(227,6,19,0.20)'}` }}>
                             {inv.status}
                           </span>
                           <p className="font-mono text-lg font-bold" style={{ color: C.text }}>€{inv.amount.toLocaleString('tr-TR')}</p>
@@ -11194,14 +11201,14 @@ function CustomerApp({ user, onLogout, onHome }) {
                                 { l: 'Tarih', v: apr.date || '—' },
                                 { l: 'Uzman', v: apr.expert || 'Gecit Kfz' },
                               ].map((d, i) => (
-                                <div key={i} className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+                                <div key={i} className="p-3 rounded-xl" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
                                   <p className="text-[10px] uppercase" style={{ color: C.textDim, letterSpacing: '0.12em' }}>{d.l}</p>
                                   <p className="text-sm font-mono mt-1" style={{ color: C.text }}>{d.v}</p>
                                 </div>
                               ))}
                             </div>
                             {apr.notes && (
-                              <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+                              <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
                                 <p className="text-xs uppercase mb-2" style={{ color: C.textDim, letterSpacing: '0.12em' }}>Notlar</p>
                                 <p className="text-sm" style={{ color: C.text }}>{apr.notes}</p>
                               </div>
@@ -11260,7 +11267,7 @@ function CustomerApp({ user, onLogout, onHome }) {
 
                         {apr.status !== 'tamamlandi' && (
                           <div className="flex items-center gap-3 mt-2">
-                            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.05)' }}>
                               <div className="h-full rounded-full" style={{ width: `${stage.pct}%`, background: `linear-gradient(90deg, ${C.neon}, ${stage.color})` }} />
                             </div>
                             <span className="text-xs font-mono" style={{ color: stage.color }}>%{stage.pct}</span>
@@ -11329,7 +11336,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                   {myVehicles.length > 1 && (
                     <select value={selectedVehicle} onChange={e => setSelVeh(e.target.value)}
                       className="rounded-lg px-3 py-2 text-xs outline-none"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                      style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }}>
                       {myVehicles.map(v => <option key={v.id} value={v.id}>{v.plate}</option>)}
                     </select>
                   )}
@@ -11428,7 +11435,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                   onClick={() => setLightbox(null)}>
                   <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
                     className="relative max-w-2xl w-full mx-4 rounded-2xl overflow-hidden"
-                    style={{ background: C.card, border: `1px solid ${C.border}` }}
+                    style={{ background: C.surface, border: `1px solid ${C.border}` }}
                     onClick={e => e.stopPropagation()}>
                     <div className="aspect-video flex items-center justify-center"
                       style={{ background: 'rgba(0,0,0,0.4)' }}>
@@ -11551,7 +11558,7 @@ function CustomerApp({ user, onLogout, onHome }) {
 
                           {insurer && (
                             <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl"
-                              style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+                              style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
                               <ShieldIcon size={14} style={{ color: C.cyan }} />
                               <span className="text-xs" style={{ color: C.text }}>{insurer.company}</span>
                               <span className="text-xs" style={{ color: C.textDim }}>· {insurer.name}</span>
@@ -11608,7 +11615,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                     <label className="text-xs uppercase mb-2 block" style={{ color: C.textDim, letterSpacing: '0.1em' }}>Araç</label>
                     <select value={claimVehicle} onChange={e => setClaimVehicle(e.target.value)}
                       className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                      style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }}>
                       {myVehicles.map(v => <option key={v.id} value={v.id}>{v.plate} — {v.brand} {v.model}</option>)}
                     </select>
                   </div>
@@ -11616,7 +11623,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                     <label className="text-xs uppercase mb-2 block" style={{ color: C.textDim, letterSpacing: '0.1em' }}>Sigorta Şirketi (opsiyonel)</label>
                     <select value={claimInsurer} onChange={e => setClaimInsurer(e.target.value)}
                       className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                      style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }}>
                       <option value="">Seçiniz...</option>
                       {insurers.map(ins => <option key={ins.id} value={ins.id}>{ins.company}</option>)}
                     </select>
@@ -11627,7 +11634,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                       placeholder="Hasarın ne zaman, nerede, nasıl oluştuğunu açıklayın..."
                       rows={4}
                       className="w-full rounded-xl px-4 py-3 text-sm resize-none outline-none"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                      style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
                   </div>
                   <AdminButton variant="primary" onClick={submitClaim} disabled={!claimVehicle || !claimDesc}>
                     <ShieldIcon size={14} /> Talebi Gönder
@@ -11679,7 +11686,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                             <div>
                               <p className="text-sm font-medium flex items-center gap-2" style={{ color: C.text }}>
                                 {cfg.label}
-                                {vehicle && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.04)', color: C.cyan, border: `1px solid ${C.border}` }}>{vehicle.plate}</span>}
+                                {vehicle && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: 'rgba(0,0,0,0.05)', color: C.cyan, border: `1px solid ${C.border}` }}>{vehicle.plate}</span>}
                               </p>
                               <p className="text-sm mt-1" style={{ color: C.textDim }}>{event.description}</p>
                             </div>
@@ -11736,7 +11743,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                     <GlassCard padding="p-4">
                       <div className="flex items-start gap-3">
                         <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ background: !n.read ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.04)', color: !n.read ? C.neon : C.textDim }}>
+                          style={{ background: !n.read ? 'rgba(227,6,19,0.10)' : 'rgba(0,0,0,0.05)', color: !n.read ? C.neon : C.textDim }}>
                           <BellIcon size={16} />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -11814,7 +11821,7 @@ function CustomerApp({ user, onLogout, onHome }) {
                 placeholder="Yorumunuz (opsiyonel)..."
                 rows={3}
                 className="w-full rounded-xl px-4 py-3 text-sm resize-none outline-none"
-                style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                style={{ background: 'rgba(0,0,0,0.05)', border: `1px solid ${C.border}`, color: C.text }} />
               <AdminButton variant="primary" onClick={submit} disabled={rating === 0}>
                 Gönder
               </AdminButton>
@@ -11870,7 +11877,7 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
                 <button type="button" key={s} onClick={() => setService(s)}
                   className="p-3 rounded-xl text-xs text-left transition-all"
                   style={{
-                    background: service === s ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.03)',
+                    background: service === s ? 'rgba(227,6,19,0.07)' : 'rgba(0,0,0,0.04)',
                     border: `1px solid ${service === s ? C.neon : C.border}`,
                     color: service === s ? C.text : C.textDim,
                     boxShadow: service === s ? `0 0 16px ${C.glow}` : 'none',
@@ -11885,9 +11892,9 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
                 <button type="button" key={d.iso} onClick={() => setDate(d.iso)}
                   className="flex-shrink-0 w-16 p-3 rounded-xl text-center transition-all"
                   style={{
-                    background: date === d.iso ? `linear-gradient(135deg, ${C.neon}, ${C.neon2})` : 'rgba(255,255,255,0.03)',
+                    background: date === d.iso ? `linear-gradient(135deg, ${C.neon}, ${C.neon2})` : 'rgba(0,0,0,0.04)',
                     border: `1px solid ${date === d.iso ? 'transparent' : C.border}`,
-                    color: date === d.iso ? '#0B0818' : C.text,
+                    color: date === d.iso ? '#FFFFFF' : C.text,
                   }}>
                   <p className="text-[10px] uppercase" style={{ letterSpacing: '0.15em' }}>{d.wd}</p>
                   <p className="text-xl font-mono mt-1">{d.day}</p>
@@ -11903,7 +11910,7 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
                   <button type="button" key={s} onClick={() => setTime(s)}
                     className="p-2.5 rounded-xl text-sm font-mono transition-all"
                     style={{
-                      background: time === s ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.03)',
+                      background: time === s ? 'rgba(227,6,19,0.07)' : 'rgba(0,0,0,0.04)',
                       border: `1px solid ${time === s ? C.neon : C.border}`,
                       color: time === s ? C.text : C.textDim,
                     }}>{s}</button>

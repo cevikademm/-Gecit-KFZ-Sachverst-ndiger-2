@@ -28,6 +28,8 @@ import {
   InfinityIcon, UsersGroupIcon, RadioTowerIcon, FolderCheckIcon,
 } from '../components/icons.jsx';
 import { GecitKfzModal } from '../components/Modal.jsx';
+import { LangProvider, useLang } from '../i18n/LangContext.jsx';
+import { LanguageSelector } from '../i18n/LanguageSelector.jsx';
 
 // IIFE-with-hooks pattern icin kucuk yardimci.
 function Iife({ children }) { return children(); }
@@ -55,9 +57,8 @@ function ScrollProgress() {
   return (
     <motion.div className="fixed top-0 left-0 right-0 z-50 origin-left"
       style={{
-        scaleX: scale, height: 2,
-        background: `linear-gradient(90deg, ${C.neon}, ${C.magenta}, ${C.cyan})`,
-        boxShadow: `0 0 12px ${C.glow}`,
+        scaleX: scale, height: 3,
+        background: '#E30613',
       }} />
   );
 }
@@ -71,26 +72,10 @@ function CustomCursor() {
   return null;
 }
 
-// ─── Mesh BG ────────────────────────────────────
+// ─── Mesh BG (minimal — light theme) ────────────
 function MeshBackground() {
-  const rm = useReducedMotion();
-  const { x, y } = useMousePosition();
-  const offX = useTransform(x, [0, typeof window !== 'undefined' ? window.innerWidth : 1920], [-20, 20]);
-  const offY = useTransform(y, [0, typeof window !== 'undefined' ? window.innerHeight : 1080], [-20, 20]);
-  const base = { position: 'absolute', borderRadius: '50%', filter: 'blur(120px)', pointerEvents: 'none' };
-  return (
-    <div className="fixed inset-0 overflow-hidden" style={{ zIndex: 0, pointerEvents: 'none' }} aria-hidden="true">
-      <motion.div style={{ ...base, width: 560, height: 560, top: '-10%', left: '-5%', background: C.neon2, opacity: 0.35, x: offX, y: offY }}
-        animate={rm ? {} : { x: [0, 60, -30, 0], y: [0, -40, 50, 0] }}
-        transition={{ duration: 22, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div style={{ ...base, width: 480, height: 480, top: '40%', right: '-8%', background: C.cyan, opacity: 0.2 }}
-        animate={rm ? {} : { x: [0, -80, 30, 0], y: [0, 40, -40, 0] }}
-        transition={{ duration: 28, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div style={{ ...base, width: 520, height: 520, bottom: '-10%', left: '30%', background: C.magenta, opacity: 0.22 }}
-        animate={rm ? {} : { x: [0, 50, -60, 0], y: [0, -60, 20, 0] }}
-        transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }} />
-    </div>
-  );
+  // Beyaz tema: animasyonlu blob kaldırıldı, sadece çok soluk kırmızı vinyetler
+  return null;
 }
 
 // ─── Magnetic button ────────────────────────────
@@ -110,12 +95,11 @@ function MagneticButton({ children, variant = 'primary', className = '', onClick
     if (Math.sqrt(dx*dx + dy*dy) < 120) { mx.set(dx * 0.25); my.set(dy * 0.25); }
   };
   const handleLeave = () => { mx.set(0); my.set(0); };
-  const baseCls = 'relative inline-flex items-center justify-center gap-2 font-medium tracking-tight rounded-full px-7 py-3.5 transition-colors focus:outline-none';
+  const baseCls = 'relative inline-flex items-center justify-center gap-2 font-medium tracking-tight rounded-lg px-7 py-3.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E30613]';
   const style = variant === 'primary'
     ? { background: '#E30613', color: '#FFFFFF',
-        boxShadow: `0 0 0 1px rgba(255,255,255,0.08), 0 12px 40px -12px rgba(227, 6, 19, 0.45)` }
-    : { background: 'rgba(255,255,255,0.04)', color: C.text, border: `1px solid ${C.border}`,
-        backdropFilter: 'blur(8px)' };
+        boxShadow: '0 4px 20px -4px rgba(227,6,19,0.45)' }
+    : { background: 'transparent', color: '#0A0A0A', border: '1px solid rgba(0,0,0,0.16)' };
   return (
     <motion.button ref={ref} data-magnetic onMouseMove={handleMove} onMouseLeave={handleLeave}
       onClick={onClick} aria-label={ariaLabel}
@@ -128,129 +112,153 @@ function MagneticButton({ children, variant = 'primary', className = '', onClick
 
 // ─── Navbar ─────────────────────────────────────
 function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
+  const { t } = useLang();
   const { scrollY } = useScroll();
-  const blur = useTransform(scrollY, [0, 80], [6, 18]);
-  const bgOp = useTransform(scrollY, [0, 80], [0.02, 0.08]);
-  const brOp = useTransform(scrollY, [0, 80], [0.04, 0.14]);
-  const [bgCss, setBg] = useState('rgba(255,255,255,0.02)');
-  const [brCss, setBr] = useState('rgba(255,255,255,0.04)');
-  const [blCss, setBl] = useState('blur(6px)');
+  const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   useEffect(() => {
-    const u1 = bgOp.on('change', v => setBg(`rgba(255,255,255,${v})`));
-    const u2 = brOp.on('change', v => setBr(`rgba(255,255,255,${v})`));
-    const u3 = blur.on('change', v => setBl(`blur(${v}px)`));
-    return () => { u1(); u2(); u3(); };
-  }, [bgOp, brOp, blur]);
-  const links = ['Hizmetler', 'Nasıl Çalışır', 'Paketler', 'İletişim'];
+    const u = scrollY.on('change', v => setScrolled(v > 20));
+    return () => u();
+  }, [scrollY]);
+
+  const links = [t('nav.services'), t('nav.howItWorks'), t('nav.packages'), t('nav.contact')];
   const initials = user ? user.email.slice(0, 2).toUpperCase() : '';
+
   return (
     <motion.nav initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.8, ease: easeOut }}
-      className="fixed z-40"
-      style={{ top: 'max(16px, calc(env(safe-area-inset-top) + 8px))',
-        left: 'max(16px, env(safe-area-inset-left))',
-        right: 'max(16px, env(safe-area-inset-right))',
-        marginLeft: 'auto', marginRight: 'auto', maxWidth: 1200,
-        background: bgCss, backdropFilter: blCss, WebkitBackdropFilter: blCss,
-        border: `1px solid ${brCss}`, borderRadius: 999 }}>
-      <div className="flex items-center justify-between pl-6 pr-5 py-3 gap-3">
-        <a href="#" className="flex items-center gap-4 font-sans flex-shrink-0 min-w-0 tracking-tight"
-          style={{ lineHeight: 1 }}>
-          <img src="./logo-car-only.png" alt="Logo" className="h-12 md:h-14 w-auto object-contain flex-shrink-0"
-               style={{ filter: 'url(#remove-white) brightness(1.05) contrast(1.05)' }} />
-          <div className="flex flex-col items-start gap-1 min-w-0">
-            <div className="text-2xl md:text-3xl lg:text-4xl font-black italic tracking-tighter" style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
+      transition={{ duration: 0.6, ease: easeOut }}
+      className="fixed top-0 left-0 right-0 z-40"
+      style={{
+        background: '#FFFFFF',
+        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.10)' : '1px solid rgba(0,0,0,0.06)',
+        boxShadow: scrolled ? '0 2px 16px rgba(0,0,0,0.06)' : 'none',
+      }}>
+      <div className="mx-auto flex items-center justify-between px-6 py-4 gap-4" style={{ maxWidth: 1280 }}>
+        {/* Logo + Name */}
+        <a href="#" className="flex items-center gap-3 flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 1 }}>
+          <img src="./logo-car-only.png" alt="Gecit KFZ Logo" className="h-10 md:h-12 w-auto object-contain"
+               style={{ filter: 'brightness(0) saturate(100%)' }} />
+          <div className="flex flex-col items-start">
+            <div className="text-xl md:text-2xl font-black tracking-tight" style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', lineHeight: 1 }}>
               <span style={{ color: '#E30613' }}>GECIT</span>
-              <span style={{ color: '#0A0A0A', margin: '0 2px' }}>-</span>
+              <span style={{ color: '#0A0A0A', margin: '0 1px' }}>-</span>
               <span style={{ color: '#0A0A0A' }}>KFZ</span>
             </div>
-            <div className="flex items-center gap-2 w-full">
-              <div className="h-[2px] w-3 md:w-4 bg-[#E30613] flex-shrink-0" />
-              <span className="text-[11px] md:text-xs font-bold tracking-[0.18em] uppercase" style={{ whiteSpace: 'nowrap', color: '#0A0A0A' }}>
-                Sachverständigenbüro
-              </span>
-              <div className="h-[2px] flex-1 bg-[#E30613]" />
-            </div>
+            <span className="text-[10px] font-semibold tracking-[0.16em] uppercase" style={{ color: '#6B6B6B', whiteSpace: 'nowrap' }}>
+              Sachverständigenbüro
+            </span>
           </div>
         </a>
 
-        {/* SVG Filter to remove white background from logo */}
-        <svg width="0" height="0" style={{ position: 'absolute' }}>
-          <filter id="remove-white" colorInterpolationFilters="sRGB">
-            <feColorMatrix type="matrix" values="
-              1 0 0 0 0
-              0 1 0 0 0
-              0 0 1 0 0
-              -1 -1 -1 1 1
-            " />
-            <feComponentTransfer>
-              <feFuncA type="table" tableValues="0 0 0 1" />
-            </feComponentTransfer>
-          </filter>
-        </svg>
-        <div className="hidden md:flex items-center gap-8 text-sm" style={{ color: C.textDim }}>
-          {links.map(l => <a key={l} href="#" className="transition-colors hover:text-white">{l}</a>)}
-        </div>
+        {/* Desktop nav links */}
+        <nav className="hidden md:flex items-center gap-6 lg:gap-8" aria-label="Ana menü">
+          {links.map(l => (
+            <a key={l} href="#"
+              className="text-sm font-medium uppercase tracking-wide transition-colors relative group"
+              style={{ color: '#1F1F1F', textDecoration: 'none', letterSpacing: '0.06em' }}>
+              {l}
+              <span className="absolute -bottom-1 left-0 right-0 h-[2px] bg-[#E30613] scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
+            </a>
+          ))}
+        </nav>
+
+        {/* Right actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          <LanguageSelector />
           {user ? (
             <>
-            <button onClick={onEnterApp}
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-full transition-all"
-              style={{ background: 'rgba(167,139,250,0.1)', border: `1px solid rgba(167,139,250,0.3)`, color: C.neon }}>
-              Panele Git
-              <ArrowRight size={14} />
-            </button>
-            <div className="relative">
-              <button onClick={() => setMenuOpen(v => !v)} onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
-                className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-full transition-colors"
-                style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.25)', color: C.text }}>
-                <span className="w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs"
-                  style={{ background: `linear-gradient(135deg, ${C.neon}, ${C.magenta})`, color: '#0B0818' }}>
-                  {initials}
-                </span>
-                <span className="hidden sm:inline" style={{ color: C.text }}>{user.role === 'super_admin' ? 'Süper Admin' : 'Kullanıcı'}</span>
+              <button onClick={onEnterApp}
+                className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-md transition-all"
+                style={{ background: 'rgba(227,6,19,0.06)', border: '1px solid rgba(227,6,19,0.2)', color: '#E30613' }}>
+                {t('nav.toPanel')}
+                <ArrowRight size={14} />
               </button>
-              <AnimatePresence>
-                {menuOpen && (
-                  <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 mt-2 w-56 rounded-2xl p-2 text-sm"
-                    style={{ background: C.surface2, border: `1px solid ${C.border}`,
-                      boxShadow: `0 20px 40px -12px rgba(0,0,0,0.6), 0 0 30px ${C.glow}` }}>
-                    <div className="px-3 py-2" style={{ color: C.textDim }}>
-                      <p className="truncate" style={{ color: C.text }}>{user.email}</p>
-                      <p className="text-xs mt-0.5" style={{ color: C.neon }}>
-                        {user.role === 'super_admin' ? '● Süper Admin' : '● Kullanıcı'}
-                      </p>
-                    </div>
-                    <div className="h-px my-1" style={{ background: C.border }} />
-                    <button onMouseDown={(e) => { e.preventDefault(); onLogout(); setMenuOpen(false); }}
-                      className="w-full text-left px-3 py-2 rounded-xl transition-colors hover:bg-white/5"
-                      style={{ color: C.text }}>
-                      Çıkış Yap
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+              <div className="relative">
+                <button onClick={() => setMenuOpen(v => !v)} onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
+                  className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-md transition-colors"
+                  style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.10)', color: '#0A0A0A' }}>
+                  <span className="w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold"
+                    style={{ background: '#E30613', color: '#FFFFFF' }}>
+                    {initials}
+                  </span>
+                  <span className="hidden sm:inline" style={{ color: '#0A0A0A' }}>{user.role === 'super_admin' ? 'Süper Admin' : 'Kullanıcı'}</span>
+                </button>
+                <AnimatePresence>
+                  {menuOpen && (
+                    <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 mt-2 w-56 rounded-xl p-2 text-sm"
+                      style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.10)',
+                        boxShadow: '0 12px 40px -8px rgba(0,0,0,0.15)' }}>
+                      <div className="px-3 py-2">
+                        <p className="truncate font-medium" style={{ color: '#0A0A0A' }}>{user.email}</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#E30613' }}>
+                          {user.role === 'super_admin' ? '● Süper Admin' : '● Kullanıcı'}
+                        </p>
+                      </div>
+                      <div className="h-px my-1" style={{ background: 'rgba(0,0,0,0.08)' }} />
+                      <button onMouseDown={(e) => { e.preventDefault(); onLogout(); setMenuOpen(false); }}
+                        className="w-full text-left px-3 py-2 rounded-lg transition-colors hover:bg-gray-50"
+                        style={{ color: '#0A0A0A' }}>
+                        {t('nav.logout')}
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </>
           ) : (
             <button onClick={onLoginClick}
-              className="inline-flex items-center gap-1.5 text-sm font-medium px-3.5 sm:px-4 py-2 rounded-full transition-all"
-              style={{ background: 'rgba(167,139,250,0.12)', border: `1px solid ${C.neon}55`, color: C.neon }}>
+              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-md transition-all hover:bg-gray-50"
+              style={{ color: '#0A0A0A', border: '1px solid rgba(0,0,0,0.12)' }}>
               <Svg size={14}><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></Svg>
-              <span className="hidden sm:inline">Giriş Yap</span>
-              <span className="sm:hidden">Giriş</span>
+              <span>{t('nav.login')}</span>
             </button>
           )}
-          <MagneticButton variant="primary" ariaLabel="Online Termin Al" className="text-sm !px-4 sm:!px-7 !py-2.5 sm:!py-3.5" onClick={onBook}>
-            <span className="hidden sm:inline">Online Termin Al</span>
-            <span className="sm:hidden">Termin</span>
-            <ArrowRight size={16} />
-          </MagneticButton>
+          <button onClick={onBook}
+            className="inline-flex items-center gap-2 text-sm font-semibold px-4 sm:px-5 py-2.5 rounded-lg transition-all"
+            style={{ background: '#E30613', color: '#FFFFFF', letterSpacing: '0.02em' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#B0050F'}
+            onMouseLeave={e => e.currentTarget.style.background = '#E30613'}>
+            <Svg size={15}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Svg>
+            <span className="hidden sm:inline">{t('nav.book')}</span>
+            <span className="sm:hidden">{t('nav.bookShort')}</span>
+          </button>
+
+          {/* Mobile hamburger */}
+          <button className="md:hidden p-2 rounded-md" onClick={() => setMobileOpen(v => !v)}
+            style={{ color: '#0A0A0A' }} aria-label="Menüyü aç/kapat">
+            <Svg size={22}>{mobileOpen
+              ? <><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>
+              : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>
+            }</Svg>
+          </button>
         </div>
       </div>
+
+      {/* Mobile menu */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
+            className="md:hidden overflow-hidden"
+            style={{ borderTop: '1px solid rgba(0,0,0,0.08)', background: '#FFFFFF' }}>
+            <div className="px-6 py-4 flex flex-col gap-4">
+              {links.map(l => (
+                <a key={l} href="#" className="text-sm font-semibold uppercase tracking-wide"
+                  style={{ color: '#1F1F1F' }} onClick={() => setMobileOpen(false)}>{l}</a>
+              ))}
+              <button onClick={() => { onBook(); setMobileOpen(false); }}
+                className="w-full py-3 rounded-lg text-sm font-semibold"
+                style={{ background: '#E30613', color: '#FFFFFF' }}>
+                {t('nav.book')}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.nav>
   );
 }
@@ -342,8 +350,8 @@ function LoginDrawer({ open, onClose, onLogin }) {
             transition={{ duration: 0.25 }}
             onClick={onClose}
             aria-hidden="true"
-            className="fixed inset-0"
-            style={{ zIndex: 60, background: 'rgba(7,6,11,0.65)', backdropFilter: 'blur(6px)' }} />
+            className="fixed inset-0 backdrop-blur-sm"
+            style={{ zIndex: 60, background: 'rgba(0,0,0,0.40)' }} />
           {/* Ortali kart konteyner - backdrop click ile kapanmasi icin tikla-gec */}
           <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none"
             style={{ zIndex: 61,
@@ -358,112 +366,102 @@ function LoginDrawer({ open, onClose, onLogin }) {
               onClick={(e) => e.stopPropagation()}
               className="relative flex flex-col overflow-y-auto pointer-events-auto rounded-2xl"
               style={{ width: 'min(440px, 100%)', maxHeight: '90vh',
-                background: `linear-gradient(180deg, ${C.surface2} 0%, ${C.surface} 100%)`,
-                border: `1px solid ${C.border}`,
-                boxShadow: `0 30px 80px -20px rgba(0,0,0,0.7), inset 0 1px 0 ${C.glow}` }}>
-            <div className="absolute top-0 right-0 pointer-events-none"
-              style={{ width: 320, height: 320,
-                background: `radial-gradient(circle, ${C.glow} 0%, transparent 70%)`,
-                filter: 'blur(40px)' }} />
-            <div className="relative flex items-center justify-between p-6"
-              style={{ borderBottom: `1px solid ${C.border}` }}>
-              <div className="text-xl font-black italic tracking-tighter" style={{ display: 'flex', alignItems: 'center', lineHeight: 1 }}>
-                <span style={{ color: '#E30613' }}>GECIT</span>
-                <span style={{ color: '#FFFFFF', margin: '0 2px' }}>-</span>
-                <span style={{ color: '#FFFFFF' }}>KFZ</span>
+                background: '#FFFFFF',
+                border: '1px solid rgba(0,0,0,0.10)',
+                boxShadow: '0 24px 64px -16px rgba(0,0,0,0.18)' }}>
+
+            <div className="flex items-center justify-between p-6"
+              style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+              <div className="flex items-center gap-1 font-black tracking-tight" style={{ lineHeight: 1 }}>
+                <span style={{ color: '#E30613', fontSize: 18 }}>GECIT</span>
+                <span style={{ color: '#0A0A0A', fontSize: 18, margin: '0 1px' }}>-</span>
+                <span style={{ color: '#0A0A0A', fontSize: 18 }}>KFZ</span>
               </div>
               <button onClick={onClose} aria-label="Kapat"
-                className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5"
-                style={{ color: C.textDim, border: `1px solid ${C.border}` }}>
+                className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100"
+                style={{ color: '#6B6B6B', border: '1px solid rgba(0,0,0,0.10)' }}>
                 <Svg size={16}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Svg>
               </button>
             </div>
 
-            <div className="relative flex-1 p-8">
-              <p className="text-xs uppercase mb-3" style={{ color: C.neon, letterSpacing: '0.25em' }}>
+            <div className="flex-1 p-8">
+              <p className="text-xs uppercase mb-2 font-semibold" style={{ color: '#E30613', letterSpacing: '0.22em' }}>
                 Hesap Girişi
               </p>
-              <h2 className="text-3xl font-semibold mb-2"
-                style={{ color: C.text, letterSpacing: '-0.02em' }}>
+              <h2 className="text-2xl font-bold mb-1" style={{ color: '#0A0A0A' }}>
                 Tekrar hoş geldin.
               </h2>
-              <p className="text-sm mb-8" style={{ color: C.textDim }}>
-                Gecit Kfz Sachverständiger Yönetim Paneli'ne erişmek için giriş yapın.
+              <p className="text-sm mb-7" style={{ color: '#6B6B6B' }}>
+                Gecit Kfz Sachverständiger paneline erişmek için giriş yapın.
               </p>
 
-              <form onSubmit={submit} className="space-y-5">
+              <form onSubmit={submit} className="space-y-4">
                 <div>
-                  <label className="block text-xs uppercase mb-2"
-                    style={{ color: C.textDim, letterSpacing: '0.2em' }}>E-posta</label>
+                  <label className="block text-xs font-semibold mb-1.5 uppercase"
+                    style={{ color: '#6B6B6B', letterSpacing: '0.15em' }}>E-posta</label>
                   <input type="email" required value={email} autoFocus
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
                     placeholder="sen@sirket.com"
-                    className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors"
-                    style={{ background: 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${C.border}`, color: C.text }}
-                    onFocus={(e) => e.target.style.border = `1px solid ${C.neon}`}
-                    onBlur={(e) => e.target.style.border = `1px solid ${C.border}`} />
+                    className="w-full px-4 py-3 rounded-lg text-sm outline-none transition-all"
+                    style={{ background: '#FAFAFA', border: '1px solid rgba(0,0,0,0.12)', color: '#0A0A0A' }}
+                    onFocus={(e) => { e.target.style.border = '1px solid #E30613'; e.target.style.background = '#FFFFFF'; }}
+                    onBlur={(e) => { e.target.style.border = '1px solid rgba(0,0,0,0.12)'; e.target.style.background = '#FAFAFA'; }} />
                 </div>
                 <div>
-                  <label className="block text-xs uppercase mb-2"
-                    style={{ color: C.textDim, letterSpacing: '0.2em' }}>Şifre</label>
+                  <label className="block text-xs font-semibold mb-1.5 uppercase"
+                    style={{ color: '#6B6B6B', letterSpacing: '0.15em' }}>Şifre</label>
                   <input type="password" required value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors"
-                    style={{ background: 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${C.border}`, color: C.text }}
-                    onFocus={(e) => e.target.style.border = `1px solid ${C.neon}`}
-                    onBlur={(e) => e.target.style.border = `1px solid ${C.border}`} />
+                    className="w-full px-4 py-3 rounded-lg text-sm outline-none transition-all"
+                    style={{ background: '#FAFAFA', border: '1px solid rgba(0,0,0,0.12)', color: '#0A0A0A' }}
+                    onFocus={(e) => { e.target.style.border = '1px solid #E30613'; e.target.style.background = '#FFFFFF'; }}
+                    onBlur={(e) => { e.target.style.border = '1px solid rgba(0,0,0,0.12)'; e.target.style.background = '#FAFAFA'; }} />
                 </div>
 
                 <AnimatePresence>
                   {error && (
                     <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className="text-sm px-4 py-3 rounded-xl"
-                      style={{ background: 'rgba(244,114,182,0.08)',
-                        border: '1px solid rgba(244,114,182,0.3)', color: C.magenta }}>
+                      className="text-sm px-4 py-3 rounded-lg"
+                      style={{ background: 'rgba(227,6,19,0.06)', border: '1px solid rgba(227,6,19,0.2)', color: '#B0050F' }}>
                       {error}
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                <div className="flex items-center justify-between text-xs" style={{ color: C.textDim }}>
+                <div className="flex items-center justify-between text-xs" style={{ color: '#6B6B6B' }}>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" defaultChecked
-                      style={{ accentColor: C.neon }} />
+                    <input type="checkbox" defaultChecked style={{ accentColor: '#E30613' }} />
                     Beni hatırla
                   </label>
-                  <a href="#" className="hover:text-white transition-colors">Şifremi unuttum</a>
+                  <a href="#" className="hover:text-[#E30613] transition-colors">Şifremi unuttum</a>
                 </div>
 
                 <motion.button type="submit" disabled={loading}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full py-3.5 rounded-full font-medium text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
-                  style={{ background: `linear-gradient(135deg, ${C.neon} 0%, ${C.neon2} 100%)`,
-                    color: '#0B0818',
-                    boxShadow: `0 12px 40px -12px ${C.glow}` }}>
+                  className="w-full py-3.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
+                  style={{ background: '#E30613', color: '#FFFFFF', boxShadow: '0 4px 16px rgba(227,6,19,0.30)' }}>
                   {loading ? 'Giriş yapılıyor…' : <>Giriş Yap <ArrowRight size={16} /></>}
                 </motion.button>
               </form>
 
-              <div className="my-8 flex items-center gap-3 text-xs" style={{ color: C.textDim }}>
-                <div className="flex-1 h-px" style={{ background: C.border }} />
+              <div className="my-6 flex items-center gap-3 text-xs" style={{ color: '#6B6B6B' }}>
+                <div className="flex-1 h-px" style={{ background: 'rgba(0,0,0,0.08)' }} />
                 HIZLI GİRİŞ (DEMO)
-                <div className="flex-1 h-px" style={{ background: C.border }} />
+                <div className="flex-1 h-px" style={{ background: 'rgba(0,0,0,0.08)' }} />
               </div>
 
-              <p className="text-xs mb-3 text-center" style={{ color: C.textDim }}>
-                Tek tıkla istediğin role gir — şifreler henüz devre dışı
+              <p className="text-xs mb-3 text-center" style={{ color: '#6B6B6B' }}>
+                Tek tıkla istediğin role gir
               </p>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  { role: 'admin',     label: 'Admin',     desc: 'Yönetim Paneli', color: C.neon,   bg: 'rgba(167,139,250,0.10)', border: 'rgba(167,139,250,0.35)', icon: <Svg size={14}><path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></Svg> },
-                  { role: 'customer',  label: 'Müşteri',   desc: 'Müşteri Portalı', color: '#22D3EE', bg: 'rgba(34,211,238,0.10)',  border: 'rgba(34,211,238,0.35)',  icon: <Svg size={14}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></Svg> },
-                  { role: 'lawyer',    label: 'Avukat',    desc: 'Avukat Portalı',  color: '#F59E0B', bg: 'rgba(245,158,11,0.10)',  border: 'rgba(245,158,11,0.35)',  icon: <Svg size={14}><path d="M12 3v18"/><path d="M5 8h14"/><path d="M5 8l-2 6a4 4 0 0 0 8 0L9 8"/><path d="M19 8l-2 6a4 4 0 0 0 8 0l-2-6"/></Svg> },
+                  { role: 'admin',    label: 'Admin',   desc: 'Yönetim',  color: '#E30613', bg: 'rgba(227,6,19,0.06)',  border: 'rgba(227,6,19,0.20)', icon: <Svg size={13}><path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></Svg> },
+                  { role: 'customer', label: 'Müşteri', desc: 'Portal',   color: '#0A0A0A', bg: 'rgba(0,0,0,0.04)',    border: 'rgba(0,0,0,0.12)',    icon: <Svg size={13}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></Svg> },
+                  { role: 'lawyer',   label: 'Avukat',  desc: 'Hukuk',   color: '#B0050F', bg: 'rgba(176,5,15,0.06)', border: 'rgba(176,5,15,0.20)', icon: <Svg size={13}><path d="M12 3v18"/><path d="M5 8h14"/><path d="M5 8l-2 6a4 4 0 0 0 8 0L9 8"/><path d="M19 8l-2 6a4 4 0 0 0 8 0l-2-6"/></Svg> },
                 ].map(b => (
                   <motion.button
                     key={b.role}
@@ -471,26 +469,26 @@ function LoginDrawer({ open, onClose, onLogin }) {
                     onClick={() => quickLogin(b.role)}
                     whileTap={{ scale: 0.97 }}
                     whileHover={{ y: -2 }}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors"
+                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl text-center transition-colors"
                     style={{ background: b.bg, border: `1px solid ${b.border}` }}>
-                    <span className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${b.color}22`, color: b.color, border: `1px solid ${b.color}55` }}>
+                    <span className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ background: `${b.color}18`, color: b.color }}>
                       {b.icon}
                     </span>
                     <span>
-                      <span className="block text-sm font-medium" style={{ color: C.text }}>{b.label}</span>
-                      <span className="block text-[10px]" style={{ color: C.textDim }}>{b.desc}</span>
+                      <span className="block text-xs font-semibold" style={{ color: '#0A0A0A' }}>{b.label}</span>
+                      <span className="block text-[10px]" style={{ color: '#6B6B6B' }}>{b.desc}</span>
                     </span>
                   </motion.button>
                 ))}
               </div>
 
-              <p className="text-center text-[11px] mt-5" style={{ color: C.textDim }}>
-                Şifreyle giriş için yukarıdaki formu kullan · Hızlı giriş yalnızca demo amaçlıdır
+              <p className="text-center text-[11px] mt-4" style={{ color: '#6B6B6B' }}>
+                Hızlı giriş yalnızca demo amaçlıdır
               </p>
             </div>
 
-            <div className="relative p-6 text-xs" style={{ color: C.textDim, borderTop: `1px solid ${C.border}` }}>
+            <div className="p-5 text-xs" style={{ color: '#6B6B6B', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
               <p>Güvenli bağlantı · KVKK uyumlu · Supabase Auth</p>
             </div>
             </motion.aside>
@@ -522,79 +520,124 @@ function RevealHeading({ text, className = '', style = {}, delay = 0 }) {
 
 // ─── Hero ───────────────────────────────────────
 function Hero() {
+  const { t } = useLang();
   const rm = useReducedMotion();
-  const { scrollY } = useScroll();
-  const sphY = useTransform(scrollY, [0, 800], [0, -240]);
-  const sphS = useTransform(scrollY, [0, 800], [1, 0.85]);
   return (
-    <section className="relative flex items-center overflow-hidden" style={{ minHeight: 'auto', paddingTop: 'calc(env(safe-area-inset-top) + 120px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)', background: '#FFFFFF' }}>
-      {/* Decorative grid pattern */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ zIndex: 0,
-        backgroundImage: 'linear-gradient(rgba(227,6,19,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(227,6,19,0.04) 1px, transparent 1px)',
-        backgroundSize: '56px 56px',
-        maskImage: 'radial-gradient(ellipse 80% 60% at 30% 50%, #000 30%, transparent 75%)',
-        WebkitMaskImage: 'radial-gradient(ellipse 80% 60% at 30% 50%, #000 30%, transparent 75%)' }} />
+    <section className="relative overflow-hidden" style={{
+      background: '#FFFFFF',
+      paddingTop: 'calc(env(safe-area-inset-top) + 88px)',
+      paddingBottom: 0,
+      borderBottom: '1px solid rgba(0,0,0,0.06)',
+    }}>
+      <div className="mx-auto px-6" style={{ maxWidth: 1280 }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center" style={{ minHeight: 'min(80vh, 680px)' }}>
+          {/* Left column — text */}
+          <div className="py-16 md:py-20">
+            {/* Badge */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: easeOut }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 text-xs font-semibold uppercase"
+              style={{ background: 'rgba(227,6,19,0.06)', border: '1px solid rgba(227,6,19,0.20)',
+                color: '#7A0309', letterSpacing: '0.18em' }}>
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: '#E30613' }} />
+                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: '#E30613' }} />
+              </span>
+              {t('hero.badge')}
+            </motion.div>
 
-      {/* Soft red ambient glows */}
-      <motion.div className="absolute pointer-events-none rounded-full" aria-hidden="true"
-        style={{ width: 480, height: 480, top: '-120px', left: '-120px', zIndex: 0,
-          background: 'radial-gradient(circle, rgba(227,6,19,0.18) 0%, transparent 65%)', filter: 'blur(20px)' }}
-        animate={rm ? {} : { scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }}
-        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div className="absolute pointer-events-none rounded-full" aria-hidden="true"
-        style={{ width: 380, height: 380, bottom: '-80px', left: '35%', zIndex: 0,
-          background: 'radial-gradient(circle, rgba(227,6,19,0.12) 0%, transparent 70%)', filter: 'blur(24px)' }}
-        animate={rm ? {} : { scale: [1, 1.15, 1], opacity: [0.5, 0.9, 0.5] }}
-        transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }} />
+            {/* Headline */}
+            <div>
+              <RevealHeading text={t('hero.title1')}
+                className="text-5xl md:text-6xl lg:text-7xl font-black leading-none"
+                style={{ color: '#0A0A0A', letterSpacing: '-0.03em', lineHeight: 0.95 }} />
+              <RevealHeading text={t('hero.title2')}
+                className="text-5xl md:text-6xl lg:text-7xl font-black mt-1"
+                style={{ color: '#E30613', letterSpacing: '-0.03em', lineHeight: 0.95 }} delay={0.25} />
+            </div>
 
-      <div className="relative mx-auto px-6 w-full" style={{ maxWidth: 1200, zIndex: 2 }}>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: easeOut }}
-          className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-8 text-xs uppercase"
-          style={{ background: 'linear-gradient(135deg, rgba(227,6,19,0.08), rgba(227,6,19,0.02))', border: '1px solid #E30613',
-            color: '#7A0309', letterSpacing: '0.2em', backdropFilter: 'blur(8px)',
-            boxShadow: '0 4px 24px rgba(227,6,19,0.15), inset 0 1px 0 rgba(255,255,255,0.6)' }}>
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: '#E30613' }} />
-            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: '#E30613' }} />
-          </span>
-          <Sparkles size={12} style={{ color: '#E30613' }} /> Yapay Zeka Destekli Oto Ekspertiz
-        </motion.div>
-        <div className="relative">
-          {/* Red accent bar */}
-          <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }}
-            transition={{ duration: 0.8, ease: easeOut, delay: 0.4 }}
-            className="absolute -left-4 md:-left-6 top-1 bottom-1 w-1 rounded-full hidden md:block"
-            style={{ background: 'linear-gradient(180deg, #E30613, #7A0309)', transformOrigin: 'top',
-              boxShadow: '0 0 20px rgba(227,6,19,0.4)' }} aria-hidden="true" />
-          <RevealHeading text="Aracının Gerçek Durumunu"
-            className="text-5xl md:text-7xl lg:text-8xl font-semibold"
-            style={{ color: '#0A0A0A', letterSpacing: '-0.04em', lineHeight: 0.92, textShadow: '0 2px 24px #FFFFFF' }} />
-          <RevealHeading text="Saniyeler İçinde Öğren."
-            className="text-5xl md:text-7xl lg:text-8xl font-semibold mt-2"
-            style={{ background: 'linear-gradient(135deg, #E30613 0%, #B0050F 50%, #7A0309 100%)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-              letterSpacing: '-0.04em', lineHeight: 0.92, filter: 'drop-shadow(0 2px 16px #FFFFFF) drop-shadow(0 4px 20px rgba(227,6,19,0.25))' }} delay={0.3} />
+            {/* Red accent line */}
+            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
+              transition={{ duration: 0.7, ease: easeOut, delay: 0.6 }}
+              className="h-1 w-20 rounded-full mt-6 mb-6 origin-left"
+              style={{ background: '#E30613' }} aria-hidden="true" />
+
+            {/* Subtitle */}
+            <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: easeOut, delay: 0.8 }}
+              className="text-base md:text-lg leading-relaxed max-w-md"
+              style={{ color: '#6B6B6B' }}>
+              {t('hero.subtitle')}
+            </motion.p>
+
+            {/* CTA */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: easeOut, delay: 1.0 }}
+              className="mt-8 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('gecit-kfz:book'))}
+                className="inline-flex items-center gap-2.5 text-sm font-bold px-6 py-3.5 rounded-lg transition-all"
+                style={{ background: '#E30613', color: '#FFFFFF', letterSpacing: '0.02em',
+                  boxShadow: '0 4px 20px rgba(227,6,19,0.35)' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#B0050F'}
+                onMouseLeave={e => e.currentTarget.style.background = '#E30613'}>
+                <Svg size={16}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Svg>
+                {t('hero.cta')}
+              </button>
+              <a href="tel:+490000000000"
+                className="inline-flex items-center gap-2 text-sm font-medium px-5 py-3.5 rounded-lg transition-all hover:bg-gray-50"
+                style={{ color: '#1F1F1F', border: '1px solid rgba(0,0,0,0.12)' }}>
+                <Svg size={15}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 6 6l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.5 16h.5z"/></Svg>
+                Jetzt anrufen
+              </a>
+            </motion.div>
+
+            {/* Trust signals */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              transition={{ duration: 0.7, delay: 1.3 }}
+              className="mt-8 flex flex-wrap items-center gap-4">
+              {['Kostenlos für Geschädigte', 'Schnell & Unabhängig', 'Aachen & Umgebung'].map((s, i) => (
+                <span key={i} className="flex items-center gap-1.5 text-xs font-medium" style={{ color: '#6B6B6B' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E30613" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  {s}
+                </span>
+              ))}
+            </motion.div>
+          </div>
+
+          {/* Right column — image */}
+          <motion.div
+            initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.9, ease: easeOut, delay: 0.3 }}
+            className="relative hidden md:flex items-end justify-center h-full"
+            style={{ minHeight: 480 }}>
+            {/* Image wrapper — full height right panel */}
+            <div className="absolute inset-0 overflow-hidden rounded-l-3xl"
+              style={{ background: 'linear-gradient(160deg, #F8F8F8 0%, #EEEEEE 100%)' }}>
+              <img src="/images/accident.jpg" alt="Beschädigtes Fahrzeug"
+                className="w-full h-full object-cover"
+                style={{ opacity: 0.9 }}
+                onError={e => { e.currentTarget.style.display = 'none'; }} />
+              {/* Overlay gradient */}
+              <div className="absolute inset-0"
+                style={{ background: 'linear-gradient(270deg, transparent 40%, rgba(255,255,255,0.7) 100%)' }} />
+              {/* Red accent corner */}
+              <div className="absolute bottom-0 left-0 right-0 h-1" style={{ background: '#E30613' }} />
+            </div>
+            {/* Floating stat card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 1.1 }}
+              className="absolute bottom-8 left-8 rounded-xl p-4"
+              style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.10)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12)', minWidth: 180 }}>
+              <p className="text-2xl font-black" style={{ color: '#E30613' }}>15.000+</p>
+              <p className="text-xs font-medium mt-0.5" style={{ color: '#6B6B6B' }}>Tamamlanan Ekspertiz</p>
+            </motion.div>
+          </motion.div>
         </div>
-        <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: easeOut, delay: 1.1 }}
-          className="mt-8 text-base md:text-xl max-w-2xl leading-relaxed"
-          style={{ color: '#1F1F1F', textShadow: '0 1px 12px #FFFFFF' }}>
-          Gecit Kfz Sachverständiger, ruhsat fotoğrafından aracın tüm künyesini saniyeler içinde okur. Tramer geçmişi, değişen parça kayıtları ve 120 noktalık ekspertiz sürecini
-          <span style={{ color: '#000000', fontWeight: 600 }}> tek platformda</span> birleştirir.
-        </motion.p>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: easeOut, delay: 1.3 }}
-          className="mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <MagneticButton variant="primary" ariaLabel="Online termin al"
-            onClick={() => window.dispatchEvent(new CustomEvent('gecit-kfz:book'))}>
-            Online Termin Al <ArrowRight size={18} />
-          </MagneticButton>
-          <MagneticButton variant="ghost" ariaLabel="Süreci izle">
-            <Play size={14} /> 60 saniyede süreci gör
-          </MagneticButton>
-        </motion.div>
-
       </div>
     </section>
   );
@@ -702,6 +745,7 @@ function BannerShowcase() {
 
 // ─── Marquee ────────────────────────────────────
 function Marquee() {
+  const { t } = useLang();
   const logos = [
     { Icon: Shield, label: 'OtoGüven' }, { Icon: Rocket, label: 'Motorex' },
     { Icon: BarChart3, label: 'TramerX' }, { Icon: Globe, label: 'AutoNet' },
@@ -713,7 +757,7 @@ function Marquee() {
   return (
     <section className="relative py-12 overflow-hidden" style={{ zIndex: 2, background: '#E30613' }}>
       <p className="text-center text-xs uppercase mb-6 font-bold" style={{ color: '#FFFFFF', letterSpacing: '0.25em' }}>
-        Almanya'nın güvenilir ekspertiz ağı · 500+ servis
+        {t('marquee.title')}
       </p>
       <div className="relative">
         <motion.div className="flex gap-20 whitespace-nowrap"
@@ -761,60 +805,135 @@ function SpotlightCard({ children, className = '', size = 'md' }) {
   );
 }
 
-// ─── Features ───────────────────────────────────
+// ─── Leistungen / Features ──────────────────────
 function Features() {
   const features = [
-    { icon: Brain, title: 'AI Ruhsat Okuma (OCR)', desc: 'Ruhsat fotoğrafını yükle — şasi numarası, plaka, marka, model ve yıl saniyeler içinde otomatik doldurulsun. Yazım hatası sıfır.', span: 'col-span-12 md:col-span-8', size: 'lg', accent: C.neon },
-    { icon: Zap, title: 'Anlık Araç Geçmişi', desc: 'Şasi ya da plaka üzerinden tramer, kaza ve değişen parça raporuna tek tıkla eriş.', span: 'col-span-12 md:col-span-4', size: 'lg', accent: C.cyan },
-    { icon: Target, title: 'Online Termin Sistemi', desc: 'Google Takvim senkronlu boş saatler. Müşteri randevu alır, servis ajandasına anında işlenir.', span: 'col-span-12 md:col-span-5', size: 'md', accent: C.magenta },
-    { icon: TrendingUp, title: 'Canlı Ekspertiz Takibi', desc: 'Mekanik, kaporta, boya, rapor. Müşteri sürecin her aşamasını bar üzerinde gerçek zamanlı görür.', span: 'col-span-12 md:col-span-7', size: 'md', accent: C.neon2 },
+    {
+      icon: Wrench,
+      title: 'SCHADENGUTACHTEN',
+      subtitle: 'Kaza Ekspertizi',
+      desc: 'Detaylı ve bağımsız ekspertiz raporları, kaza sonrası sigortaya karşı haklarınızı korumak için.',
+      bullets: ['Kaza tespiti ve analiz', 'Hasar boyutunun belirlenmesi', 'Tamir yolu ve değer kaybı', 'Sigorta süreci desteği'],
+    },
+    {
+      icon: ScaleIcon,
+      title: 'KFZ-GUTACHTEN',
+      subtitle: 'Araç Ekspertizi',
+      desc: 'Çeşitli durumlar için kapsamlı raporlar — bağımsız, tarafsız ve hukuki olarak güvenli.',
+      bullets: ['Kaza ekspertizi', 'Delil güvenceleme raporu', 'Klasik araç ekspertizi', 'Diğer özel durumlar'],
+    },
+    {
+      icon: TrendingUp,
+      title: 'WERTGUTACHTEN',
+      subtitle: 'Değer Tespiti',
+      desc: 'Aracınızın güncel piyasa değerinin belirlenmesi — satış, sigorta veya finansman amaçlı.',
+      bullets: ['Piyasa değer analizi', 'Kalan değer tespiti', 'Klasik ve koleksiyon araç değerleme'],
+    },
+    {
+      icon: Target,
+      title: 'KOSTENVORANSCHLÄGE',
+      subtitle: 'Maliyet Tahmini',
+      desc: 'Onarımlar için detaylı maliyet tahminleri — hızlı, şeffaf ve takip edilebilir.',
+      bullets: ['Onarım maliyet listesi', 'Parça ve işçilik bedelleri', 'Hasar süreci için temel'],
+    },
+    {
+      icon: Brain,
+      title: 'ERSTE KUNDENBERATUNG',
+      subtitle: 'İlk Müşteri Danışmanlığı',
+      desc: 'Kişisel danışmanlık ve ilk değerlendirme — yetkin, bağımsız ve ücretsiz.',
+      bullets: ['Olayın ilk değerlendirmesi', 'Sorularınızın açıklanması', 'Sonraki adımlar için öneri'],
+    },
+    {
+      icon: ShieldIcon,
+      title: 'LEASINGRÜCKLÄUFER-CHECK',
+      subtitle: 'Leasing İade Kontrolü',
+      desc: 'Aracınızın iade öncesi profesyonel kontrolü — ek ödemeleri ve anlaşmazlıkları önleyin.',
+      bullets: ['Hasar ve eksik kontrolü', 'Leasing kriterlerine göre değerleme', 'Kontrol raporu ile belgeleme', 'Tarafsız ve adil değerlendirme'],
+    },
   ];
+
   return (
-    <section className="relative py-32 md:py-40" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
-        <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-100px' }}
-          transition={{ duration: 0.8, ease: easeOut }} className="mb-16 md:mb-24 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-10 items-center">
-          <div>
-            <p className="text-xs uppercase mb-5" style={{ color: C.neon, letterSpacing: '0.25em' }}>Özellikler</p>
-            <h2 className="text-4xl md:text-6xl font-semibold max-w-3xl" style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.05 }}>
-              Oto Ekspertizin <span style={{ color: C.neon }}>Dijital Standardı</span>.
-            </h2>
-            <p className="mt-6 text-lg max-w-2xl" style={{ color: C.textDim }}>
-              Ruhsat tarama, tramer geçmişi, termin yönetimi, canlı ekspertiz takibi ve müşteri portalı — hepsi tek çatı altında.
+    <section id="leistungen" className="relative py-20 md:py-28" style={{ background: '#FFFFFF' }}>
+      <div className="mx-auto px-6" style={{ maxWidth: 1280 }}>
+        {/* Header — left/right split */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-16 md:mb-20">
+          {/* Left — title + description */}
+          <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.7, ease: easeOut }}>
+            <p className="text-2xl md:text-3xl font-black uppercase tracking-tight" style={{ color: '#0A0A0A' }}>
+              Unsere
             </p>
-          </div>
-          <div className="relative rounded-3xl overflow-hidden w-full md:w-80 h-56 md:h-64"
-            style={{ border: `1px solid ${C.border}`, boxShadow: `0 0 40px ${C.glow}` }}>
-            <img src="/images/keys.jpg" alt="Schlüsselübergabe" loading="lazy"
-              className="absolute inset-0 w-full h-full object-cover" />
-            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${C.neon}22, transparent 60%)` }} />
-          </div>
-        </motion.div>
-        <div className="grid grid-cols-12 gap-4">
+            <h2 className="text-5xl md:text-7xl font-black uppercase leading-[0.95] mt-1" style={{ color: '#E30613', letterSpacing: '-0.02em' }}>
+              Leistungen
+            </h2>
+            <div className="mt-5 h-1 w-20 rounded-full" style={{ background: '#E30613' }} />
+            <p className="mt-7 text-base md:text-lg leading-relaxed max-w-md" style={{ color: '#4B4B4B' }}>
+              Bağımsız bir KFZ ekspertiz uzmanı olarak, aracınızla ilgili tüm konularda profesyonel ve objektif
+              ekspertizler ile danışmanlık hizmetleri sunuyoruz. Hızlı, güvenilir ve şeffaf — güvenliğiniz için.
+            </p>
+          </motion.div>
+
+          {/* Right — B&W image */}
+          <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.7, ease: easeOut, delay: 0.15 }}
+            className="relative h-[280px] md:h-[340px] rounded-xl overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #2A2A2A 0%, #4A4A4A 50%, #6B6B6B 100%)' }}>
+            <img src="/logo-gecit.png" alt="" aria-hidden="true"
+              className="absolute inset-0 w-full h-full object-contain p-10"
+              style={{ filter: 'grayscale(100%) brightness(1.4) opacity(0.35)', mixBlendMode: 'screen' }} />
+            <div className="absolute inset-0"
+              style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.4) 100%)' }} />
+            <div className="absolute inset-0 pointer-events-none"
+              style={{ boxShadow: 'inset 0 0 80px rgba(255,255,255,0.05)' }} />
+          </motion.div>
+        </div>
+
+        {/* 3x2 Card Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f, i) => (
             <motion.div key={i}
-              initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-50px' }}
-              transition={{ duration: 0.7, ease: easeOut, delay: i * 0.1 }}
-              className={f.span}>
-              <SpotlightCard size={f.size} className="h-full">
-                <div className="flex flex-col h-full p-8 md:p-10">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6"
-                    style={{ background: `${f.accent}20`, border: `1px solid ${f.accent}44`,
-                      color: f.accent, boxShadow: `0 0 30px ${f.accent}22` }}>
-                    <f.icon size={22} strokeWidth={1.8} />
-                  </div>
-                  <h3 className="text-2xl md:text-3xl font-semibold mb-3"
-                    style={{ color: C.text, letterSpacing: '-0.02em' }}>{f.title}</h3>
-                  <p className="leading-relaxed" style={{ color: C.textDim }}>{f.desc}</p>
-                  <div className="mt-auto pt-8">
-                    <span className="inline-flex items-center gap-1 text-sm" style={{ color: f.accent }}>
-                      Detaylı incele <ChevronRight size={14} />
+              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.6, ease: easeOut, delay: i * 0.06 }}
+              whileHover={{ y: -4 }}
+              className="group relative bg-white p-8 md:p-10 flex flex-col items-center text-center transition-all"
+              style={{
+                border: '1px solid rgba(0,0,0,0.08)',
+                borderRadius: 12,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}>
+              {/* Icon circle */}
+              <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5 transition-transform group-hover:scale-105"
+                style={{ background: '#F5F5F5', color: '#E30613', border: '1px solid rgba(0,0,0,0.04)' }}>
+                <f.icon size={36} strokeWidth={1.8} />
+              </div>
+              {/* Title */}
+              <h3 className="text-lg md:text-xl font-black uppercase tracking-wide mb-1" style={{ color: '#0A0A0A', letterSpacing: '0.04em' }}>
+                {f.title}
+              </h3>
+              <p className="text-xs font-semibold uppercase mb-4" style={{ color: '#E30613', letterSpacing: '0.15em' }}>
+                {f.subtitle}
+              </p>
+              {/* Desc */}
+              <p className="text-sm leading-relaxed mb-5" style={{ color: '#6B6B6B' }}>
+                {f.desc}
+              </p>
+              {/* Bullets */}
+              <ul className="w-full text-left space-y-2 mt-auto">
+                {f.bullets.map((b, j) => (
+                  <li key={j} className="flex items-start gap-2.5 text-sm" style={{ color: '#1F1F1F' }}>
+                    <span className="flex-shrink-0 mt-0.5" style={{ color: '#E30613' }}>
+                      <Svg size={16}>
+                        <circle cx="12" cy="12" r="10" fill="none" strokeWidth="1.8" />
+                        <polyline points="9 12 11 14 15 10" strokeWidth="2" />
+                      </Svg>
                     </span>
-                  </div>
-                </div>
-              </SpotlightCard>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
             </motion.div>
           ))}
         </div>
@@ -823,78 +942,39 @@ function Features() {
   );
 }
 
-// ─── Kostenlos Banner ────────────────────────────
+// ─── Kirmizi bant CTA ────────────────────────────
 function KostenlosBanner() {
   return (
-    <section className="relative py-20 md:py-28 overflow-hidden" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 0.8, ease: easeOut }}
-          className="relative rounded-3xl overflow-hidden"
-          style={{ background: `linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(124,58,237,0.08) 50%, rgba(34,211,238,0.08) 100%)`,
-            border: '1px solid rgba(239,68,68,0.2)' }}>
-          {/* Glow effects */}
-          <div className="absolute top-0 left-1/4 w-80 h-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(239,68,68,0.08), transparent 70%)', filter: 'blur(40px)' }} />
-          <div className="absolute bottom-0 right-1/4 w-80 h-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.06), transparent 70%)', filter: 'blur(40px)' }} />
-
-          <div className="relative p-10 md:p-16">
-            <div className="flex flex-col md:flex-row items-center gap-10">
-              {/* Left: Photo */}
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                whileInView={{ scale: 1, opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="flex-shrink-0">
-                <div className="relative w-full md:w-80 h-56 md:h-64 rounded-3xl overflow-hidden"
-                  style={{ border: '1px solid rgba(239,68,68,0.25)',
-                    boxShadow: '0 0 40px rgba(239,68,68,0.12)' }}>
-                  <img src="/images/inspection.jpg" alt="Unfallgutachten Inspektion" loading="lazy"
-                    className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.18), transparent 60%)' }} />
-                  <div className="absolute top-3 left-3 w-12 h-12 rounded-2xl flex items-center justify-center"
-                    style={{ background: 'rgba(239,68,68,0.92)', backdropFilter: 'blur(6px)' }}>
-                    <ScaleIcon size={22} style={{ color: '#fff' }} />
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Center: Content */}
-              <div className="flex-1 text-center md:text-left">
-                <p className="text-xs uppercase mb-3 font-semibold tracking-widest" style={{ color: '#EF4444' }}>
-                  Ihre Vorteile mit uns
-                </p>
-                <h2 className="text-3xl md:text-5xl font-bold mb-4"
-                  style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-                  Kostenlos für <span style={{ color: '#EF4444' }}>Geschädigte</span>
-                </h2>
-                <p className="text-lg md:text-xl leading-relaxed max-w-2xl" style={{ color: C.textDim }}>
-                  Bei Fremdverschuldung zahlen Sie nichts. Wir rechnen direkt mit der gegnerischen Versicherung ab.
-                </p>
-                <div className="mt-6 flex flex-wrap gap-4 justify-center md:justify-start">
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
-                    style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                    <span style={{ color: '#34D399', fontSize: 16 }}>✓</span>
-                    <span className="text-sm" style={{ color: '#34D399' }}>Keine Vorauszahlung</span>
-                  </div>
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
-                    style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                    <span style={{ color: '#34D399', fontSize: 16 }}>✓</span>
-                    <span className="text-sm" style={{ color: '#34D399' }}>Direkte Abrechnung</span>
-                  </div>
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
-                    style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                    <span style={{ color: '#34D399', fontSize: 16 }}>✓</span>
-                    <span className="text-sm" style={{ color: '#34D399' }}>Professionelles Gutachten</span>
-                  </div>
-                </div>
-              </div>
+    <section style={{ background: '#E30613' }}>
+      <div className="mx-auto px-6 py-10 md:py-12" style={{ maxWidth: 1280 }}>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+          {/* Left */}
+          <div className="text-center md:text-left">
+            <div className="flex items-center gap-3 justify-center md:justify-start mb-2">
+              <Svg size={22} style={{ color: '#FFFFFF', flexShrink: 0 }}>
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 6 6l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.5 16h.5z"/>
+              </Svg>
+              <p className="text-xl md:text-2xl font-black tracking-wide" style={{ color: '#FFFFFF' }}>
+                HIZLI · BAĞIMSIZ · GÜVENİLİR
+              </p>
             </div>
+            <p className="text-sm md:text-base font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>
+              Profesyonel araç ekspertiz hizmetiniz — Aachen ve çevresinde
+            </p>
           </div>
-        </motion.div>
+          {/* Right — CTA button */}
+          <a href="tel:+490000000000"
+            className="inline-flex items-center gap-3 px-7 py-3.5 rounded-lg font-bold text-sm flex-shrink-0 transition-all"
+            style={{ background: 'transparent', border: '2px solid rgba(255,255,255,0.80)',
+              color: '#FFFFFF', letterSpacing: '0.04em', textDecoration: 'none' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+            <Svg size={16} style={{ color: '#FFFFFF' }}>
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 6 6l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.5 16h.5z"/>
+            </Svg>
+            ŞİMDİ ARA
+          </a>
+        </div>
       </div>
     </section>
   );
@@ -945,7 +1025,7 @@ function VerkehrsunfallSection() {
               viewport={{ once: true, margin: '-40px' }}
               transition={{ duration: 0.6, ease: easeOut, delay: i * 0.1 }}
               className="rounded-2xl p-6 flex gap-5"
-              style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`,
+              style={{ background: '#FAFAFA', border: `1px solid ${C.border}`,
                 backdropFilter: 'blur(4px)' }}>
               <div className="flex-shrink-0 mt-1">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center"
@@ -1039,7 +1119,7 @@ function FahrzeugklassenSection() {
               viewport={{ once: true, margin: '-40px' }}
               transition={{ duration: 0.6, ease: easeOut, delay: i * 0.08 }}
               className="rounded-2xl p-6 md:p-7"
-              style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`,
+              style={{ background: '#FAFAFA', border: `1px solid ${C.border}`,
                 backdropFilter: 'blur(4px)' }}>
               <div className="flex items-center gap-4 mb-3">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
@@ -1066,7 +1146,7 @@ function RechteSection() {
     { title: 'Mietwagen & Nutzungsausfall', desc: 'Für die Dauer der Reparatur steht Ihnen Mietwagen zu. Alternativ können Sie Nutzungsausfallentschädigung verlangen.' },
   ];
   return (
-    <section className="relative py-24 md:py-32" style={{ zIndex: 2 }}>
+    <section className="relative py-24 md:py-32" style={{ zIndex: 2, background: '#FAFAFA' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1100 }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-14 items-center mb-14">
           <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }}
@@ -1100,8 +1180,7 @@ function RechteSection() {
               viewport={{ once: true, margin: '-40px' }}
               transition={{ duration: 0.6, ease: easeOut, delay: i * 0.1 }}
               className="rounded-2xl p-6 md:p-8 flex gap-5"
-              style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`,
-                backdropFilter: 'blur(4px)' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.08)' }}>
               <div className="flex-shrink-0 mt-1">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{ background: 'linear-gradient(135deg, #E30613, #B0050F)',
@@ -1180,20 +1259,15 @@ function WhyGecitKfz() {
   ];
 
   return (
-    <section className="relative py-32 md:py-40 overflow-hidden" style={{ zIndex: 2 }}>
-      {/* Ambient glow */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full" style={{ background: `radial-gradient(circle, ${C.neon}08, transparent 70%)`, filter: 'blur(60px)' }} />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full" style={{ background: `radial-gradient(circle, ${C.cyan}06, transparent 70%)`, filter: 'blur(60px)' }} />
-      </div>
+    <section className="relative py-32 md:py-40 overflow-hidden" style={{ zIndex: 2, background: '#FFFFFF' }}>
 
       <div className="mx-auto px-6 relative" style={{ maxWidth: 1200 }}>
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.8, ease: easeOut }} className="text-center mb-20">
-          <p className="text-xs uppercase mb-5 font-semibold" style={{ color: C.cyan, letterSpacing: '0.25em' }}>Warum Gecit Kfz Sachverständiger?</p>
-          <h2 className="text-4xl md:text-6xl font-semibold max-w-4xl mx-auto" style={{ color: '#000', letterSpacing: '-0.03em', lineHeight: 1.05 }}>
+          <p className="text-xs uppercase mb-5 font-semibold" style={{ color: '#E30613', letterSpacing: '0.25em' }}>Warum Gecit Kfz Sachverständiger?</p>
+          <h2 className="text-4xl md:text-6xl font-semibold max-w-4xl mx-auto" style={{ color: '#0A0A0A', letterSpacing: '-0.03em', lineHeight: 1.05 }}>
             Neden <span style={{ color: '#e10600' }}>Gecit</span> Kfz Sachverständiger'u Tercih Etmelisiniz?
           </h2>
           <p className="mt-6 text-lg max-w-2xl mx-auto" style={{ color: C.textDim }}>
@@ -1259,7 +1333,7 @@ function WhyGecitKfz() {
             { icon: ShieldIcon, text: 'Deutsche Server' },
           ].map((t, i) => (
             <div key={i} className="flex items-center gap-2 px-4 py-2 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}` }}>
+              style={{ background: 'rgba(0,0,0,0.03)', border: 'rgba(0,0,0,0.08)' }}>
               <t.icon size={14} strokeWidth={2} style={{ color: C.neon }} />
               <span className="text-xs font-medium" style={{ color: C.textDim }}>{t.text}</span>
             </div>
@@ -1281,7 +1355,7 @@ function HowItWorks() {
     { n: '03', title: 'Raporunu Al', desc: 'Mekanik, kaporta ve boya kontrolü tamamlandığında detaylı PDF rapor müşteri portalına ve e-postana düşer.', align: 'left' },
   ];
   return (
-    <section ref={ref} className="relative py-32 md:py-40 overflow-hidden" style={{ zIndex: 2 }}>
+    <section ref={ref} className="relative py-32 md:py-40 overflow-hidden" style={{ zIndex: 2, background: '#FAFAFA' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
@@ -1298,9 +1372,9 @@ function HowItWorks() {
             aria-hidden="true">
             <defs>
               <linearGradient id="pathGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={C.neon} />
-                <stop offset="50%" stopColor={C.magenta} />
-                <stop offset="100%" stopColor={C.cyan} />
+                <stop offset="0%" stopColor="#E30613" />
+                <stop offset="50%" stopColor="#B0050F" />
+                <stop offset="100%" stopColor="#7A0309" />
               </linearGradient>
               <filter id="pathGlow">
                 <feGaussianBlur stdDeviation="6" result="b" />
@@ -1320,14 +1394,14 @@ function HowItWorks() {
                 transition={{ duration: 0.8, ease: easeOut }}
                 className={`flex flex-col md:flex-row items-center gap-8 ${s.align === 'right' ? 'md:flex-row-reverse' : ''}`}>
                 <div className="flex-shrink-0 relative">
-                  <div className="w-20 h-20 md:w-28 md:h-28 rounded-full flex items-center justify-center font-mono text-2xl md:text-3xl"
-                    style={{ background: C.surface, border: `2px solid ${C.neon}`, color: C.neon,
-                      boxShadow: `0 0 40px ${C.glow}, inset 0 0 20px ${C.glow}` }}>
+                  <div className="w-20 h-20 md:w-28 md:h-28 rounded-full flex items-center justify-center font-mono text-2xl md:text-3xl font-bold"
+                    style={{ background: '#FFFFFF', border: '2.5px solid #E30613', color: '#E30613',
+                      boxShadow: '0 0 0 6px rgba(227,6,19,0.08)' }}>
                     {s.n}
                   </div>
                 </div>
                 <div className="flex-1 p-8 md:p-10 rounded-3xl max-w-md"
-                  style={{ background: C.surface2, border: `1px solid ${C.border}`, backdropFilter: 'blur(12px)' }}>
+                  style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
                   <h3 className="text-3xl md:text-4xl font-semibold mb-3" style={{ color: C.text, letterSpacing: '-0.02em' }}>{s.title}</h3>
                   <p className="text-lg leading-relaxed" style={{ color: C.textDim }}>{s.desc}</p>
                 </div>
@@ -1363,10 +1437,8 @@ function Stat({ value, prefix = '', suffix = '', label }) {
     <motion.div ref={ref} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.8, ease: easeOut }} className="text-center md:text-left">
-      <div className="font-mono tabular-nums text-5xl md:text-7xl font-semibold"
-        style={{ background: `linear-gradient(135deg, ${C.neon} 0%, ${C.magenta} 100%)`,
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          letterSpacing: '-0.04em' }}>
+      <div className="font-mono tabular-nums text-5xl md:text-7xl font-black"
+        style={{ color: '#E30613', letterSpacing: '-0.04em' }}>
         {prefix}{disp}{suffix}
       </div>
       <p className="mt-3 text-sm uppercase" style={{ color: C.textDim, letterSpacing: '0.2em' }}>{label}</p>
@@ -1376,13 +1448,13 @@ function Stat({ value, prefix = '', suffix = '', label }) {
 
 function Stats() {
   return (
-    <section className="relative py-32 md:py-40" style={{ zIndex: 2 }}>
+    <section className="relative py-24 md:py-32" style={{ zIndex: 2, background: '#FFFFFF' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
-          transition={{ duration: 0.8, ease: easeOut }} className="mb-20">
-          <p className="text-xs uppercase mb-5" style={{ color: C.neon, letterSpacing: '0.25em' }}>Güven</p>
-          <h2 className="text-4xl md:text-6xl font-semibold max-w-3xl" style={{ color: C.text, letterSpacing: '-0.03em' }}>
+          transition={{ duration: 0.8, ease: easeOut }} className="mb-16">
+          <p className="text-xs uppercase mb-4 font-bold" style={{ color: '#E30613', letterSpacing: '0.25em' }}>Güven</p>
+          <h2 className="text-4xl md:text-6xl font-black max-w-3xl" style={{ color: '#0A0A0A', letterSpacing: '-0.03em' }}>
             Sayılarla güvenin adı.
           </h2>
         </motion.div>
@@ -1400,22 +1472,21 @@ function Stats() {
 // ─── Testimonial ────────────────────────────────
 function Testimonial() {
   return (
-    <section className="relative py-32 md:py-40" style={{ zIndex: 2 }}>
+    <section className="relative py-24 md:py-32" style={{ zIndex: 2, background: '#FAFAFA' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1000 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.9, ease: easeOut }}
           className="relative p-10 md:p-16 rounded-3xl"
-          style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.08), rgba(34,211,238,0.05))',
-            border: `1px solid ${C.border}`, backdropFilter: 'blur(16px)' }}>
+          style={{ background: '#F8F8F8', border: '1px solid rgba(0,0,0,0.08)' }}>
           <Quote size={48} style={{ color: C.neon, opacity: 0.6 }} />
           <blockquote className="mt-6 text-3xl md:text-5xl italic leading-tight"
             style={{ color: C.text, letterSpacing: '-0.02em', fontFamily: 'Georgia, "Times New Roman", serif' }}>
             "İkinci el araç aldık; Gecit Kfz Sachverständiger ruhsattan saniyede okudu, 20 yıllık galericinin bile kaçırdığı değişen parçayı yakaladı. Paranın tam karşılığı."
           </blockquote>
           <div className="mt-10 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center font-mono text-lg"
-              style={{ background: `linear-gradient(135deg, ${C.neon}, ${C.magenta})`, color: '#0B0818' }}>MY</div>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center font-mono text-lg font-bold"
+              style={{ background: '#E30613', color: '#FFFFFF' }}>MY</div>
             <div>
               <p style={{ color: C.text }} className="font-medium">Mehmet Yıldız</p>
               <p className="text-sm" style={{ color: C.textDim }}>Kurucu Ortak @ Yıldız Motors</p>
@@ -1432,14 +1503,13 @@ function PricingCard({ name, price, desc, features, highlighted, cta }) {
   return (
     <motion.div whileHover={{ y: -6 }} transition={spring}
       className="relative p-8 rounded-3xl h-full flex flex-col"
-      style={{ background: highlighted ? C.surface2 : C.surface,
-        border: highlighted ? '1px solid rgba(167,139,250,0.35)' : `1px solid ${C.border}`,
-        boxShadow: highlighted ? `0 0 60px ${C.glow}` : 'none' }}>
+      style={{ background: highlighted ? '#FFFFFF' : '#FAFAFA',
+        border: highlighted ? '2px solid #E30613' : '1px solid rgba(0,0,0,0.08)',
+        boxShadow: highlighted ? '0 8px 40px rgba(227,6,19,0.15)' : 'none' }}>
       {highlighted && (
-        <div className="absolute px-4 py-1 rounded-full text-xs uppercase font-medium"
-          style={{ top: -12, left: '50%', transform: 'translateX(-50%)',
-            background: `linear-gradient(135deg, ${C.neon}, ${C.magenta})`, color: '#0B0818',
-            letterSpacing: '0.15em' }}>En Popüler</div>
+        <div className="absolute px-4 py-1 rounded-full text-xs uppercase font-bold"
+          style={{ top: -14, left: '50%', transform: 'translateX(-50%)',
+            background: '#E30613', color: '#FFFFFF', letterSpacing: '0.12em', whiteSpace: 'nowrap' }}>En Popüler</div>
       )}
       <p className="text-sm uppercase mb-4" style={{ color: C.neon, letterSpacing: '0.2em' }}>{name}</p>
       <div className="flex items-baseline gap-1 mb-2">
@@ -1455,10 +1525,12 @@ function PricingCard({ name, price, desc, features, highlighted, cta }) {
           </li>
         ))}
       </ul>
-      <button data-magnetic className="w-full py-3 rounded-full font-medium text-sm transition-colors"
+      <button data-magnetic className="w-full py-3 rounded-lg font-semibold text-sm transition-all"
         style={highlighted
-          ? { background: `linear-gradient(135deg, ${C.neon}, ${C.neon2})`, color: '#0B0818' }
-          : { background: 'rgba(255,255,255,0.04)', color: C.text, border: `1px solid ${C.border}` }}>
+          ? { background: '#E30613', color: '#FFFFFF', boxShadow: '0 4px 16px rgba(227,6,19,0.30)' }
+          : { background: 'transparent', color: '#0A0A0A', border: '1px solid rgba(0,0,0,0.12)' }}
+        onMouseEnter={e => { if (highlighted) e.currentTarget.style.background = '#B0050F'; else e.currentTarget.style.background = '#F5F5F5'; }}
+        onMouseLeave={e => { if (highlighted) e.currentTarget.style.background = '#E30613'; else e.currentTarget.style.background = 'transparent'; }}>
         {cta}
       </button>
     </motion.div>
@@ -1467,12 +1539,12 @@ function PricingCard({ name, price, desc, features, highlighted, cta }) {
 
 function Pricing() {
   return (
-    <section className="relative py-32 md:py-40" style={{ zIndex: 2 }}>
+    <section className="relative py-24 md:py-32" style={{ zIndex: 2, background: '#FFFFFF' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
-          transition={{ duration: 0.8, ease: easeOut }} className="text-center mb-20">
-          <p className="text-xs uppercase mb-5" style={{ color: C.neon, letterSpacing: '0.25em' }}>Paketler</p>
+          transition={{ duration: 0.8, ease: easeOut }} className="text-center mb-16">
+          <p className="text-xs uppercase mb-4 font-bold" style={{ color: '#E30613', letterSpacing: '0.25em' }}>Paketler</p>
           <h2 className="text-4xl md:text-6xl font-semibold" style={{ color: C.text, letterSpacing: '-0.03em' }}>
             Her araç için doğru paket.
           </h2>
@@ -1493,32 +1565,41 @@ function Pricing() {
 
 // ─── Footer CTA ─────────────────────────────────
 function FooterCTA() {
-  const rm = useReducedMotion();
   return (
-    <section className="relative flex items-center justify-center overflow-hidden"
-      style={{ minHeight: '100vh', zIndex: 2 }}>
-      <motion.div className="absolute rounded-full pointer-events-none"
-        style={{ width: 900, height: 900,
-          background: 'radial-gradient(circle, rgba(167,139,250,0.27) 0%, rgba(124,58,237,0.13) 40%, transparent 70%)',
-          filter: 'blur(40px)' }}
-        animate={rm ? {} : { scale: [1, 1.15, 1], opacity: [0.7, 1, 0.7] }}
-        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }} />
-      <div className="relative text-center px-6" style={{ maxWidth: 900 }}>
+    <section className="relative py-24 md:py-32 overflow-hidden"
+      style={{ background: '#FFFFFF', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+      {/* Subtle red vignette top */}
+      <div className="absolute top-0 left-0 right-0 h-1" style={{ background: '#E30613' }} />
+      <div className="relative text-center px-6 mx-auto" style={{ maxWidth: 800 }}>
+        <motion.p initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }} transition={{ duration: 0.6, ease: easeOut }}
+          className="text-xs font-bold uppercase mb-6" style={{ color: '#E30613', letterSpacing: '0.25em' }}>
+          Jetzt Termin vereinbaren
+        </motion.p>
         <RevealHeading text="Aracının Gerçek Hikayesini Öğren."
-          className="text-5xl md:text-7xl lg:text-8xl font-semibold"
-          style={{ color: C.text, letterSpacing: '-0.04em', lineHeight: 0.95 }} />
-        <motion.p initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.8, ease: easeOut, delay: 0.6 }}
-          className="mt-8 text-lg md:text-xl" style={{ color: C.textDim }}>
+          className="text-4xl md:text-6xl lg:text-7xl font-black"
+          style={{ color: '#0A0A0A', letterSpacing: '-0.03em', lineHeight: 1.0 }} />
+        <motion.p initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }} transition={{ duration: 0.7, ease: easeOut, delay: 0.5 }}
+          className="mt-6 text-base md:text-lg" style={{ color: '#6B6B6B' }}>
           İlk ekspertizinde %15 indirim. 5 dakikada online termin.
         </motion.p>
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.8, ease: easeOut, delay: 0.8 }}
-          className="mt-10 flex justify-center">
-          <MagneticButton variant="primary" ariaLabel="Online termin al" className="text-base"
-            onClick={() => window.dispatchEvent(new CustomEvent('gecit-kfz:book'))}>
+        <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }} transition={{ duration: 0.7, ease: easeOut, delay: 0.7 }}
+          className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            className="inline-flex items-center justify-center gap-2 text-sm font-bold px-8 py-4 rounded-lg transition-all"
+            style={{ background: '#E30613', color: '#FFFFFF', boxShadow: '0 6px 24px rgba(227,6,19,0.35)' }}
+            onClick={() => window.dispatchEvent(new CustomEvent('gecit-kfz:book'))}
+            onMouseEnter={e => e.currentTarget.style.background = '#B0050F'}
+            onMouseLeave={e => e.currentTarget.style.background = '#E30613'}>
             Online Termin Al <ArrowRight size={18} />
-          </MagneticButton>
+          </button>
+          <a href="tel:+490000000000"
+            className="inline-flex items-center justify-center gap-2 text-sm font-semibold px-8 py-4 rounded-lg transition-all hover:bg-gray-50"
+            style={{ color: '#0A0A0A', border: '1px solid rgba(0,0,0,0.14)', textDecoration: 'none' }}>
+            Jetzt anrufen
+          </a>
         </motion.div>
       </div>
     </section>
@@ -1527,71 +1608,84 @@ function FooterCTA() {
 
 // ─── Footer ─────────────────────────────────────
 function Footer() {
-  const cols = [
-    { title: 'Hizmet', links: ['Ekspertiz Paketleri', 'Tramer Sorgulama', 'AI Ruhsat OCR', 'Kurumsal Çözümler'] },
-    { title: 'Şirket', links: ['Hakkımızda', 'Şubeler', 'Kariyer', 'İletişim'] },
-    { title: 'Destek', links: ['Nasıl Çalışır', 'SSS', 'Müşteri Portalı', 'Galeri Paneli'] },
-    { title: 'Yasal', links: ['Gizlilik', 'Kullanım Şartları', 'Çerez Politikası', 'KVKK'] },
+  const contactItems = [
+    { icon: <Svg size={14}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 6 6l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.5 16h.5z"/></Svg>, label: '+49 241 000 0000' },
+    { icon: <Svg size={14}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></Svg>, label: 'info@gecit-kfz.de' },
+    { icon: <Svg size={14}><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></Svg>, label: 'www.gecit-kfz.de' },
   ];
   return (
-    <footer className="relative pt-20 pb-10"
-      style={{ borderTop: `1px solid ${C.border}`, background: C.bg, zIndex: 2 }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-16">
-          <div className="col-span-2 md:col-span-1">
-            <div className="text-2xl md:text-3xl lg:text-4xl font-black italic tracking-tighter" style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', lineHeight: 1 }}>
-              <span style={{ color: '#E30613' }}>GECIT</span>
-              <span style={{ color: '#FFFFFF', margin: '0 2px' }}>-</span>
-              <span style={{ color: '#FFFFFF' }}>KFZ</span>
+    <footer style={{ background: '#FFFFFF', borderTop: '1px solid rgba(0,0,0,0.08)', zIndex: 2 }}>
+      <div className="mx-auto px-6 py-16" style={{ maxWidth: 1280 }}>
+        {/* 3 columns */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+          {/* Left: Logo + tagline */}
+          <div>
+            <div className="flex items-center gap-1 font-black tracking-tight mb-3" style={{ lineHeight: 1 }}>
+              <span style={{ color: '#E30613', fontSize: 22 }}>GECIT</span>
+              <span style={{ color: '#0A0A0A', fontSize: 22, margin: '0 1px' }}>-</span>
+              <span style={{ color: '#0A0A0A', fontSize: 22 }}>KFZ</span>
             </div>
-            <p className="mt-4 text-sm" style={{ color: C.textDim }}>
-              Oto ekspertizin dijital standardı.
+            <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: '#6B6B6B' }}>
+              Sachverständigenbüro
             </p>
-            <div className="mt-5 text-sm leading-relaxed" style={{ color: C.textDim }}>
-              <p style={{ color: C.text, fontWeight: 600, marginBottom: 4 }}>Adresse</p>
+            <p className="text-sm leading-relaxed" style={{ color: '#6B6B6B' }}>
+              Bağımsız, hızlı ve güvenilir araç ekspertiz hizmetleri. Kaza anından itibaren yanınızdayız.
+            </p>
+          </div>
+
+          {/* Middle: Address */}
+          <div>
+            <p className="text-xs font-bold uppercase mb-4" style={{ color: '#0A0A0A', letterSpacing: '0.16em' }}>
+              ADRESSE
+            </p>
+            <div className="text-sm leading-relaxed space-y-1" style={{ color: '#6B6B6B' }}>
               <p>Am Gutshof 37</p>
               <p>52080 Aachen</p>
               <p>Deutschland</p>
-              <a
-                href="https://www.google.com/maps/search/?api=1&query=Am+Gutshof+37,+52080+Aachen,+Deutschland"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-2 text-xs underline"
-                style={{ color: C.neon }}
-              >
-                Google Maps'te aç →
+              <a href="https://www.google.com/maps/search/?api=1&query=Am+Gutshof+37,+52080+Aachen,+Deutschland"
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-3 text-xs font-semibold transition-colors hover:opacity-70"
+                style={{ color: '#E30613', textDecoration: 'none' }}>
+                Google Maps'te aç <ChevronRight size={12} />
               </a>
             </div>
           </div>
-          {cols.map((col, i) => (
-            <div key={i}>
-              <p className="text-xs uppercase mb-4" style={{ color: C.text, letterSpacing: '0.2em' }}>{col.title}</p>
-              <ul className="space-y-3">
-                {col.links.map((l, j) => (
-                  <li key={j}><a href="#" className="text-sm transition-colors hover:text-white" style={{ color: C.textDim }}>{l}</a></li>
-                ))}
-              </ul>
+
+          {/* Right: Contact */}
+          <div>
+            <p className="text-xs font-bold uppercase mb-4" style={{ color: '#0A0A0A', letterSpacing: '0.16em' }}>
+              KONTAKT
+            </p>
+            <div className="space-y-3">
+              {contactItems.map((c, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm" style={{ color: '#6B6B6B' }}>
+                  <span className="flex-shrink-0" style={{ color: '#E30613' }}>{c.icon}</span>
+                  <span>{c.label}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
-        <div className="mb-10 rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+
+        {/* Map */}
+        <div className="mb-10 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.08)' }}>
           <iframe
             title="Gecit Kfz Sachverständiger - Standort"
             src="https://www.google.com/maps?q=Am+Gutshof+37,+52080+Aachen,+Deutschland&output=embed"
-            width="100%"
-            height="320"
+            width="100%" height="280"
             style={{ border: 0, display: 'block' }}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            allowFullScreen
-          />
+            loading="lazy" referrerPolicy="no-referrer-when-downgrade" allowFullScreen />
         </div>
-        <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm"
-          style={{ borderTop: `1px solid ${C.border}`, color: C.textDim }}>
+
+        {/* Copyright */}
+        <div className="pt-6 flex flex-col md:flex-row justify-between items-center gap-3 text-xs"
+          style={{ borderTop: '1px solid rgba(0,0,0,0.08)', color: '#6B6B6B' }}>
           <p>© 2026 Gecit Kfz Sachverständiger. Tüm hakları saklıdır.</p>
-          <p className="flex items-center gap-1">
-            İstanbul'da <Zap size={12} style={{ color: C.neon }} /> ile üretildi.
-          </p>
+          <div className="flex items-center gap-4">
+            {['Gizlilik', 'KVKK', 'Impressum'].map(l => (
+              <a key={l} href="#" className="hover:text-[#E30613] transition-colors" style={{ color: '#6B6B6B', textDecoration: 'none' }}>{l}</a>
+            ))}
+          </div>
         </div>
       </div>
     </footer>
@@ -1657,44 +1751,44 @@ function PWAInstallBanner() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 80 }}
         style={{ position: 'fixed', bottom: 20, left: 16, right: 16, zIndex: 9999,
-          background: 'linear-gradient(135deg, #1a1030 0%, #0E0B18 100%)',
-          border: '1px solid rgba(124,58,237,0.3)', borderRadius: 20,
-          padding: '20px', boxShadow: '0 8px 40px rgba(124,58,237,0.2)' }}>
+          background: '#FFFFFF',
+          border: '1px solid rgba(0,0,0,0.12)', borderRadius: 20,
+          padding: '20px', boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(124,58,237,0.15)',
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(227,6,19,0.08)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24 }}>
             📲
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#EDE9FE', marginBottom: 4 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#0A0A0A', marginBottom: 4 }}>
               Gecit Kfz Sachverständiger'u Ana Ekrana Ekle
             </div>
             {isIOS ? (
-              <div style={{ fontSize: 13, color: '#8B85A8', lineHeight: 1.5 }}>
-                <span style={{ color: '#22D3EE' }}>Safari</span>'de alttaki{' '}
-                <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(124,58,237,0.15)',
+              <div style={{ fontSize: 13, color: '#6B6B6B', lineHeight: 1.5 }}>
+                <span style={{ color: '#E30613' }}>Safari</span>'de alttaki{' '}
+                <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(227,6,19,0.08)',
                   borderRadius: 6, padding: '2px 6px', fontSize: 12, verticalAlign: 'middle' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.5">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E30613" strokeWidth="2.5">
                     <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/>
                     <line x1="12" y1="2" x2="12" y2="15"/>
                   </svg>
                 </span>{' '}
-                paylaş butonuna bas, sonra <strong style={{ color: '#EDE9FE' }}>"Ana Ekrana Ekle"</strong> seç.
+                paylaş butonuna bas, sonra <strong style={{ color: '#0A0A0A' }}>"Ana Ekrana Ekle"</strong> seç.
                 Push bildirimleri sadece PWA'da çalışır.
               </div>
             ) : (
-              <div style={{ fontSize: 13, color: '#8B85A8', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 13, color: '#6B6B6B', lineHeight: 1.5 }}>
                 Uygulamayı telefonuna yükle — push bildirimleri al, çevrimdışı çalış.
               </div>
             )}
           </div>
-          <button onClick={dismiss} style={{ background: 'none', border: 'none', color: '#8B85A8',
+          <button onClick={dismiss} style={{ background: 'none', border: 'none', color: '#6B6B6B',
             fontSize: 20, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
         </div>
         {!isIOS && deferredPrompt && (
           <button onClick={handleInstall}
             style={{ width: '100%', marginTop: 14, padding: '12px 0', borderRadius: 12,
-              background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
+              background: '#E30613',
               border: 'none', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
             Şimdi Yükle
           </button>
@@ -1747,10 +1841,9 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
                 <button type="button" key={s} onClick={() => setService(s)}
                   className="p-3 rounded-xl text-xs text-left transition-all"
                   style={{
-                    background: service === s ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.03)',
+                    background: service === s ? 'rgba(227,6,19,0.08)' : '#FAFAFA',
                     border: `1px solid ${service === s ? C.neon : C.border}`,
-                    color: service === s ? C.text : C.textDim,
-                    boxShadow: service === s ? `0 0 16px ${C.glow}` : 'none',
+                    color: service === s ? '#E30613' : C.textDim,
                   }}>{s}</button>
               ))}
             </div>
@@ -1762,9 +1855,9 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
                 <button type="button" key={d.iso} onClick={() => setDate(d.iso)}
                   className="flex-shrink-0 w-16 p-3 rounded-xl text-center transition-all"
                   style={{
-                    background: date === d.iso ? `linear-gradient(135deg, ${C.neon}, ${C.neon2})` : 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${date === d.iso ? 'transparent' : C.border}`,
-                    color: date === d.iso ? '#0B0818' : C.text,
+                    background: date === d.iso ? '#E30613' : '#FAFAFA',
+                    border: `1px solid ${date === d.iso ? '#E30613' : C.border}`,
+                    color: date === d.iso ? '#FFFFFF' : C.text,
                   }}>
                   <p className="text-[10px] uppercase" style={{ letterSpacing: '0.15em' }}>{d.wd}</p>
                   <p className="text-xl font-mono mt-1">{d.day}</p>
@@ -1780,9 +1873,9 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
                   <button type="button" key={s} onClick={() => setTime(s)}
                     className="p-2.5 rounded-xl text-sm font-mono transition-all"
                     style={{
-                      background: time === s ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.03)',
+                      background: time === s ? 'rgba(227,6,19,0.08)' : '#FAFAFA',
                       border: `1px solid ${time === s ? C.neon : C.border}`,
-                      color: time === s ? C.text : C.textDim,
+                      color: time === s ? '#E30613' : C.textDim,
                     }}>{s}</button>
                 ))}
               </div>
@@ -1810,8 +1903,17 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
 
 // ═══════════════════════════════════════════════════════════════════
 // Landing — varsayilan export. App.jsx bunu cagiriyor.
+// LangProvider ile saralanir; tum ic component'ler useLang() kullanabilir.
 // ═══════════════════════════════════════════════════════════════════
-export default function Landing({ user, onLogin, onLogout, onEnterApp }) {
+export default function Landing(props) {
+  return (
+    <LangProvider>
+      <LandingInner {...props} />
+    </LangProvider>
+  );
+}
+
+function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
   const [loginOpen, setLoginOpen] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
 
@@ -1822,136 +1924,33 @@ export default function Landing({ user, onLogin, onLogout, onEnterApp }) {
   }, []);
 
   return (
-    <div className="landing-light relative min-h-screen overflow-x-hidden"
-      style={{ background: '#ffffff', color: '#000000' }}>
+    <div className="landing-root relative min-h-screen overflow-x-hidden"
+      style={{ background: '#FAFAFA', color: '#0A0A0A' }}>
       <style>{`
-        /* Not: Tarayici inline style'i rgb()'ye normalize ediyor.
-           Bu yuzden hex degil rgb formatinda hedef aliyoruz. */
+        /* Kirmizi+beyaz tema — token degerleri guncellendi, minimal override gerekiyor */
 
-        /* 1) Beyaz / gri / acik renk yazilar -> SIYAH */
-        /* #EDE9FE = rgb(237,233,254) | #8B85A8 = rgb(139,133,168) | beyaz = rgb(255,255,255) | #FFFFF0 = rgb(255,255,240) */
-        .landing-light [style*="color: rgb(237, 233, 254)"]:not(footer):not(footer *),
-        .landing-light [style*="color:rgb(237,233,254)"]:not(footer):not(footer *),
-        .landing-light [style*="color: rgb(139, 133, 168)"]:not(footer):not(footer *),
-        .landing-light [style*="color:rgb(139,133,168)"]:not(footer):not(footer *),
-        .landing-light [style*="color: rgb(255, 255, 255)"]:not(footer):not(footer *),
-        .landing-light [style*="color:rgb(255,255,255)"]:not(footer):not(footer *),
-        .landing-light [style*="color: rgb(255, 255, 240)"]:not(footer):not(footer *),
-        .landing-light [style*="color:rgb(255,255,240)"]:not(footer):not(footer *),
-        .landing-light [style*="color: white"]:not(footer):not(footer *),
-        .landing-light [style*="color:white"]:not(footer):not(footer *) {
-          color: #000000 !important;
+        /* hover:text-white tailwind class -> siyah arkaplanda anlamsiz, kirmizi yap */
+        .landing-root .hover\\:text-white:hover {
+          color: #E30613 !important;
         }
 
-        /* 2) Mor / mavi / pembe vurgular -> KIRMIZI */
-        /* #A78BFA = rgb(167,139,250) | #7C3AED = rgb(124,58,237) | #22D3EE = rgb(34,211,238) | #F472B6 = rgb(244,114,182) */
-        .landing-light [style*="color: rgb(167, 139, 250)"]:not(footer):not(footer *),
-        .landing-light [style*="color:rgb(167,139,250)"]:not(footer):not(footer *),
-        .landing-light [style*="color: rgb(124, 58, 237)"]:not(footer):not(footer *),
-        .landing-light [style*="color:rgb(124,58,237)"]:not(footer):not(footer *),
-        .landing-light [style*="color: rgb(34, 211, 238)"]:not(footer):not(footer *),
-        .landing-light [style*="color:rgb(34,211,238)"]:not(footer):not(footer *),
-        .landing-light [style*="color: rgb(244, 114, 182)"]:not(footer):not(footer *),
-        .landing-light [style*="color:rgb(244,114,182)"]:not(footer):not(footer *) {
-          color: #e10600 !important;
-        }
-
-        /* 2b) Koyu yuzey arka planlarini acik gri yap (kart icleri okunabilir olsun) */
-        /* C.surface = #0E0B18 = rgb(14,11,24) | C.surface2 = #141027 = rgb(20,16,39) | C.bg = #07060B = rgb(7,6,11) */
-        .landing-light [style*="background: rgb(14, 11, 24)"]:not(footer):not(footer *),
-        .landing-light [style*="background:rgb(14,11,24)"]:not(footer):not(footer *),
-        .landing-light [style*="background-color: rgb(14, 11, 24)"]:not(footer):not(footer *),
-        .landing-light [style*="background-color:rgb(14,11,24)"]:not(footer):not(footer *),
-        .landing-light [style*="background: rgb(20, 16, 39)"]:not(footer):not(footer *),
-        .landing-light [style*="background:rgb(20,16,39)"]:not(footer):not(footer *),
-        .landing-light [style*="background-color: rgb(20, 16, 39)"]:not(footer):not(footer *),
-        .landing-light [style*="background-color:rgb(20,16,39)"]:not(footer):not(footer *),
-        .landing-light [style*="background: rgb(7, 6, 11)"]:not(footer):not(footer *),
-        .landing-light [style*="background:rgb(7,6,11)"]:not(footer):not(footer *) {
-          background: #f5f5f7 !important;
-          background-color: #f5f5f7 !important;
+        /* BannerShowcase ve SpotlightCard koyu surface background'lari acik griye */
+        .landing-root [style*="background: rgb(14, 11, 24)"],
+        .landing-root [style*="background: rgb(20, 16, 39)"],
+        .landing-root [style*="background: rgb(7, 6, 11)"] {
+          background: #F8F8F8 !important;
           border-color: rgba(0,0,0,0.08) !important;
         }
 
-        /* 2d) MeshBackground'taki mor/cyan/pembe blob'lari hafifletip kirmiziya cevir */
-        .landing-light [style*="background: rgb(124, 58, 237)"]:not(footer):not(footer *),
-        .landing-light [style*="background:rgb(124,58,237)"]:not(footer):not(footer *) {
-          background: #e10600 !important;
-          opacity: 0.06 !important;
-        }
-        .landing-light [style*="background: rgb(34, 211, 238)"]:not(footer):not(footer *),
-        .landing-light [style*="background:rgb(34,211,238)"]:not(footer):not(footer *) {
-          background: #fca5a5 !important;
-          opacity: 0.05 !important;
-        }
-        .landing-light [style*="background: rgb(244, 114, 182)"]:not(footer):not(footer *),
-        .landing-light [style*="background:rgb(244,114,182)"]:not(footer):not(footer *) {
-          background: #fecaca !important;
-          opacity: 0.05 !important;
-        }
-        .landing-light [style*="background: rgb(167, 139, 250)"]:not(footer):not(footer *),
-        .landing-light [style*="background:rgb(167,139,250)"]:not(footer):not(footer *) {
-          background: #e10600 !important;
-          opacity: 0.05 !important;
-        }
-
-        /* 2e) Mor glow (rgba(167,139,250,...)) iceren box-shadow ve textShadow'lari notrlestir */
-        .landing-light [style*="rgba(167, 139, 250"]:not(footer):not(footer *),
-        .landing-light [style*="rgba(167,139,250"]:not(footer):not(footer *),
-        .landing-light [style*="rgba(124, 58, 237"]:not(footer):not(footer *),
-        .landing-light [style*="rgba(124,58,237"]:not(footer):not(footer *) {
-          box-shadow: 0 4px 16px rgba(225, 6, 0, 0.08) !important;
-          text-shadow: none !important;
-        }
-
-        /* 2f) Beyaz textShadow'lari kaldir (siyah yazi uzerinde anlamsiz) */
-        .landing-light [style*="text-shadow: rgb(255, 255, 255)"]:not(footer):not(footer *),
-        .landing-light [style*="text-shadow:rgb(255,255,255)"]:not(footer):not(footer *),
-        .landing-light [style*="text-shadow: rgb(255, 255, 240)"]:not(footer):not(footer *) {
-          text-shadow: none !important;
-        }
-
-        /* 2g) Beyaz/seffaf borderlari acik griye ceviri */
-        .landing-light [style*="rgba(255, 255, 255, 0.08)"]:not(footer):not(footer *),
-        .landing-light [style*="rgba(255,255,255,0.08)"]:not(footer):not(footer *),
-        .landing-light [style*="rgba(255, 255, 255, 0.16)"]:not(footer):not(footer *),
-        .landing-light [style*="rgba(255,255,255,0.16)"]:not(footer):not(footer *) {
-          border-color: rgba(0, 0, 0, 0.12) !important;
-        }
-
-        /* 2h) Tailwind hover:text-white -> beyaz arkaplanda gorunmez; siyah yap */
-        .landing-light .hover\\:text-white:hover {
-          color: #000000 !important;
-        }
-
-        /* 2i) Footer'daki .hover:text-white DOKUNULMASIN — footer hala koyu zeminli */
-        .landing-light footer .hover\\:text-white:hover {
-          color: #ffffff !important;
-        }
-
-        /* 2j) NoiseOverlay opacity'i daha da dusur (beyazda dikkat dagitiyor) */
-        .landing-light [style*="mix-blend-mode: overlay"]:not(footer):not(footer *) {
-          opacity: 0.02 !important;
-        }
-
-        /* 4) Hero/sayfa arkaplanindaki dekoratif blob'lari tamamen kapat (minimalist) */
-        .landing-light .fixed.inset-0.overflow-hidden[aria-hidden="true"] {
-          display: none !important;
-        }
-
-        /* 5) Kart hover spotlight kenari mor yerine KIRMIZI olsun */
-        .landing-light [style*="rgba(167, 139, 250, 0.4)"]:not(footer):not(footer *),
-        .landing-light [style*="rgba(167,139,250,0.4)"]:not(footer):not(footer *) {
-          border-color: #e10600 !important;
-        }
-
-        /* 3) Gradient text-fill (WebkitBackgroundClip + TextFillColor transparent) -> KIRMIZI dolgu */
-        .landing-light [style*="-webkit-text-fill-color"]:not(footer):not(footer *) {
-          -webkit-text-fill-color: #e10600 !important;
-          color: #e10600 !important;
+        /* Gradient text-fill -> kirmizi */
+        .landing-root [style*="-webkit-text-fill-color: transparent"] {
+          -webkit-text-fill-color: #E30613 !important;
           background: none !important;
-          background-image: none !important;
-          background-color: transparent !important;
+        }
+
+        /* Lightbox backdrop */
+        .landing-root [style*="background: rgba(7,6,11"] {
+          background: rgba(0,0,0,0.85) !important;
         }
       `}</style>
       <MeshBackground />

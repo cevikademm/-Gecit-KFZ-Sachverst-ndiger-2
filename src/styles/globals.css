@@ -18,7 +18,7 @@
 html {
   margin: 0;
   padding: 0;
-  background: #07060B;
+  background: #FFFFFF;
   /* overflow-x burada YOK — iOS Safari'de body scroll'u bloke ediyordu */
   overflow-y: auto !important;
   overscroll-behavior: auto !important;
@@ -27,8 +27,8 @@ html {
 body {
   margin: 0;
   padding: 0;
-  background: #07060B;
-  color: #EDE9FE;
+  background: #FAFAFA;
+  color: #0A0A0A;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
   overflow-y: auto !important;
@@ -69,19 +69,19 @@ input, textarea, select, [contenteditable], .selectable {
 }
 @media (min-width: 1025px) {
   ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-track { background: #07060B; }
-  ::-webkit-scrollbar-thumb { background: #2a2340; border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: #7C3AED; }
+  ::-webkit-scrollbar-track { background: #F8F8F8; }
+  ::-webkit-scrollbar-thumb { background: #DDDDDD; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #E30613; }
 }
 /* Standalone PWA modunda body'nin dolu gorunmesi */
 @media (display-mode: standalone), (display-mode: fullscreen) {
-  html, body { background: #07060B; }
+  html, body { background: #FFFFFF; }
   body::before {
     content: '';
     position: fixed;
     top: 0; left: 0; right: 0;
     height: var(--safe-top);
-    background: #07060B;
+    background: #FFFFFF;
     z-index: 9999;
     pointer-events: none;
   }
@@ -109,6 +109,6 @@ select optgroup {
 }
 select option:checked,
 select option:hover {
-  background-color: #EDE9FE !important;
+  background-color: #FFF0F0 !important;
   color: #111 !important;
 }
