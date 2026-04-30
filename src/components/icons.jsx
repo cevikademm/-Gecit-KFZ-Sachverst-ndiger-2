@@ -11,6 +11,7 @@ export const Svg = ({ size = 24, strokeWidth = 2, children, style, className }) 
   }, children);
 
 export const ArrowRight = (p) => <Svg {...p}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></Svg>;
+export const ArrowLeft = (p) => <Svg {...p}><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></Svg>;
 export const Play = (p) => <Svg {...p}><path d="M6 3v18l15-9z"/></Svg>;
 export const Check = (p) => <Svg {...p}><path d="M20 6 9 17l-5-5"/></Svg>;
 export const ChevronRight = (p) => <Svg {...p}><path d="m9 18 6-6-6-6"/></Svg>;
@@ -75,3 +76,4 @@ export const FolderCheckIcon = (p) => <Svg {...p}><path d="M20 20a2 2 0 0 0 2-2V
 export const CameraIcon = (p) => <Svg {...p}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></Svg>;
 export const GridIcon = (p) => <Svg {...p}><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></Svg>;
 export const MaximizeIcon = (p) => <Svg {...p}><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></Svg>;
+export const MapPin = (p) => <Svg {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></Svg>;

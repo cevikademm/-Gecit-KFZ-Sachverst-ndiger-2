@@ -26,9 +26,13 @@ import {
   TrendingUp, Rocket, Shield, BarChart3, Globe, Layers, Cpu, Database, Code, Quote,
   XClose, LogOutIcon, Wrench, MailIcon, ScaleIcon, ShieldIcon, GlobeIcon,
   InfinityIcon, UsersGroupIcon, RadioTowerIcon, FolderCheckIcon,
-  CarIcon, ClipboardIcon, FileText, MessageIcon, PhoneIcon, PlusIcon
+  CarIcon, ClipboardIcon, FileText, MessageIcon, PhoneIcon, PlusIcon, ArrowLeft
 } from '../components/icons.jsx';
 import { GecitKfzModal } from '../components/Modal.jsx';
+import { 
+  SubPageLayout, Impressum, Datenschutz, AGB, 
+  Unfallgutachten, Wertgutachten, Kontakt 
+} from './SubPageContent.jsx';
 import { LangProvider, useLang } from '../i18n/LangContext.jsx';
 import { LanguageSelector } from '../i18n/LanguageSelector.jsx';
 
@@ -131,7 +135,7 @@ function MagneticButton({ children, variant = 'primary', className = '', onClick
 }
 
 // ─── Navbar ─────────────────────────────────────
-function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
+function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSubPage }) {
   const { t } = useLang();
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
@@ -170,10 +174,9 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
     >
       <div className="mx-auto px-6 h-full flex items-center justify-between" style={{ maxWidth: 1200 }}>
         {/* Logo */}
-        <a href="#" className="flex items-center h-full overflow-hidden">
-          <img src="/logo-gecit.png" alt="GECIT-KFZ" 
-            className="h-24 md:h-28 w-auto object-contain" 
-            style={{ clipPath: 'inset(26% 0 26% 0)', transform: 'scale(1.3)' }} />
+        <a href="#" className="flex items-center h-full">
+          <img src="/logocustom3.png" alt="Gecit Kfz Sachverständiger" 
+            className="h-16 md:h-20 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
         </a>
 
         {/* Desktop Nav */}
@@ -182,6 +185,12 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
             <a
               key={link.label}
               href={link.href}
+              onClick={(e) => {
+                if (link.label === 'KONTAKT') {
+                  e.preventDefault();
+                  setActiveSubPage('kontakt');
+                }
+              }}
               className="relative text-sm font-bold tracking-wider transition-colors hover:text-[#E30613]"
               style={{ color: i === 0 ? '#E30613' : '#0A0A0A' }}
             >
@@ -397,10 +406,9 @@ function LoginDrawer({ open, onClose, onLogin }) {
 
             <div className="flex items-center justify-between p-6"
               style={{ borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-              <div className="flex items-center gap-1 font-black tracking-tight" style={{ lineHeight: 1 }}>
-                <span style={{ color: '#E30613', fontSize: 18 }}>GECIT</span>
-                <span style={{ color: '#0A0A0A', fontSize: 18, margin: '0 1px' }}>-</span>
-                <span style={{ color: '#0A0A0A', fontSize: 18 }}>KFZ</span>
+              <div className="flex items-center gap-3 font-black tracking-tight" style={{ lineHeight: 1 }}>
+                <img src="/logocustom3.png" alt="Logo" className="h-10 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
+                <span style={{ color: '#0A0A0A', fontSize: 16 }}>Gecit Kfz Sachverständiger</span>
               </div>
               <button onClick={onClose} aria-label="Kapat"
                 className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100"
@@ -560,20 +568,6 @@ function Hero({ onBook }) {
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="relative z-10"
         >
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.8 }}
-            className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-white border border-red-100 mb-12 shadow-md"
-          >
-            <div className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
-            </div>
-            <span className="text-[11px] font-black tracking-[0.2em] text-[#E30613] uppercase whitespace-nowrap">
-              <Typewriter text="KI-GESTÜTZTE ANALYSE & BEGUTACHTUNG" />
-            </span>
-          </motion.div>
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-[#0A0A0A] leading-[0.9] mb-4">
             KFZ-GUTACHTER
           </h1>
@@ -640,7 +634,7 @@ function CTA({ onBook }) {
           className="px-8 py-4 border-2 border-white text-white font-bold rounded-md hover:bg-white hover:text-[#E30613] transition-all"
         >
           JETZT ANRUFEN <br />
-          <span className="text-xl">+49 157 396 478 34</span>
+          <span className="text-xl">+49 157 326 243 62</span>
         </button>
       </div>
     </section>
@@ -729,7 +723,7 @@ function Features() {
   );
 }
 
-function Footer() {
+function Footer({ setActiveSubPage }) {
   const cols = [
     { title: 'Leistungen', links: ['Unfallgutachten', 'Wertgutachten', 'Reparaturkosten', 'Leasing-Check', 'Oldtimer'] },
     { title: 'Unternehmen', links: ['Über uns', 'Philosophie', 'Standorte', 'Karriere', 'Kontakt'] },
@@ -743,10 +737,9 @@ function Footer() {
           
           {/* Brand Col */}
           <div className="lg:col-span-2">
-            <div className="mb-8 flex items-center overflow-hidden" style={{ height: '50px' }}>
-              <img src="/logo-gecit.png" alt="GECIT-KFZ" 
-                className="h-20 w-auto object-contain" 
-                style={{ clipPath: 'inset(26% 0 26% 0)', transform: 'scale(1.3)' }} />
+            <div className="mb-8 flex items-center" style={{ height: '50px' }}>
+              <img src="/logocustom3.png" alt="Gecit Kfz Sachverständiger" 
+                className="h-12 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
             </div>
             <p className="text-gray-500 text-sm leading-relaxed max-w-sm mb-10">
               Ihr unabhängiger Partner für professionelle Kfz-Gutachten. Schnell, zuverlässig und immer in Ihrem Interesse. Wir setzen uns für Ihre Rechte ein.
@@ -756,13 +749,13 @@ function Footer() {
                 <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 text-[#E30613] group-hover:bg-[#E30613] group-hover:text-white transition-all duration-300">
                   <PhoneIcon size={16} />
                 </div>
-                <span className="tracking-wide font-medium">+49 157 396 478 34</span>
+                <span className="tracking-wide font-medium">+49 157 326 243 62</span>
               </a>
               <a href="mailto:info@kfz-gutachter-aachen.de" className="group flex items-center gap-4 text-sm text-gray-600 hover:text-[#E30613] transition-colors w-fit">
                 <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 text-[#E30613] group-hover:bg-[#E30613] group-hover:text-white transition-all duration-300">
                   <MailIcon size={16} />
                 </div>
-                <span className="tracking-wide font-medium">info@kfz-gutachter-aachen.de</span>
+                <span className="tracking-wide font-medium">Gecit@kfzgutachter.ac</span>
               </a>
               <div className="group flex items-start gap-4 text-sm text-gray-600 w-fit">
                 <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 text-[#E30613] mt-1">
@@ -786,9 +779,9 @@ function Footer() {
               <ul className="space-y-5">
                 {col.links.map((l, j) => (
                   <li key={j}>
-                    <a href="#" className="text-sm text-gray-700 hover:text-[#E30613] hover:translate-x-1.5 inline-block transition-all duration-300 font-medium">
+                    <button onClick={() => setActiveSubPage(l.toLowerCase().replace(' ', '-'))} className="text-sm text-gray-700 hover:text-[#E30613] hover:translate-x-1.5 inline-block transition-all duration-300 font-medium">
                       {l}
-                    </a>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -877,7 +870,7 @@ function PWAInstallBanner() {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: '#EDE9FE', marginBottom: 4 }}>
-              Gecit Kfz Sachverständiger'u Zum Home-Bildschirm
+              Gecit Kfz Sachverständiger zum Home-Bildschirm
             </div>
             {isIOS ? (
               <div style={{ fontSize: 13, color: '#8B85A8', lineHeight: 1.5 }}>
@@ -1015,7 +1008,7 @@ function BannerShowcase() {
 }
 
 // ─── Marquee ────────────────────────────────────
-function Marquee() {
+function MarqueeGermany() {
   const { t } = useLang();
   const logos = [
     { Icon: Shield, label: 'OtoVERTRAUEN' }, { Icon: Rocket, label: 'Motorex' },
@@ -1027,13 +1020,40 @@ function Marquee() {
   const rm = useReducedMotion();
   return (
     <section className="relative py-12 overflow-hidden keep-white" style={{ zIndex: 2, background: '#E30613' }}>
-      <p className="text-center text-xs uppercase mb-6 font-bold" style={{ color: '#FFFFFF', letterSpacing: '0.25em' }}>
-        Deutschlands zuverlässiges Gutachternetzwerk · 500+ Partner
-      </p>
       <div className="relative">
         <motion.div className="flex gap-20 whitespace-nowrap"
           animate={rm ? {} : { x: ['0%', '-50%'] }}
           transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}>
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-8 flex-shrink-0" style={{ color: '#FFFFFF' }}>
+              <div className="flex items-center gap-3">
+                <Shield size={24} strokeWidth={2.5} />
+                <span className="text-2xl font-black italic tracking-tighter uppercase">ANERKANNT BEI ALLEN DEUTSCHEN WERKSTÄTTEN</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span style={{ fontSize: '1.5rem' }}>🇩🇪</span>
+                <span className="text-2xl font-black italic tracking-tighter uppercase">BUNDESWEITER SERVICE</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Shield size={24} strokeWidth={2.5} />
+                <span className="text-2xl font-black italic tracking-tighter uppercase">UNABHÄNGIG & NEUTRAL</span>
+              </div>
+            </div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function MarqueeService() {
+  const rm = useReducedMotion();
+  return (
+    <section className="relative py-12 overflow-hidden keep-white" style={{ zIndex: 2, background: '#E30613' }}>
+      <div className="relative">
+        <motion.div className="flex gap-20 whitespace-nowrap"
+          animate={rm ? {} : { x: ['-50%', '0%'] }}
+          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}>
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 flex-shrink-0" style={{ color: '#FFFFFF' }}>
               <Shield size={24} strokeWidth={2.5} />
@@ -1099,12 +1119,6 @@ function PlatformFeatures() {
             <p className="mt-6 text-lg max-w-2xl" style={{ color: C.textDim }}>
               Fahrzeugschein-Scan, Historie, Terminmanagement und Kundenportal — alles unter einem Dach.
             </p>
-          </div>
-          <div className="relative rounded-3xl overflow-hidden w-full md:w-80 h-56 md:h-64"
-            style={{ border: `1px solid ${C.border}`, boxShadow: `0 0 40px ${C.glow}` }}>
-            <img src="/images/keys.jpg" alt="Schlüsselübergabe" loading="lazy"
-              className="absolute inset-0 w-full h-full object-cover" />
-            {/* Gradyan kaldırıldı */}
           </div>
         </motion.div>
         <div className="grid grid-cols-12 gap-4">
@@ -1206,24 +1220,24 @@ function KostenlosBanner() {
                   </div>
                 </div>
               </div>
+
+              {/* Right — CTA button */}
+              <a href="tel:015732624362"
+                className="inline-flex items-center gap-3 px-7 py-3.5 rounded-lg font-bold text-sm flex-shrink-0 transition-all hover:scale-105 active:scale-95"
+                style={{ background: 'transparent', border: '2px solid rgba(255,255,255,0.80)',
+                  color: '#FFFFFF', letterSpacing: '0.04em', textDecoration: 'none' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                <Svg size={16} style={{ color: '#FFFFFF' }}>
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 6 6l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.5 16h.5z"/>
+                </Svg>
+                JETZT ANRUFEN
+              </a>
             </div>
-            <p className="text-sm md:text-base font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>
+            <p className="text-sm md:text-base font-medium mt-8" style={{ color: 'rgba(255,255,255,0.85)' }}>
               Ihr professioneller Kfz-Gutachter — Aachen und Umgebung
             </p>
           </div>
-          {/* Right — CTA button */}
-          <a href="tel:+4915739647834"
-            className="inline-flex items-center gap-3 px-7 py-3.5 rounded-lg font-bold text-sm flex-shrink-0 transition-all"
-            style={{ background: 'transparent', border: '2px solid rgba(255,255,255,0.80)',
-              color: '#FFFFFF', letterSpacing: '0.04em', textDecoration: 'none' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
-            <Svg size={16} style={{ color: '#FFFFFF' }}>
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 6 6l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.5 16h.5z"/>
-            </Svg>
-            JETZT ANRUFEN
-          </a>
-
         </motion.div>
       </div>
     </section>
@@ -1572,25 +1586,6 @@ function WhyGecitKfz() {
           })}
         </div>
 
-        {/* Trust bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-60px' }}
-          transition={{ duration: 0.7, ease: easeOut, delay: 0.5 }}
-          className="mt-12 flex flex-wrap items-center justify-center gap-6 md:gap-10">
-          {[
-            { icon: ShieldIcon, text: 'DSGVO-Konform' },
-            { icon: ShieldIcon, text: 'SSL Verschlüsselt' },
-            { icon: ShieldIcon, text: 'Deutsche Server' },
-          ].map((t, i) => (
-            <div key={i} className="flex items-center gap-2 px-4 py-2 rounded-full"
-              style={{ background: 'rgba(0,0,0,0.03)', border: 'rgba(0,0,0,0.08)' }}>
-              <t.icon size={14} strokeWidth={2} style={{ color: C.neon }} />
-              <span className="text-xs font-medium" style={{ color: C.textDim }}>{t.text}</span>
-            </div>
-          ))}
-        </motion.div>
       </div>
     </section>
   );
@@ -2000,6 +1995,32 @@ export default function Landing(props) {
 function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
   const [loginOpen, setLoginOpen] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
+  const [activeSubPage, setActiveSubPage] = useState(null);
+
+  useEffect(() => {
+    if (activeSubPage) {
+      window.scrollTo(0, 0);
+    }
+  }, [activeSubPage]);
+
+  if (activeSubPage) {
+    const subPageMap = {
+      'impressum': { title: 'Impressum', component: <Impressum /> },
+      'datenschutz': { title: 'Datenschutz', component: <Datenschutz /> },
+      'agb': { title: 'AGB', component: <AGB /> },
+      'unfallgutachten': { title: 'Unfallgutachten', component: <Unfallgutachten /> },
+      'wertgutachten': { title: 'Wertgutachten', component: <Wertgutachten /> },
+      'kontakt': { title: 'Kontakt', component: <Kontakt /> },
+    };
+    
+    const page = subPageMap[activeSubPage] || { title: 'Seite nicht gefunden', component: <p>In Kürze verfügbar...</p> };
+    
+    return (
+      <SubPageLayout title={page.title} onBack={() => setActiveSubPage(null)}>
+        {page.component}
+      </SubPageLayout>
+    );
+  }
 
   useEffect(() => {
     const h = () => setBookOpen(true);
@@ -2138,7 +2159,7 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
       <NoiseOverlay />
       <ScrollProgress />
       <Navbar user={user} onLoginClick={() => setLoginOpen(true)} onLogout={onLogout}
-        onEnterApp={onEnterApp} onBook={() => setBookOpen(true)} />
+        onEnterApp={onEnterApp} onBook={() => setBookOpen(true)} setActiveSubPage={setActiveSubPage} />
       <LoginDrawer open={loginOpen} onClose={() => setLoginOpen(false)} onLogin={onLogin} />
       <AppointmentBookingModal open={bookOpen} onClose={() => setBookOpen(false)} onBook={(data) => {
         console.log('Booking:', data);
@@ -2146,23 +2167,23 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
       }} />
       <main className="relative" style={{ zIndex: 2 }}>
         <Hero onBook={() => setBookOpen(true)} />
+        <MarqueeGermany />
         <BannerShowcase />
-        <Marquee />
+        <MarqueeService />
         <Features />
         <PlatformFeatures />
-        <CTA onBook={() => setBookOpen(true)} />
         <KostenlosBanner />
         <FahrzeugklassenSection onBook={() => setBookOpen(true)} />
-        <RechteSection />
-        <VerkehrsunfallSection onBook={() => setBookOpen(true)} />
         <WhyGecitKfz />
         <HowItWorks />
         <Stats />
         <Testimonial />
-        <Pricing onBook={() => setBookOpen(true)} />
+        <CTA onBook={() => setBookOpen(true)} />
+        <VerkehrsunfallSection onBook={() => setBookOpen(true)} />
+        <RechteSection />
         <FooterCTA onBook={() => setBookOpen(true)} />
       </main>
-      <Footer />
+      <Footer setActiveSubPage={setActiveSubPage} />
       <PWAInstallBanner />
     </div>
   );
