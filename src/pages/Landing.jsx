@@ -26,12 +26,12 @@ import {
   TrendingUp, Rocket, Shield, BarChart3, Globe, Layers, Cpu, Database, Code, Quote,
   XClose, LogOutIcon, Wrench, MailIcon, ScaleIcon, ShieldIcon, GlobeIcon,
   InfinityIcon, UsersGroupIcon, RadioTowerIcon, FolderCheckIcon,
-  CarIcon, ClipboardIcon, FileText, MessageIcon, PhoneIcon, PlusIcon, ArrowLeft
+  CarIcon, ClipboardIcon, FileText, MessageIcon, PhoneIcon, PlusIcon, ArrowLeft,
+  CheckSquare, DownloadIcon
 } from '../components/icons.jsx';
 import { GecitKfzModal } from '../components/Modal.jsx';
 import { 
-  SubPageLayout, Impressum, Datenschutz, AGB, 
-  Unfallgutachten, Wertgutachten, Kontakt 
+  SubPageLayout, SubPageContent 
 } from './SubPageContent.jsx';
 import { LangProvider, useLang } from '../i18n/LangContext.jsx';
 import { LanguageSelector } from '../i18n/LanguageSelector.jsx';
@@ -80,7 +80,7 @@ function ScrollProgress() {
   const { scrollYProgress } = useScroll();
   const scale = useSpring(scrollYProgress, { stiffness: 200, damping: 30 });
   return (
-    <motion.div className="fixed top-0 left-0 right-0 z-50 origin-left"
+    <motion.div className="fixed top-[26px] left-0 right-0 z-50 origin-left"
       style={{
         scaleX: scale, height: 3,
         background: '#E30613',
@@ -162,7 +162,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
     <motion.nav
       initial={{ y: -100 }}
       animate={{ y: 0 }}
-      className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
+      className="fixed top-[26px] left-0 right-0 z-50 transition-all duration-300"
       style={{
         background: scrolled ? 'rgba(255, 255, 255, 0.8)' : 'transparent',
         backdropFilter: scrolled ? 'blur(12px) saturate(180%)' : 'none',
@@ -275,22 +275,78 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
       {/* Mobile menu */}
       <AnimatePresence>
         {mobileOpen && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
-            className="md:hidden overflow-hidden"
-            style={{ borderTop: '1px solid rgba(0,0,0,0.08)', background: '#FFFFFF' }}>
-            <div className="px-6 py-4 flex flex-col gap-4">
-              {links.map(l => (
-                <a key={l} href="#" className="text-sm font-semibold uppercase tracking-wide"
-                  style={{ color: '#1F1F1F' }} onClick={() => setMobileOpen(false)}>{l}</a>
-              ))}
-              <button onClick={() => { onBook(); setMobileOpen(false); }}
-                className="w-full py-3 rounded-lg text-sm font-semibold"
-                style={{ background: '#E30613', color: '#FFFFFF' }}>
-                {t('nav.book')}
-              </button>
-            </div>
-          </motion.div>
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileOpen(false)}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md md:hidden"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-[26px] right-0 bottom-0 w-[85%] max-w-sm z-50 bg-white shadow-2xl flex flex-col md:hidden"
+            >
+              <div className="p-6 flex items-center justify-between border-b border-gray-100">
+                <img src="/logocustom3.png" alt="Logo" className="h-10 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
+                <button 
+                  onClick={() => setMobileOpen(false)}
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-500"
+                >
+                  <XClose size={20} />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto py-8 px-6 flex flex-col gap-6">
+                {links.map((l, idx) => (
+                  <motion.a
+                    key={l.label}
+                    href={l.href}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 + idx * 0.05 }}
+                    className="text-2xl font-black tracking-tighter text-[#0A0A0A] hover:text-[#E30613] transition-colors"
+                    onClick={(e) => {
+                      setMobileOpen(false);
+                      if (l.label === 'KONTAKT') {
+                        e.preventDefault();
+                        setActiveSubPage('kontakt');
+                      }
+                    }}
+                  >
+                    {l.label}
+                  </motion.a>
+                ))}
+              </div>
+              
+              <div className="p-6 border-t border-gray-100 bg-gray-50/50">
+                <button
+                  onClick={() => { onBook(); setMobileOpen(false); }}
+                  className="w-full py-4 bg-[#E30613] text-white font-bold rounded-lg shadow-lg shadow-red-500/20 keep-white flex items-center justify-center gap-3"
+                >
+                  <PhoneIcon size={18} />
+                  TERMIN VEREINBAREN
+                </button>
+                <div className="mt-6 flex flex-col gap-2">
+                  <a href="tel:+4915732624362" className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-[#E30613]">
+                      <PhoneIcon size={14} />
+                    </div>
+                    +49 157 326 243 62
+                  </a>
+                  <a href="mailto:Gecit@kfzgutachter.ac" className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-[#E30613]">
+                      <MailIcon size={14} />
+                    </div>
+                    Gecit@kfzgutachter.ac
+                  </a>
+                </div>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </motion.nav>
@@ -568,10 +624,10 @@ function Hero({ onBook }) {
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="relative z-10"
         >
-          <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-[#0A0A0A] leading-[0.9] mb-4">
+          <h1 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter text-[#0A0A0A] leading-[0.9] mb-4">
             KFZ-GUTACHTER
           </h1>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-[#E30613] mb-8 flex items-center gap-3">
+          <h2 className="text-xl sm:text-3xl md:text-4xl font-bold tracking-tight text-[#E30613] mb-8 flex items-center gap-3">
             <span className="w-12 h-1 bg-[#E30613]" />
             IHR PARTNER IM SCHADENFALL
           </h2>
@@ -621,7 +677,7 @@ function CTA({ onBook }) {
             <PhoneIcon size={32} />
           </div>
           <div>
-            <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase leading-none mb-1">
+            <h2 className="text-xl md:text-3xl font-black tracking-tighter uppercase leading-none mb-1 text-center md:text-left">
               SCHNELL • UNABHÄNGIG • ZUVERLÄSSIG
             </h2>
             <p className="text-white/80 font-medium">
@@ -631,10 +687,10 @@ function CTA({ onBook }) {
         </div>
         <button
           onClick={() => window.location.href = 'tel:+4915739647834'}
-          className="px-8 py-4 border-2 border-white text-white font-bold rounded-md hover:bg-white hover:text-[#E30613] transition-all"
+          className="w-full md:w-auto px-8 py-4 border-2 border-white text-white font-bold rounded-md hover:bg-white hover:text-[#E30613] transition-all"
         >
           JETZT ANRUFEN <br />
-          <span className="text-xl">+49 157 326 243 62</span>
+          <span className="text-lg md:text-xl">+49 157 326 243 62</span>
         </button>
       </div>
     </section>
@@ -908,8 +964,7 @@ function PWAInstallBanner() {
 }
 
 // ─── Banner Showcase (One-File / Vier Portale) ─────
-function BannerShowcase() {
-  const [lightbox, setLightbox] = useState(null);
+function BannerShowcase({ setLightbox }) {
   const banners = [
     {
       src: '/banner/unnamed%20(13).png',
@@ -980,29 +1035,6 @@ function BannerShowcase() {
           ))}
         </div>
       </div>
-
-      {/* Lightbox */}
-      <AnimatePresence>
-        {lightbox && (
-          <motion.div key="lb" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={() => setLightbox(null)}
-            className="fixed inset-0 flex items-center justify-center p-4 md:p-10"
-            style={{ zIndex: 200, background: 'rgba(7,6,11,0.92)', backdropFilter: 'blur(8px)', cursor: 'zoom-out' }}>
-            <motion.img
-              initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.92, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 220, damping: 28 }}
-              src={lightbox.src} alt={lightbox.alt}
-              onClick={(e) => e.stopPropagation()}
-              className="max-w-full max-h-full rounded-2xl"
-              style={{ boxShadow: `0 20px 60px ${lightbox.accent}55, 0 0 80px ${lightbox.accent}22`, border: `1px solid ${lightbox.accent}44` }} />
-            <button onClick={() => setLightbox(null)}
-              className="absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center transition hover:scale-110"
-              style={{ background: 'rgba(255,255,255,0.08)', color: C.text, border: `1px solid ${C.border}`, backdropFilter: 'blur(8px)' }}>
-              <XClose size={18} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </section>
   );
 }
@@ -1106,14 +1138,14 @@ function PlatformFeatures() {
   ];
 
   return (
-    <section className="relative py-32 md:py-40" style={{ zIndex: 2 }}>
+    <section className="relative py-16 md:py-40" style={{ zIndex: 2 }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.8, ease: easeOut }} className="mb-16 md:mb-24 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-10 items-center">
           <div>
             <p className="text-xs uppercase mb-5" style={{ color: C.neon, letterSpacing: '0.25em' }}>FUNKTIONEN</p>
-            <h2 className="text-4xl md:text-6xl font-semibold max-w-3xl" style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.05 }}>
+            <h2 className="text-3xl sm:text-4xl md:text-6xl font-semibold max-w-3xl" style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.05 }}>
               Der <span style={{ color: C.neon }}>digitale Standard</span> der Kfz-Begutachtung.
             </h2>
             <p className="mt-6 text-lg max-w-2xl" style={{ color: C.textDim }}>
@@ -1270,7 +1302,7 @@ function VerkehrsunfallSection({ onBook }) {
             <p className="text-xs uppercase mb-4 font-semibold tracking-widest" style={{ color: '#E30613' }}>
               Verkehrsunfall?
             </p>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6"
+            <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-6"
               style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
               So unterstützen wir Sie <span style={{ color: '#E30613' }}>sicher und schnell</span>!
             </h2>
@@ -1361,7 +1393,7 @@ function FahrzeugklassenSection({ onBook }) {
     },
   ];
   return (
-    <section className="relative py-24 md:py-32" style={{ zIndex: 2 }}>
+    <section className="relative py-12 md:py-32" style={{ zIndex: 2 }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1100 }}>
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
@@ -1370,7 +1402,7 @@ function FahrzeugklassenSection({ onBook }) {
           <div className="text-sm md:text-base font-semibold mb-3" style={{ color: RED, letterSpacing: '0.02em' }}>
             Ihr Partner für umfassende Bewertungen
           </div>
-          <h2 className="text-3xl md:text-5xl font-bold"
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold"
             style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
             Gutachten für alle <span style={{ color: RED }}>Fahrzeugklassen</span>
           </h2>
@@ -1436,31 +1468,29 @@ function RechteSection() {
           </motion.div>
         </div>
         <div className="mx-auto" style={{ maxWidth: 800 }}>
-        <div className="space-y-4">
-          {items.map((item, i) => (
-            <motion.div key={i}
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.6, ease: easeOut, delay: i * 0.1 }}
-              className="rounded-2xl p-6 md:p-8 flex gap-5"
-              style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.08)' }}>
-              <div className="flex-shrink-0 mt-1">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, #E30613, #B0050F)',
-                    boxShadow: '0 0 20px rgba(227,6,19,0.25)' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
+          <div className="space-y-4">
+            {items.map((item, i) => (
+              <motion.div key={i}
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.6, ease: easeOut, delay: i * 0.1 }}
+                className="rounded-2xl p-6 md:p-8 flex gap-5"
+                style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.08)' }}>
+                <div className="flex-shrink-0 mt-1">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, #E30613, #B0050F)',
+                      boxShadow: '0 0 20px rgba(227,6,19,0.25)' }}>
+                    <Check size={18} className="text-white" />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold mb-2" style={{ color: C.text }}>{item.title}</h3>
-                <p className="leading-relaxed" style={{ color: C.textDim }}>{item.desc}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2" style={{ color: C.text }}>{item.title}</h3>
+                  <p className="leading-relaxed" style={{ color: C.textDim }}>{item.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -1524,9 +1554,6 @@ function WhyGecitKfz() {
 
   return (
     <section className="relative py-32 md:py-40 overflow-hidden" style={{ zIndex: 2 }}>
-      {/* Ambient glow */}
-      {/* Ambient glow kaldırıldı */}
-
       <div className="mx-auto px-6 relative" style={{ maxWidth: 1200 }}>
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
@@ -1542,28 +1569,20 @@ function WhyGecitKfz() {
         </motion.div>
 
         {/* Bento grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {benefits.map((b, i) => {
-            const isWide = i < 2;
-            return (
-              <motion.div key={i}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-60px' }}
-                transition={{ duration: 0.7, ease: easeOut, delay: i * 0.08 }}
-                className={`group relative rounded-3xl overflow-hidden ${i === 0 ? 'md:col-span-2' : i === 1 ? 'md:col-span-1' : i === 2 ? 'md:col-span-1' : i === 3 ? 'md:col-span-1' : 'md:col-span-1'}`}
-                style={{ background: b.gradient, border: `1px solid ${b.borderColor}`,
-                  backdropFilter: 'blur(8px)', minHeight: 240 }}>
-                {/* Hover glow */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
-                  style={{ background: `radial-gradient(300px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${b.accent}12, transparent 60%)` }} />
-
-                <div className="relative p-8 md:p-10 h-full flex flex-col">
-                  {/* Top row: icon + stat */}
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                      style={{ background: `${b.accent}15`, border: `1px solid ${b.accent}35`,
-                        boxShadow: `0 0 30px ${b.accent}15` }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {benefits.map((b, i) => (
+            <motion.div key={i} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-50px' }}
+              transition={{ duration: 0.6, ease: easeOut, delay: i * 0.1 }}
+              className="group h-full">
+              <SpotlightCard className="h-full relative overflow-hidden"
+                style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+                <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                  style={{ background: b.gradient }} />
+                <div className="relative p-10 flex flex-col h-full">
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-110"
+                      style={{ background: `${b.accent}15`, border: `1px solid ${b.accent}30`, color: b.accent }}>
                       <b.icon size={26} strokeWidth={1.6} style={{ color: b.accent }} />
                     </div>
                     <div className="text-right">
@@ -1581,11 +1600,146 @@ function WhyGecitKfz() {
                     <div className="h-px w-full" style={{ background: `linear-gradient(90deg, ${b.accent}40, transparent)` }} />
                   </div>
                 </div>
-              </motion.div>
-            );
-          })}
+              </SpotlightCard>
+            </motion.div>
+          ))}
         </div>
+      </div>
+    </section>
+  );
+}
 
+function PeaceOfMindSection() {
+  return (
+    <section className="relative py-24 md:py-32 overflow-hidden" style={{ zIndex: 2 }}>
+      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+        <div className="relative rounded-[2.5rem] overflow-hidden bg-[#F9FAFB] border border-gray-100 p-8 md:p-20">
+          <div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none">
+            <div className="absolute top-[-20%] right-[-10%] w-[140%] h-[140%] rounded-full"
+              style={{ background: 'radial-gradient(circle, rgba(227,6,19,0.05) 0%, transparent 70%)' }} />
+          </div>
+
+          <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
+                <span className="px-4 py-1.5 rounded-full text-[11px] font-bold tracking-[0.2em] uppercase bg-[#E30613]/10 text-[#E30613] border border-[#E30613]/20 mb-8 inline-block">
+                  Rundum-Sorglos-Service
+                </span>
+                <h2 className="text-4xl md:text-6xl font-bold text-[#0A0A0A] mb-8 leading-[1.05]" style={{ letterSpacing: '-0.04em' }}>
+                  Wir kümmern uns um <span className="text-[#E30613]">alles</span>. <br />
+                  Sie lehnen sich zurück.
+                </h2>
+                <p className="text-lg md:text-xl text-gray-600 leading-relaxed mb-10 max-w-xl">
+                  Unser Team aus zertifizierten Experten übernimmt den gesamten Prozess für Sie. 
+                  Vom professionellen Gutachten über die rechtliche Abwicklung bis hin zur Kommunikation mit Versicherungen. 
+                  Wir ersparen Ihnen jeglichen Stress mit Anwälten, Gutachten und lästigem Papierkram – wir erledigen alles für Sie, damit Sie den besten Service ohne eigenen Aufwand genießen.
+                </p>
+                <div className="space-y-4">
+                  {[
+                    'Professionelle & Zertifizierte Experten',
+                    'Komplette Abwicklung mit Anwälten & Versicherungen',
+                    'Keine bürokratischen Hürden für Sie',
+                    'Maximale Entlastung im Schadensfall'
+                  ].map((text, i) => (
+                    <div key={i} className="flex items-center gap-3 text-gray-800 font-medium">
+                      <div className="w-6 h-6 rounded-full bg-[#E30613] flex items-center justify-center flex-shrink-0">
+                        <Check size={14} className="text-white" />
+                      </div>
+                      {text}
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            </div>
+
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }} 
+              whileInView={{ opacity: 1, scale: 1 }} 
+              viewport={{ once: true }}
+              className="relative"
+            >
+              <div className="relative z-10 rounded-3xl overflow-hidden shadow-2xl border border-gray-100">
+                <img src="/images/inspection.jpg" alt="Professionelles KFZ-Gutachter Team" className="w-full h-auto" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A]/20 via-transparent to-transparent" />
+              </div>
+              <motion.div 
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute -bottom-6 -left-6 md:-left-10 z-20 p-6 rounded-2xl bg-white shadow-2xl border border-gray-100 hidden md:block"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+                    <ShieldIcon size={24} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-gray-900">100% Sorgenfrei</div>
+                    <div className="text-xs text-gray-500">Full-Service Abwicklung</div>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DownloadCenter() {
+  const docs = [
+    {
+      title: 'Abtretungserklärung 2026',
+      desc: 'Notwendiges Dokument für die direkte Abrechnung mit der Versicherung. So sparen Sie sich die Vorauszahlung.',
+      file: '/downloads/abtretungserklaerung_2026.pdf',
+      icon: FileText
+    },
+    {
+      title: 'Unfall-Fragebogen 2025',
+      desc: 'Erfassungsbogen für alle wichtigen Unfalldaten. Hilft uns, Ihr Gutachten noch schneller zu erstellen.',
+      file: '/downloads/fragebogen_2025.pdf',
+      icon: CheckSquare
+    }
+  ];
+
+  return (
+    <section className="relative py-24 md:py-32 overflow-hidden bg-white" style={{ zIndex: 2 }}>
+      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">
+          <h2 className="text-3xl md:text-5xl font-bold mb-4" style={{ color: C.text, letterSpacing: '-0.03em' }}>
+            Wichtige <span style={{ color: '#E30613' }}>Dokumente</span> & Downloads
+          </h2>
+          <p className="text-lg text-gray-500 max-w-2xl mx-auto">
+            Hier finden Sie alle notwendigen Formulare für eine reibungslose Abwicklung Ihres Schadensfalls.
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {docs.map((doc, i) => (
+            <motion.a
+              key={i}
+              href={doc.file}
+              target="_blank"
+              rel="noopener noreferrer"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              whileHover={{ y: -5, boxShadow: '0 20px 40px rgba(0,0,0,0.08)' }}
+              className="flex items-start gap-6 p-8 rounded-3xl border border-gray-100 bg-gray-50/50 transition-all group"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center text-[#E30613] group-hover:bg-[#E30613] group-hover:text-white transition-colors border border-gray-100 flex-shrink-0">
+                <doc.icon size={28} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold mb-2 text-gray-900 group-hover:text-[#E30613] transition-colors">{doc.title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed mb-4">{doc.desc}</p>
+                <div className="flex items-center gap-2 text-xs font-bold text-[#E30613] uppercase tracking-wider">
+                  Download PDF <DownloadIcon size={14} />
+                </div>
+              </div>
+            </motion.a>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -1996,6 +2150,34 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
   const [loginOpen, setLoginOpen] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
   const [activeSubPage, setActiveSubPage] = useState(null);
+  const [lightbox, setLightbox] = useState(null);
+
+  // Background scroll lock for lightbox
+  useEffect(() => {
+    if (lightbox) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+      document.body.style.overscrollBehavior = 'none';
+      document.documentElement.style.overflow = 'hidden';
+      const root = document.querySelector('.landing-root');
+      if (root) root.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+      document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overflow = '';
+      const root = document.querySelector('.landing-root');
+      if (root) root.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+      document.body.style.overscrollBehavior = '';
+      document.documentElement.style.overflow = '';
+      const root = document.querySelector('.landing-root');
+      if (root) root.style.overflow = '';
+    };
+  }, [lightbox]);
 
   useEffect(() => {
     if (activeSubPage) {
@@ -2003,30 +2185,50 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
     }
   }, [activeSubPage]);
 
-  if (activeSubPage) {
-    const subPageMap = {
-      'impressum': { title: 'Impressum', component: <Impressum /> },
-      'datenschutz': { title: 'Datenschutz', component: <Datenschutz /> },
-      'agb': { title: 'AGB', component: <AGB /> },
-      'unfallgutachten': { title: 'Unfallgutachten', component: <Unfallgutachten /> },
-      'wertgutachten': { title: 'Wertgutachten', component: <Wertgutachten /> },
-      'kontakt': { title: 'Kontakt', component: <Kontakt /> },
-    };
-    
-    const page = subPageMap[activeSubPage] || { title: 'Seite nicht gefunden', component: <p>In Kürze verfügbar...</p> };
-    
-    return (
-      <SubPageLayout title={page.title} onBack={() => setActiveSubPage(null)}>
-        {page.component}
-      </SubPageLayout>
-    );
-  }
-
   useEffect(() => {
     const h = () => setBookOpen(true);
     window.addEventListener('gecit-kfz:book', h);
     return () => window.removeEventListener('gecit-kfz:book', h);
   }, []);
+
+  if (activeSubPage) {
+    const subPageMap = {
+      // Leistungen
+      'unfallgutachten': { title: 'Unfallgutachten', type: 'unfallgutachten' },
+      'wertgutachten': { title: 'Wertgutachten', type: 'wertgutachten' },
+      'reparaturkosten': { title: 'Reparaturkosten-Ermittlung', type: 'reparaturkosten' },
+      'leasing-check': { title: 'Leasing-Zustandsbericht', type: 'leasing-check' },
+      'oldtimer': { title: 'Oldtimer-Bewertung', type: 'oldtimer' },
+      
+      // Unternehmen
+      'über-uns': { title: 'Über uns', type: 'ueber-uns' },
+      'philosophie': { title: 'Unsere Philosophie', type: 'philosophie' },
+      'standorte': { title: 'Unsere Standorte', type: 'standorte' },
+      'karriere': { title: 'Karriere', type: 'karriere' },
+      'kontakt': { title: 'Kontakt', type: 'kontakt' },
+      
+      // Rechtliches
+      'impressum': { title: 'Impressum', type: 'impressum' },
+      'datenschutz': { title: 'Datenschutz', type: 'datenschutz' },
+      'agb': { title: 'Allgemeine Geschäftsbedingungen', type: 'agb' },
+      'cookie-richtlinie': { title: 'Cookie-Richtlinie', type: 'cookie-richtlinie' },
+      'erstattung': { title: 'Erstattung', type: 'erstattung' },
+    };
+    
+    const page = subPageMap[activeSubPage] || { title: 'Seite nicht gefunden', type: 'unknown' };
+    
+    return (
+      <SubPageLayout title={page.title} onBack={() => {
+        setActiveSubPage(null);
+        window.scrollTo(0, 0);
+      }}>
+        <SubPageContent type={page.type} onBack={() => {
+          setActiveSubPage(null);
+          window.scrollTo(0, 0);
+        }} />
+      </SubPageLayout>
+    );
+  }
 
   return (
     <div className="landing-root relative min-h-screen overflow-x-hidden"
@@ -2167,8 +2369,6 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
       }} />
       <main className="relative" style={{ zIndex: 2 }}>
         <Hero onBook={() => setBookOpen(true)} />
-        <MarqueeGermany />
-        <BannerShowcase />
         <MarqueeService />
         <Features />
         <PlatformFeatures />
@@ -2181,10 +2381,71 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
         <CTA onBook={() => setBookOpen(true)} />
         <VerkehrsunfallSection onBook={() => setBookOpen(true)} />
         <RechteSection />
+        <PeaceOfMindSection />
         <FooterCTA onBook={() => setBookOpen(true)} />
+        <BannerShowcase setLightbox={setLightbox} />
+        <DownloadCenter />
       </main>
       <Footer setActiveSubPage={setActiveSubPage} />
       <PWAInstallBanner />
+      
+      {/* Lightbox (Root Level for z-index isolation) */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div 
+            key="lb" 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            onClick={() => setLightbox(null)}
+            className="fixed inset-0 flex flex-col items-center justify-start overflow-y-auto p-4 md:p-20"
+            style={{ 
+              zIndex: 999999, 
+              background: 'rgba(0,0,0,0.97)', 
+              backdropFilter: 'blur(24px)', 
+              cursor: 'zoom-out'
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 30 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-6xl mx-auto flex flex-col items-center py-10"
+            >
+              <img
+                src={lightbox.src} 
+                alt={lightbox.alt}
+                className="w-full h-auto max-h-none rounded-2xl shadow-2xl object-contain border border-white/20"
+                style={{ 
+                  boxShadow: `0 32px 80px -20px rgba(0,0,0,0.8), 0 0 120px -20px ${lightbox.accent}33`,
+                }} 
+              />
+              <div className="mt-10 w-full max-w-3xl text-center px-8 py-10 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl">
+                <h4 className="text-3xl font-bold text-white mb-4" style={{ letterSpacing: '-0.02em' }}>{lightbox.title}</h4>
+                <p className="text-white/80 text-lg leading-relaxed">{lightbox.desc}</p>
+                <div className="mt-8 flex justify-center">
+                  <button 
+                    onClick={() => setLightbox(null)}
+                    className="px-8 py-3 rounded-full bg-white text-black font-bold text-base hover:bg-gray-200 transition-all hover:scale-105"
+                  >
+                    Schließen
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+            
+            <button 
+              onClick={() => setLightbox(null)}
+              className="fixed top-8 right-8 w-14 h-14 rounded-full flex items-center justify-center transition-all bg-white/10 hover:bg-white/20 text-white border border-white/20 shadow-2xl z-[1000000]"
+              style={{ backdropFilter: 'blur(8px)' }}
+            >
+              <XClose size={28} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

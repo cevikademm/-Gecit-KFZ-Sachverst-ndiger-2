@@ -53,7 +53,7 @@ function ScrollProgress() {
   const { scrollYProgress } = useScroll();
   const scale = useSpring(scrollYProgress, { stiffness: 200, damping: 30 });
   return (
-    <motion.div className="fixed top-0 left-0 right-0 z-50 origin-left"
+    <motion.div className="fixed top-[26px] left-0 right-0 z-50 origin-left"
       style={{
         scaleX: scale, height: 2,
         background: `linear-gradient(90deg, ${C.neon}, ${C.magenta}, ${C.cyan})`,
@@ -2249,7 +2249,7 @@ function MobileTopbar({ onMenuClick, role = 'admin', sectionLabel, onLogout }) {
   };
   const cfg = roleConfig[role] || roleConfig.admin;
   return (
-    <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3"
+    <header className="lg:hidden sticky top-[26px] z-30 flex items-center justify-between px-4 py-3"
       style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderBottom: `1px solid ${C.border}` }}>
       <button onClick={onMenuClick} aria-label="Menü"
         className="w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95"
@@ -2401,7 +2401,7 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
           } : {
-            width: 260, height: '100vh', position: 'sticky', top: 0,
+            width: 260, height: 'calc(100vh - 26px)', position: 'sticky', top: '26px',
             flexShrink: 0,
           }),
         }}>
@@ -10384,7 +10384,7 @@ function CustomerApp({ user, onLogout, onHome }) {
     <div className="min-h-screen relative" style={{ background: C.bg }}>
       <MeshBackground />
       {/* Premium sticky header */}
-      <header className="sticky top-0 z-30"
+      <header className="sticky top-[26px] z-30"
         style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(20px)', borderBottom: `1px solid ${C.border}`,
           paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="mx-auto px-3 md:px-4 lg:px-6 py-2 md:py-3 flex items-center gap-3 md:gap-4" style={{ maxWidth: 1400 }}>
@@ -11942,6 +11942,58 @@ function AppPanel({ user, onHome, onLogout }) {
   return <AdminApp user={user} onLogout={onLogout} onHome={onHome} />;
 }
 
+function GlobalServiceInfo() {
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[1000] bg-[#F9FAFB] border-b border-gray-100 h-[26px] overflow-hidden">
+      <div className="h-full flex items-center justify-center">
+        {/* Desktop View */}
+        <div className="hidden md:flex items-center gap-8 text-[9px] font-bold tracking-[0.15em] text-gray-400 uppercase">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs">🇩🇪</span>
+            <span>Bundesweiter Service</span>
+          </div>
+          <div className="w-1 h-1 rounded-full bg-gray-200" />
+          <div className="flex items-center gap-1.5">
+            <Shield size={10} className="text-gray-300" />
+            <span>Anerkannt bei allen deutschen Werkstätten</span>
+          </div>
+          <div className="w-1 h-1 rounded-full bg-gray-200" />
+          <div className="flex items-center gap-1.5">
+            <Zap size={10} className="text-gray-300" />
+            <span>24/7 Notfall-Service</span>
+          </div>
+        </div>
+
+        {/* Mobile View - Marquee */}
+        <div className="flex md:hidden w-full h-full items-center">
+          <motion.div 
+            animate={{ x: ['0%', '-50%'] }}
+            transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+            className="flex whitespace-nowrap gap-10 px-4"
+          >
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-10 text-[8px] font-bold tracking-widest text-gray-400 uppercase">
+                <div className="flex items-center gap-1.5">
+                  <span>🇩🇪</span>
+                  <span>Bundesweiter Service</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Shield size={9} />
+                  <span>DEKRA/TÜV Standards</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Zap size={9} />
+                  <span>24/7 Notfall</span>
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── App ────────────────────────────────────────
 function App() {
   const [user, setUser] = useState(null);
@@ -11969,24 +12021,27 @@ function App() {
     setView('landing');
   };
 
-  if (view === 'app' && user) {
-    return (<>
+  const content = view === 'app' && user ? (
+    <>
       <AppPanel user={user} onHome={() => setView('landing')} onLogout={handleLogout} />
       <PWAInstallBanner />
-    </>);
-  }
-
-  // Landing UI'in tum sorumlulugu src/pages/Landing.jsx'te.
-  // Burada SADECE oturum/yonlendirme yapilir. Landing ile ilgili her sey
-  // (renk, bolumler, modaller) Landing.jsx icinde — buradaki degisiklikler
-  // ana sayfaya etki etmez.
-  return (
+    </>
+  ) : (
     <Landing
       user={user}
       onLogin={handleLogin}
       onLogout={handleLogout}
       onEnterApp={() => setView('app')}
     />
+  );
+
+  return (
+    <div className="flex flex-col min-h-screen pt-[26px]">
+      <GlobalServiceInfo />
+      <main className="flex-1 flex flex-col relative">
+        {content}
+      </main>
+    </div>
   );
 }
 
