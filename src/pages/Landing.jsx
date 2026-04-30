@@ -900,6 +900,163 @@ function KostenlosBanner() {
   );
 }
 
+// ─── Verkehrsunfall Support Intro ─────────────────
+function VerkehrsunfallSection() {
+  const points = [
+    { title: 'Unabhängig & neutral', desc: 'Wir arbeiten ausschließlich in Ihrem Interesse — nicht im Auftrag der Versicherung.' },
+    { title: 'Schnelle Terminvergabe', desc: 'Begutachtung meist innerhalb von 24 Stunden. Kein langes Warten, kein Druck.' },
+    { title: 'Volle Ansprüche sichern', desc: 'Wir dokumentieren jeden Schaden lückenlos, damit Ihnen kein Cent verloren geht.' },
+  ];
+  return (
+    <section className="relative py-24 md:py-32" style={{ zIndex: 2 }}>
+      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-stretch mb-12">
+          <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.8, ease: easeOut }}
+            className="relative rounded-3xl overflow-hidden order-2 md:order-1"
+            style={{ border: '1px solid rgba(227,6,19,0.25)', boxShadow: '0 0 50px rgba(227,6,19,0.15)' }}>
+            <img src="/images/unfall.jpg" alt="Unfallfahrzeug mit Warndreieck" loading="lazy"
+              className="block w-full h-full object-cover" />
+          </motion.div>
+          <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.8, ease: easeOut }}
+            className="order-1 md:order-2">
+            <p className="text-xs uppercase mb-4 font-semibold tracking-widest" style={{ color: '#E30613' }}>
+              Verkehrsunfall?
+            </p>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6"
+              style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+              So unterstützen wir Sie <span style={{ color: '#E30613' }}>sicher und schnell</span>!
+            </h2>
+            <p className="text-lg leading-relaxed" style={{ color: C.textDim }}>
+              Nach einem Verkehrsunfall haben Sie das Recht, einen unabhängigen Sachverständigen zu beauftragen.
+              Lassen Sie sich nicht von der Versicherung unter Druck setzen, deren Gutachter zu akzeptieren,
+              denn diese arbeiten oft nicht in Ihrem besten Interesse. Vertrauen Sie auf unsere Expertise,
+              um Ihre Ansprüche zu wahren.
+            </p>
+          </motion.div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {points.map((p, i) => (
+            <motion.div key={i}
+              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.6, ease: easeOut, delay: i * 0.1 }}
+              className="rounded-2xl p-6 flex gap-5"
+              style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`,
+                backdropFilter: 'blur(4px)' }}>
+              <div className="flex-shrink-0 mt-1">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, #E30613, #B0050F)',
+                    boxShadow: '0 0 20px rgba(227,6,19,0.25)' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold mb-1" style={{ color: C.text }}>{p.title}</h3>
+                <p className="leading-relaxed" style={{ color: C.textDim }}>{p.desc}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Vehicle classes / Fahrzeugklassen ────────────
+function FahrzeugklassenSection() {
+  const RED = '#E30613';
+  const iconProps = { width: 36, height: 36, viewBox: '0 0 24 24', fill: 'none', stroke: RED, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
+  const items = [
+    {
+      title: 'PKW',
+      desc: 'Präzise Gutachten für alle Pkw-Typen, unabhängig von Marke und Modell.',
+      icon: (
+        <svg {...iconProps}><path d="M3 13l2-5a3 3 0 0 1 2.8-2h8.4A3 3 0 0 1 19 8l2 5"/><path d="M3 13h18v4a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2H8a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-4z"/><circle cx="7.5" cy="16" r="1.2"/><circle cx="16.5" cy="16" r="1.2"/></svg>
+      ),
+    },
+    {
+      title: 'Elektrofahrzeuge',
+      desc: 'Ob Elektroauto oder E-Bike — wir bieten spezialisierte Gutachten, die technische Besonderheiten berücksichtigen.',
+      icon: (
+        <svg {...iconProps}><path d="M3 13l2-5a3 3 0 0 1 2.8-2h6.4A3 3 0 0 1 17 8l2 5"/><path d="M3 13h16v4a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2H8a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-4z"/><path d="M21 9v6"/><path d="M11 9l-2 3h3l-2 3"/></svg>
+      ),
+    },
+    {
+      title: 'LKW',
+      desc: 'Vom leichten Nutzfahrzeug bis zum schweren Lkw, maßgeschneidert auf die speziellen Einsatzbereiche.',
+      icon: (
+        <svg {...iconProps}><path d="M2 17V7a1 1 0 0 1 1-1h11v11"/><path d="M14 10h4l3 4v3h-7"/><circle cx="6.5" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/></svg>
+      ),
+    },
+    {
+      title: 'Caravan',
+      desc: 'Detaillierte Bewertungen für Wohnwagen und Wohnmobile, inkl. Wohnbereich und Sonderausstattung.',
+      icon: (
+        <svg {...iconProps}><path d="M3 8a2 2 0 0 1 2-2h11a3 3 0 0 1 3 3v6H3V8z"/><path d="M19 15h2v2h-2"/><rect x="6" y="9" width="4" height="3"/><circle cx="8" cy="17" r="1.5"/><circle cx="15" cy="17" r="1.5"/></svg>
+      ),
+    },
+    {
+      title: 'Anhänger',
+      desc: 'Umfassende Gutachten für Last- und Spezialanhänger, mit Fokus auf Sicherheitsaspekte.',
+      icon: (
+        <svg {...iconProps}><rect x="3" y="7" width="14" height="9" rx="1"/><path d="M17 14h4"/><circle cx="21.5" cy="14.5" r="1"/><circle cx="8" cy="18" r="1.5"/><circle cx="13" cy="18" r="1.5"/></svg>
+      ),
+    },
+    {
+      title: 'Motorräder',
+      desc: 'Sorgfältige Schadens- und Wertgutachten für Motorräder.',
+      icon: (
+        <svg {...iconProps}><circle cx="5.5" cy="16" r="3"/><circle cx="18.5" cy="16" r="3"/><path d="M5.5 16l4-6h5l3 6"/><path d="M14 7h3v3"/></svg>
+      ),
+    },
+  ];
+  return (
+    <section className="relative py-24 md:py-32" style={{ zIndex: 2 }}>
+      <div className="mx-auto px-6" style={{ maxWidth: 1100 }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ duration: 0.7, ease: easeOut }}
+          className="text-center mb-14">
+          <div className="text-sm md:text-base font-semibold mb-3" style={{ color: RED, letterSpacing: '0.02em' }}>
+            Ihr Partner für umfassende Bewertungen
+          </div>
+          <h2 className="text-3xl md:text-5xl font-bold"
+            style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+            Gutachten für alle <span style={{ color: RED }}>Fahrzeugklassen</span>
+          </h2>
+        </motion.div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {items.map((item, i) => (
+            <motion.div key={i}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.6, ease: easeOut, delay: i * 0.08 }}
+              className="rounded-2xl p-6 md:p-7"
+              style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`,
+                backdropFilter: 'blur(4px)' }}>
+              <div className="flex items-center gap-4 mb-3">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(227,6,19,0.08)', border: '1px solid rgba(227,6,19,0.25)' }}>
+                  {item.icon}
+                </div>
+                <h3 className="text-xl font-bold" style={{ color: RED }}>{item.title}</h3>
+              </div>
+              <p className="leading-relaxed" style={{ color: C.textDim }}>{item.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─── Rights after accident ────────────────────────
 function RechteSection() {
   const items = [
@@ -1382,10 +1539,10 @@ function Footer() {
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-16">
           <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-0 font-mono text-2xl" style={{ color: C.text }}>
-              <span>Gecit&nbsp;</span>
-              <span style={{ color: C.neon, textShadow: `0 0 12px ${C.glow}` }}>K</span>
-              <span>fz</span>
+            <div className="text-2xl md:text-3xl lg:text-4xl font-black italic tracking-tighter" style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', lineHeight: 1 }}>
+              <span style={{ color: '#E30613' }}>GECIT</span>
+              <span style={{ color: '#FFFFFF', margin: '0 2px' }}>-</span>
+              <span style={{ color: '#FFFFFF' }}>KFZ</span>
             </div>
             <p className="mt-4 text-sm" style={{ color: C.textDim }}>
               Oto ekspertizin dijital standardı.
@@ -1810,7 +1967,9 @@ export default function Landing({ user, onLogin, onLogout, onEnterApp }) {
         <Marquee />
         <Features />
         <KostenlosBanner />
+        <FahrzeugklassenSection />
         <RechteSection />
+        <VerkehrsunfallSection />
         <WhyGecitKfz />
         <HowItWorks />
         <Stats />
