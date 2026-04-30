@@ -170,8 +170,8 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
     >
       <div className="mx-auto px-6 h-full flex items-center justify-between" style={{ maxWidth: 1200 }}>
         {/* Logo */}
-        <a href="#" className="flex items-center gap-3 h-full py-4">
-          <img src="/logo-header.png" alt="GECIT-KFZ" className="h-full object-contain" />
+        <a href="#" className="flex items-center h-full">
+          <img src="/logo-gecit.png" alt="GECIT-KFZ" className="h-12 md:h-14 w-auto object-contain" />
         </a>
 
         {/* Desktop Nav */}
@@ -742,7 +742,7 @@ function Footer() {
           {/* Brand Col */}
           <div className="lg:col-span-2">
             <div className="mb-8">
-              <img src="/logo-gecit-final.png" alt="GECIT-KFZ" className="h-10 md:h-12 object-contain" />
+              <img src="/logo-gecit.png" alt="GECIT-KFZ" className="h-10 md:h-12 object-contain" />
             </div>
             <p className="text-gray-500 text-sm leading-relaxed max-w-sm mb-10">
               Ihr unabhängiger Partner für professionelle Kfz-Gutachten. Schnell, zuverlässig und immer in Ihrem Interesse. Wir setzen uns für Ihre Rechte ein.
