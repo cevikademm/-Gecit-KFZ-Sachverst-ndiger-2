@@ -10,7 +10,7 @@
 //  - Decoratif: NoiseOverlay, ScrollProgress, MeshBackground, MagneticButton
 //  - Layout: Navbar, Footer
 //  - Icerik bolumleri: Hero, BannerShowcase, Marquee, Features, KostenlosBanner,
-//    RechteSection, WhyGecitKfz, HowItWorks, Stats, Testimonial, Pricing
+//    RechteSection, WhyGecitKfz, HowItWorks, Stats, Testimonial, Pricing, FooterCTA
 //  - Modaller: LoginDrawer, AppointmentBookingModal, PWAInstallBanner
 //  - Default export: Landing (props: user, onLogin, onLogout, onEnterApp)
 // ═══════════════════════════════════════════════════════════════════
@@ -149,11 +149,11 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
   }, [scrollY]);
 
   const links = [
-    { label: 'STARTSEITE', href: '#home' },
-    { label: 'LEISTUNGEN', href: '#leistungen' },
-    { label: 'ÜBER UNS', href: '#ueber-uns' },
-    { label: 'ABLAUF', href: '#ablauf' },
-    { label: 'KONTAKT', href: '#kontakt' },
+    { key: 'home',     label: t('nav.home'),     href: '#home' },
+    { key: 'services', label: t('nav.services'), href: '#leistungen' },
+    { key: 'about',    label: t('nav.about'),    href: '#ueber-uns' },
+    { key: 'process',  label: t('nav.process'),  href: '#ablauf' },
+    { key: 'contact',  label: t('nav.contact'),  href: '#kontakt' },
   ];
 
   const initials = user ? user.email.slice(0, 2).toUpperCase() : '';
@@ -183,10 +183,10 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
         <div className="hidden md:flex items-center gap-8 h-full">
           {links.map((link, i) => (
             <a
-              key={link.label}
+              key={link.key}
               href={link.href}
               onClick={(e) => {
-                if (link.label === 'KONTAKT') {
+                if (link.key === 'contact') {
                   e.preventDefault();
                   setActiveSubPage('kontakt');
                 }
@@ -206,7 +206,10 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="hidden sm:block">
+            <LanguageSelector />
+          </div>
           {user ? (
             <div className="relative">
               <button
@@ -229,13 +232,13 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
                       onClick={onEnterApp}
                       className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 rounded-lg"
                     >
-                      Dashboard
+                      {t('nav.dashboard')}
                     </button>
                     <button
                       onClick={onLogout}
                       className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
                     >
-                      Abmelden
+                      {t('nav.logout')}
                     </button>
                   </motion.div>
                 )}
@@ -246,14 +249,14 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
               onClick={onLoginClick}
               className="hidden sm:block text-xs font-bold tracking-widest text-gray-500 hover:text-black transition-colors"
             >
-              LOGIN
+              {t('nav.login')}
             </button>
           )}
           <button
             onClick={onBook}
             className="hidden sm:block px-6 py-3 bg-[#E30613] text-white text-xs font-bold tracking-widest rounded-md hover:bg-[#B0050F] transition-colors shadow-lg shadow-red-500/20 keep-white"
           >
-            TERMIN VEREINBAREN
+            {t('nav.book')}
           </button>
           
           {/* Mobile Toggle */}
@@ -303,7 +306,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
               <div className="flex-1 overflow-y-auto py-8 px-6 flex flex-col gap-6">
                 {links.map((l, idx) => (
                   <motion.a
-                    key={l.label}
+                    key={l.key}
                     href={l.href}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -311,7 +314,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
                     className="text-2xl font-black tracking-tighter text-[#0A0A0A] hover:text-[#E30613] transition-colors"
                     onClick={(e) => {
                       setMobileOpen(false);
-                      if (l.label === 'KONTAKT') {
+                      if (l.key === 'contact') {
                         e.preventDefault();
                         setActiveSubPage('kontakt');
                       }
@@ -320,15 +323,22 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
                     {l.label}
                   </motion.a>
                 ))}
+
+                <div className="mt-2 pt-6 border-t border-gray-100">
+                  <div className="text-[10px] font-bold tracking-[0.25em] text-gray-400 mb-3">
+                    {t('lang.label').toUpperCase()}
+                  </div>
+                  <LanguageSelector variant="mobile" />
+                </div>
               </div>
-              
+
               <div className="p-6 border-t border-gray-100 bg-gray-50/50">
                 <button
                   onClick={() => { onBook(); setMobileOpen(false); }}
                   className="w-full py-4 bg-[#E30613] text-white font-bold rounded-lg shadow-lg shadow-red-500/20 keep-white flex items-center justify-center gap-3"
                 >
                   <PhoneIcon size={18} />
-                  TERMIN VEREINBAREN
+                  {t('nav.book')}
                 </button>
                 <div className="mt-6 flex flex-col gap-2">
                   <a href="tel:+4915732624362" className="text-sm font-medium text-gray-600 flex items-center gap-2">
@@ -614,6 +624,7 @@ function RevealHeading({ text, className = '', style = {}, delay = 0 }) {
 // ─── Hero ───────────────────────────────────────
 function Hero({ onBook }) {
   const rm = useReducedMotion();
+  const { t } = useLang();
   return (
     <section id="home" className="relative min-h-[85vh] flex items-center overflow-hidden bg-white pt-32 pb-16">
       <div className="mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center" style={{ maxWidth: 1200 }}>
@@ -625,23 +636,22 @@ function Hero({ onBook }) {
           className="relative z-10"
         >
           <h1 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter text-[#0A0A0A] leading-[0.9] mb-4">
-            KFZ-GUTACHTER
+            {t('hero.title')}
           </h1>
           <h2 className="text-xl sm:text-3xl md:text-4xl font-bold tracking-tight text-[#E30613] mb-8 flex items-center gap-3">
             <span className="w-12 h-1 bg-[#E30613]" />
-            IHR PARTNER IM SCHADENFALL
+            {t('hero.subtitle')}
           </h2>
           <div className="w-20 h-1.5 bg-[#E30613] mb-8" />
           <p className="text-lg md:text-xl text-[#4B5563] leading-relaxed max-w-lg mb-10">
-            Als unabhängiger Kfz-Gutachter stehe ich Ihnen mit fachkompetenter und persönlicher Beratung zur Seite.
-            Ich erstelle schnelle, zuverlässige und rechtssichere Gutachten.
+            {t('hero.description')}
           </p>
           <button
             onClick={onBook}
             className="group flex items-center gap-3 px-8 py-4 bg-[#E30613] text-white font-bold rounded-md hover:bg-[#B0050F] transition-all transform hover:scale-105 shadow-xl shadow-red-500/30 keep-white"
           >
             <PhoneIcon size={20} className="group-hover:animate-bounce" />
-            JETZT TERMIN VEREINBAREN
+            {t('hero.cta')}
           </button>
         </motion.div>
 
@@ -669,6 +679,7 @@ function Hero({ onBook }) {
   );
 }
 function CTA({ onBook }) {
+  const { t } = useLang();
   return (
     <section className="py-12 bg-[#E30613] text-white keep-white">
       <div className="mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8" style={{ maxWidth: 1200 }}>
@@ -678,10 +689,10 @@ function CTA({ onBook }) {
           </div>
           <div>
             <h2 className="text-xl md:text-3xl font-black tracking-tighter uppercase leading-none mb-1 text-center md:text-left">
-              SCHNELL • UNABHÄNGIG • ZUVERLÄSSIG
+              {t('cta.tagline')}
             </h2>
             <p className="text-white/80 font-medium">
-              Ihr Kfz-Gutachter in Aachen und Umgebung
+              {t('cta.location')}
             </p>
           </div>
         </div>
@@ -689,8 +700,8 @@ function CTA({ onBook }) {
           onClick={() => window.location.href = 'tel:+4915739647834'}
           className="w-full md:w-auto px-8 py-4 border-2 border-white text-white font-bold rounded-md hover:bg-white hover:text-[#E30613] transition-all"
         >
-          JETZT ANRUFEN <br />
-          <span className="text-lg md:text-xl">+49 157 326 243 62</span>
+          {t('cta.call')} <br />
+          <span className="text-lg md:text-xl" dir="ltr">+49 157 326 243 62</span>
         </button>
       </div>
     </section>
@@ -699,51 +710,28 @@ function CTA({ onBook }) {
 
 // ─── Features ───────────────────────────────────
 function Features() {
-  const features = [
-    {
-      icon: CarIcon,
-      title: 'SCHADENGUTACHTEN',
-      desc: 'Detaillierte und unabhängige Gutachten nach einem Unfall zur Durchsetzung Ihrer Ansprüche gegenüber der Versicherung.',
-      list: ['Unfallaufnahme und Analyse', 'Feststellung der Schadenhöhe', 'Reparaturweg und Wertminderung', 'Unterstützung bei der Schadenregulierung'],
-    },
-    {
-      icon: ClipboardIcon,
-      title: 'KFZ-GUTACHTEN',
-      desc: 'Umfassende Gutachten für verschiedene Anlässe – unabhängig, neutral und rechtssicher.',
-      list: ['Unfallgutachten', 'Beweissicherungsgutachten', 'Oldtimer-Gutachten', 'Sonstige Anlässe'],
-    },
-    {
-      icon: ShieldIcon,
-      title: 'WERTGUTACHTEN',
-      desc: 'Ermittlung des aktuellen Marktwertes Ihres Fahrzeugs – z. B. für Verkauf, Versicherung oder Finanzierungszwecke.',
-      list: ['Marktwertanalyse', 'Restwertermittlung', 'Wertgutachten für Klassiker und Sammlerfahrzeuge'],
-    },
-    {
-      icon: FileText,
-      title: 'KOSTENVORANSCHLÄGE',
-      desc: 'Erstellung von detaillierten Kostenvoranschlägen für Reparaturen – schnell, transparent und nachvollziehbar.',
-      list: ['Reparaturkostenaufstellung', 'Teile- und Arbeitskosten', 'Grundlage für die Schadenregulierung'],
-    },
-    {
-      icon: MessageIcon,
-      title: 'ERSTE KUNDENBERATUNG',
-      desc: 'Persönliche Beratung und erste Einschätzung – kompetent, unverbindlich und kostenlos.',
-      list: ['Ersteinschätzung des Falls', 'Klärung Ihrer Fragen', 'Empfehlung des weiteren Vorgehens'],
-    },
-    {
-      icon: CarIcon,
-      title: 'LEASINGRÜCKLÄUFER-CHECK',
-      desc: 'Professionelle Prüfung Ihres Fahrzeugs zur Rückgabe – vermeiden Sie Nachzahlungen und Diskussionen.',
-      list: ['Überprüfung auf Schäden und Mängel', 'Bewertung nach Leasingkriterien', 'Dokumentation mit Prüfbericht', 'Neutrale und faire Einschätzung'],
-    },
+  const { t } = useLang();
+  const featureKeys = [
+    { icon: CarIcon,       key: 'schaden'  },
+    { icon: ClipboardIcon, key: 'kfz'      },
+    { icon: ShieldIcon,    key: 'wert'     },
+    { icon: FileText,      key: 'kosten'   },
+    { icon: MessageIcon,   key: 'beratung' },
+    { icon: CarIcon,       key: 'leasing'  },
   ];
+  const features = featureKeys.map(({ icon, key }) => ({
+    icon,
+    title: t(`features.${key}.title`),
+    desc:  t(`features.${key}.desc`),
+    list:  t(`features.${key}.list`),
+  }));
 
   return (
     <section id="leistungen" className="py-24 bg-[#F9FAFB]">
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
         <div className="text-center mb-16">
           <h2 className="text-5xl font-black tracking-tight text-[#0A0A0A] mb-4 uppercase">
-            UNSERE <span className="text-[#E30613]">LEISTUNGEN</span>
+            {t('features.heading_pre')} <span className="text-[#E30613]">{t('features.heading_main')}</span>
           </h2>
           <div className="w-20 h-1 bg-[#E30613] mx-auto" />
         </div>
@@ -780,10 +768,11 @@ function Features() {
 }
 
 function Footer({ setActiveSubPage }) {
+  const { t } = useLang();
   const cols = [
-    { title: 'Leistungen', links: ['Unfallgutachten', 'Wertgutachten', 'Reparaturkosten', 'Leasing-Check', 'Oldtimer'] },
-    { title: 'Unternehmen', links: ['Über uns', 'Philosophie', 'Standorte', 'Karriere', 'Kontakt'] },
-    { title: 'Rechtliches', links: ['Impressum', 'Datenschutz', 'AGB', 'Cookie-Richtlinie'] },
+    { title: t('footer.cols.services'), links: ['Unfallgutachten', 'Wertgutachten', 'Reparaturkosten', 'Leasing-Check', 'Oldtimer'] },
+    { title: t('footer.cols.company'),  links: ['Über uns', 'Philosophie', 'Standorte', 'Karriere', 'Kontakt'] },
+    { title: t('footer.cols.legal'),    links: ['Impressum', 'Datenschutz', 'AGB', 'Cookie-Richtlinie'] },
   ];
 
   return (
@@ -798,7 +787,7 @@ function Footer({ setActiveSubPage }) {
                 className="h-12 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
             </div>
             <p className="text-gray-500 text-sm leading-relaxed max-w-sm mb-10">
-              Ihr unabhängiger Partner für professionelle Kfz-Gutachten. Schnell, zuverlässig und immer in Ihrem Interesse. Wir setzen uns für Ihre Rechte ein.
+              {t('footer.tagline')}
             </p>
             <div className="space-y-4">
               <a href="tel:+4915739647834" className="group flex items-center gap-4 text-sm text-gray-600 hover:text-[#E30613] transition-colors w-fit">
@@ -847,9 +836,9 @@ function Footer({ setActiveSubPage }) {
 
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-6 text-sm border-t border-gray-100">
-          <p className="text-gray-400 tracking-wider text-xs md:text-sm">© 2024 KFZ-Gutachter Aachen. Alle Rechte vorbehalten.</p>
+          <p className="text-gray-400 tracking-wider text-xs md:text-sm">{t('footer.copyright')}</p>
           <p className="flex items-center gap-2 text-gray-400 tracking-wider text-xs md:text-sm">
-            Entwickelt mit <Zap size={14} className="text-[#E30613]" /> in Aachen
+            {t('footer.built')} <Zap size={14} className="text-[#E30613]" /> Aachen
           </p>
         </div>
       </div>
@@ -1064,7 +1053,7 @@ function MarqueeGermany() {
               </div>
               <div className="flex items-center gap-3">
                 <span style={{ fontSize: '1.5rem' }}>🇩🇪</span>
-                <span className="text-2xl font-black italic tracking-tighter uppercase">ALLE STANDORTE IN DEUTSCHLAND</span>
+                <span className="text-2xl font-black italic tracking-tighter uppercase">BUNDESWEITER SERVICE</span>
               </div>
               <div className="flex items-center gap-3">
                 <Shield size={24} strokeWidth={2.5} />
@@ -1278,11 +1267,8 @@ function KostenlosBanner() {
 
 // ─── Verkehrsunfall Support Intro ─────────────────
 function VerkehrsunfallSection({ onBook }) {
-  const points = [
-    { title: 'Unabhängig & neutral', desc: 'Wir arbeiten ausschließlich in Ihrem Interesse — nicht im Auftrag der Versicherung.' },
-    { title: 'Schnelle Terminvergabe', desc: 'Begutachtung meist innerhalb von 24 Stunden. Kein langes Warten, kein Druck.' },
-    { title: 'Volle Ansprüche sichern', desc: 'Wir dokumentieren jeden Schaden lückenlos, damit Ihnen kein Cent verloren geht.' },
-  ];
+  const { t } = useLang();
+  const points = t('about.points');
   return (
     <section id="ueber-uns" className="relative py-24 md:py-32" style={{ zIndex: 2 }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
@@ -1300,17 +1286,14 @@ function VerkehrsunfallSection({ onBook }) {
             transition={{ duration: 0.8, ease: easeOut }}
             className="order-1 md:order-2">
             <p className="text-xs uppercase mb-4 font-semibold tracking-widest" style={{ color: '#E30613' }}>
-              Verkehrsunfall?
+              {t('about.eyebrow')}
             </p>
             <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-6"
               style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-              So unterstützen wir Sie <span style={{ color: '#E30613' }}>sicher und schnell</span>!
+              {t('about.heading_pre')} <span style={{ color: '#E30613' }}>{t('about.heading_red')}</span>!
             </h2>
             <p className="text-lg leading-relaxed" style={{ color: C.textDim }}>
-              Nach einem Verkehrsunfall haben Sie das Recht, einen unabhängigen Sachverständigen zu beauftragen.
-              Lassen Sie sich nicht von der Versicherung unter Druck setzen, deren Gutachter zu akzeptieren,
-              denn diese arbeiten oft nicht in Ihrem besten Interesse. Vertrauen Sie auf unsere Expertise,
-              um Ihre Ansprüche zu wahren.
+              {t('about.description')}
             </p>
           </motion.div>
         </div>
@@ -1659,7 +1642,7 @@ function PeaceOfMindSection() {
               className="relative"
             >
               <div className="relative z-10 rounded-3xl overflow-hidden shadow-2xl border border-gray-100">
-                <img src="/images/inspection_v2.png" alt="Professionelles KFZ-Gutachter Team" className="w-full h-auto" />
+                <img src="/images/inspection.jpg" alt="Professionelles KFZ-Gutachter Team" className="w-full h-auto" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A]/20 via-transparent to-transparent" />
               </div>
               <motion.div 
@@ -2005,7 +1988,33 @@ function TextInput({ value, onChange, placeholder, type = 'text', required }) {
   );
 }
 
-
+function FooterCTA({ onBook }) {
+  const rm = useReducedMotion();
+  return (
+    <section className="relative flex items-center justify-center overflow-hidden"
+      style={{ minHeight: '100vh', zIndex: 2 }}>
+      {/* Dekoratif blob'lar kaldırıldı */}
+      <div className="relative text-center px-6" style={{ maxWidth: 900 }}>
+        <RevealHeading text="Entdecken Sie die wahre Geschichte Ihres Fahrzeugs."
+          className="text-5xl md:text-7xl lg:text-8xl font-semibold"
+          style={{ color: C.text, letterSpacing: '-0.04em', lineHeight: 0.95 }} />
+        <motion.p initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }} transition={{ duration: 0.8, ease: easeOut, delay: 0.6 }}
+          className="mt-8 text-lg md:text-xl" style={{ color: C.textDim }}>
+          15% Rabatt auf Ihr erstes Gutachten. Termin in 5 Minuten.
+        </motion.p>
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }} transition={{ duration: 0.8, ease: easeOut, delay: 0.8 }}
+          className="mt-10 flex justify-center">
+          <MagneticButton variant="primary" ariaLabel="Online termin al" className="text-base"
+            onClick={() => window.dispatchEvent(new CustomEvent('gecit-kfz:book'))}>
+            Online Termin vereinbaren <ArrowRight size={18} />
+          </MagneticButton>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
 
 
 function AppointmentBookingModal({ open, onClose, onBook }) {
@@ -2356,7 +2365,7 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
         <VerkehrsunfallSection onBook={() => setBookOpen(true)} />
         <RechteSection />
         <PeaceOfMindSection />
-
+        <FooterCTA onBook={() => setBookOpen(true)} />
         <BannerShowcase setLightbox={setLightbox} />
         <DownloadCenter />
       </main>

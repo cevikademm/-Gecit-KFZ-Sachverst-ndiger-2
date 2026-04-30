@@ -25,6 +25,7 @@ import Landing from './pages/Landing.jsx';
 import { GecitKfzModal } from './components/Modal.jsx';
 import { RuhsatPanel } from './components/RuhsatPanel.jsx';
 import { parseRuhsatMock } from './utils/ruhsatParser.js';
+import { useLang } from './i18n/LangContext.jsx';
 
 const RUHSAT_DOC_TYPES = ['fahrzeugschein', 'fahrzeugbrief'];
 const isRuhsatDoc = (type) => RUHSAT_DOC_TYPES.includes(type);
@@ -11943,6 +11944,7 @@ function AppPanel({ user, onHome, onLogout }) {
 }
 
 function GlobalServiceInfo() {
+  const { t } = useLang();
   return (
     <div className="fixed top-0 left-0 right-0 z-[1000] bg-[#F9FAFB] border-b border-gray-100 h-[26px] overflow-hidden">
       <div className="h-full flex items-center justify-center">
@@ -11950,23 +11952,23 @@ function GlobalServiceInfo() {
         <div className="hidden md:flex items-center gap-8 text-[9px] font-bold tracking-[0.15em] text-gray-400 uppercase">
           <div className="flex items-center gap-1.5">
             <span className="text-xs">🇩🇪</span>
-            <span>Alle Services in Deutschland</span>
+            <span>{t('topbar.service')}</span>
           </div>
           <div className="w-1 h-1 rounded-full bg-gray-200" />
           <div className="flex items-center gap-1.5">
             <Shield size={10} className="text-gray-300" />
-            <span>Anerkannt bei allen deutschen Werkstätten</span>
+            <span>{t('topbar.recognized')}</span>
           </div>
           <div className="w-1 h-1 rounded-full bg-gray-200" />
           <div className="flex items-center gap-1.5">
             <Zap size={10} className="text-gray-300" />
-            <span>24/7 Notfall-Service</span>
+            <span>{t('topbar.emergency')}</span>
           </div>
         </div>
 
         {/* Mobile View - Marquee */}
         <div className="flex md:hidden w-full h-full items-center">
-          <motion.div 
+          <motion.div
             animate={{ x: ['0%', '-50%'] }}
             transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
             className="flex whitespace-nowrap gap-10 px-4"
@@ -11975,7 +11977,7 @@ function GlobalServiceInfo() {
               <div key={i} className="flex items-center gap-10 text-[8px] font-bold tracking-widest text-gray-400 uppercase">
                 <div className="flex items-center gap-1.5">
                   <span>🇩🇪</span>
-                  <span>Alle Services in Deutschland</span>
+                  <span>{t('topbar.service')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Shield size={9} />
@@ -11983,7 +11985,7 @@ function GlobalServiceInfo() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Zap size={9} />
-                  <span>24/7 Notfall</span>
+                  <span>{t('topbar.emergency')}</span>
                 </div>
               </div>
             ))}
