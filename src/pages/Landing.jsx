@@ -35,6 +35,11 @@ import {
 } from './SubPageContent.jsx';
 import { LangProvider, useLang } from '../i18n/LangContext.jsx';
 import { LanguageSelector } from '../i18n/LanguageSelector.jsx';
+import Hero from './landing/Hero.jsx';
+import CTA from './landing/CTA.jsx';
+import Features from './landing/Features.jsx';
+import Footer from './landing/Footer.jsx';
+import VerkehrsunfallSection from './landing/VerkehrsunfallSection.jsx';
 
 // IIFE-with-hooks pattern icin kucuk yardimci.
 function Iife({ children }) { return children(); }
@@ -162,8 +167,9 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
     <motion.nav
       initial={{ y: -100 }}
       animate={{ y: 0 }}
-      className="fixed top-[26px] left-0 right-0 z-50 transition-all duration-300"
+      className="fixed left-0 right-0 z-50 transition-all duration-300"
       style={{
+        top: 'calc(26px + env(safe-area-inset-top))',
         background: scrolled ? 'rgba(255, 255, 255, 0.8)' : 'transparent',
         backdropFilter: scrolled ? 'blur(12px) saturate(180%)' : 'none',
         WebkitBackdropFilter: scrolled ? 'blur(12px) saturate(180%)' : 'none',
@@ -291,7 +297,8 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-[26px] right-0 bottom-0 w-[85%] max-w-sm z-50 bg-white shadow-2xl flex flex-col md:hidden"
+              className="fixed right-0 bottom-0 w-[85%] max-w-sm z-50 bg-white shadow-2xl flex flex-col md:hidden"
+              style={{ top: 'calc(26px + env(safe-area-inset-top))' }}
             >
               <div className="p-6 flex items-center justify-between border-b border-gray-100">
                 <img src="/logocustom3.png" alt="Logo" className="h-10 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
@@ -333,6 +340,21 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
               </div>
 
               <div className="p-6 border-t border-gray-100 bg-gray-50/50">
+                {user ? (
+                  <button
+                    onClick={() => { onLogout(); setMobileOpen(false); }}
+                    className="w-full py-3 mb-3 bg-white border border-gray-200 text-[#0A0A0A] font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-gray-50"
+                  >
+                    {t('nav.logout')}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { setMobileOpen(false); onLoginClick(); }}
+                    className="w-full py-3 mb-3 bg-white border border-gray-200 text-[#0A0A0A] font-bold rounded-lg flex items-center justify-center gap-3 hover:bg-gray-50"
+                  >
+                    {t('nav.login')}
+                  </button>
+                )}
                 <button
                   onClick={() => { onBook(); setMobileOpen(false); }}
                   className="w-full py-4 bg-[#E30613] text-white font-bold rounded-lg shadow-lg shadow-red-500/20 keep-white flex items-center justify-center gap-3"
@@ -621,230 +643,9 @@ function RevealHeading({ text, className = '', style = {}, delay = 0 }) {
   );
 }
 
-// ─── Hero ───────────────────────────────────────
-function Hero({ onBook }) {
-  const rm = useReducedMotion();
-  const { t } = useLang();
-  return (
-    <section id="home" className="relative min-h-[85vh] flex items-center overflow-hidden bg-white pt-32 pb-16">
-      <div className="mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center" style={{ maxWidth: 1200 }}>
-        {/* Left Side: Content */}
-        <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10"
-        >
-          <h1 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter text-[#0A0A0A] leading-[0.9] mb-4">
-            {t('hero.title')}
-          </h1>
-          <h2 className="text-xl sm:text-3xl md:text-4xl font-bold tracking-tight text-[#E30613] mb-8 flex items-center gap-3">
-            <span className="w-12 h-1 bg-[#E30613]" />
-            {t('hero.subtitle')}
-          </h2>
-          <div className="w-20 h-1.5 bg-[#E30613] mb-8" />
-          <p className="text-lg md:text-xl text-[#4B5563] leading-relaxed max-w-lg mb-10">
-            {t('hero.description')}
-          </p>
-          <button
-            onClick={onBook}
-            className="group flex items-center gap-3 px-8 py-4 bg-[#E30613] text-white font-bold rounded-md hover:bg-[#B0050F] transition-all transform hover:scale-105 shadow-xl shadow-red-500/30 keep-white"
-          >
-            <PhoneIcon size={20} className="group-hover:animate-bounce" />
-            {t('hero.cta')}
-          </button>
-        </motion.div>
+// Hero, CTA, Features → src/pages/landing/{Hero,CTA,Features}.jsx
 
-        {/* Right Side: Image */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9, x: 50 }}
-          animate={{ opacity: 1, scale: 1, x: 0 }}
-          transition={{ duration: 1, ease: easeOut }}
-          className="relative"
-        >
-          <div className="relative rounded-2xl overflow-hidden shadow-2xl">
-            <img
-              src="/hero-car.png"
-              alt="KFZ Gutachter Schadenfall"
-              className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700"
-            />
-            {/* Overlay Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
-          </div>
-          {/* Decorative Elements */}
-          {/* Dekoratif blob'lar kaldırıldı */}
-        </motion.div>
-      </div>
-    </section>
-  );
-}
-function CTA({ onBook }) {
-  const { t } = useLang();
-  return (
-    <section className="py-12 bg-[#E30613] text-white keep-white">
-      <div className="mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8" style={{ maxWidth: 1200 }}>
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 rounded-full border-2 border-white flex items-center justify-center">
-            <PhoneIcon size={32} />
-          </div>
-          <div>
-            <h2 className="text-xl md:text-3xl font-black tracking-tighter uppercase leading-none mb-1 text-center md:text-left">
-              {t('cta.tagline')}
-            </h2>
-            <p className="text-white/80 font-medium">
-              {t('cta.location')}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => window.location.href = 'tel:+4915739647834'}
-          className="w-full md:w-auto px-8 py-4 border-2 border-white text-white font-bold rounded-md hover:bg-white hover:text-[#E30613] transition-all"
-        >
-          {t('cta.call')} <br />
-          <span className="text-lg md:text-xl" dir="ltr">+49 157 326 243 62</span>
-        </button>
-      </div>
-    </section>
-  );
-}
-
-// ─── Features ───────────────────────────────────
-function Features() {
-  const { t } = useLang();
-  const featureKeys = [
-    { icon: CarIcon,       key: 'schaden'  },
-    { icon: ClipboardIcon, key: 'kfz'      },
-    { icon: ShieldIcon,    key: 'wert'     },
-    { icon: FileText,      key: 'kosten'   },
-    { icon: MessageIcon,   key: 'beratung' },
-    { icon: CarIcon,       key: 'leasing'  },
-  ];
-  const features = featureKeys.map(({ icon, key }) => ({
-    icon,
-    title: t(`features.${key}.title`),
-    desc:  t(`features.${key}.desc`),
-    list:  t(`features.${key}.list`),
-  }));
-
-  return (
-    <section id="leistungen" className="py-24 bg-[#F9FAFB]">
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
-        <div className="text-center mb-16">
-          <h2 className="text-5xl font-black tracking-tight text-[#0A0A0A] mb-4 uppercase">
-            {t('features.heading_pre')} <span className="text-[#E30613]">{t('features.heading_main')}</span>
-          </h2>
-          <div className="w-20 h-1 bg-[#E30613] mx-auto" />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border border-gray-100">
-          {features.map((f, i) => (
-            <div
-              key={i}
-              className="p-10 bg-white border border-gray-50 flex flex-col items-start text-left group hover:shadow-xl transition-all duration-300"
-            >
-              <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-8 text-[#E30613] group-hover:bg-[#E30613] group-hover:text-white transition-colors duration-300">
-                <f.icon size={32} />
-              </div>
-              <h3 className="text-2xl font-bold text-[#0A0A0A] mb-6 tracking-tight uppercase leading-tight">
-                {f.title}
-              </h3>
-              <p className="text-[#4B5563] text-sm leading-relaxed mb-8">
-                {f.desc}
-              </p>
-              <ul className="space-y-3 mt-auto">
-                {f.list.map((item, j) => (
-                  <li key={j} className="flex items-start gap-3 text-sm text-[#4B5563]">
-                    <Check size={14} className="text-[#E30613] mt-1 flex-shrink-0" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Footer({ setActiveSubPage }) {
-  const { t } = useLang();
-  const cols = [
-    { title: t('footer.cols.services'), links: ['Unfallgutachten', 'Wertgutachten', 'Reparaturkosten', 'Leasing-Check', 'Oldtimer'] },
-    { title: t('footer.cols.company'),  links: ['Über uns', 'Philosophie', 'Standorte', 'Karriere', 'Kontakt'] },
-    { title: t('footer.cols.legal'),    links: ['Impressum', 'Datenschutz', 'AGB', 'Cookie-Richtlinie'] },
-  ];
-
-  return (
-    <footer id="kontakt" className="relative pt-24 pb-12 bg-white border-t border-gray-100 overflow-hidden" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6 relative" style={{ maxWidth: 1200 }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8 mb-20">
-          
-          {/* Brand Col */}
-          <div className="lg:col-span-2">
-            <div className="mb-8 flex items-center" style={{ height: '50px' }}>
-              <img src="/logocustom3.png" alt="Gecit Kfz Sachverständiger" 
-                className="h-12 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
-            </div>
-            <p className="text-gray-500 text-sm leading-relaxed max-w-sm mb-10">
-              {t('footer.tagline')}
-            </p>
-            <div className="space-y-4">
-              <a href="tel:+4915739647834" className="group flex items-center gap-4 text-sm text-gray-600 hover:text-[#E30613] transition-colors w-fit">
-                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 text-[#E30613] group-hover:bg-[#E30613] group-hover:text-white transition-all duration-300">
-                  <PhoneIcon size={16} />
-                </div>
-                <span className="tracking-wide font-medium">+49 157 326 243 62</span>
-              </a>
-              <a href="mailto:info@kfz-gutachter-aachen.de" className="group flex items-center gap-4 text-sm text-gray-600 hover:text-[#E30613] transition-colors w-fit">
-                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 text-[#E30613] group-hover:bg-[#E30613] group-hover:text-white transition-all duration-300">
-                  <MailIcon size={16} />
-                </div>
-                <span className="tracking-wide font-medium">Gecit@kfzgutachter.ac</span>
-              </a>
-              <div className="group flex items-start gap-4 text-sm text-gray-600 w-fit">
-                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 text-[#E30613] mt-1">
-                  <PlusIcon size={16} />
-                </div>
-                <address className="not-italic tracking-wide leading-loose font-medium">
-                  Am Gutshof 37 <br />
-                  52080 Aachen
-                </address>
-              </div>
-            </div>
-          </div>
-
-          {/* Links Cols */}
-          {cols.map((col, i) => (
-            <div key={i} className="pt-2">
-              <h3 className="text-[#0A0A0A] font-bold text-sm mb-8 uppercase tracking-widest flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-[#E30613]"></span>
-                {col.title}
-              </h3>
-              <ul className="space-y-5">
-                {col.links.map((l, j) => (
-                  <li key={j}>
-                    <button onClick={() => setActiveSubPage(l.toLowerCase().replace(' ', '-'))} className="text-sm text-gray-700 hover:text-[#E30613] hover:translate-x-1.5 inline-block transition-all duration-300 font-medium">
-                      {l}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-6 text-sm border-t border-gray-100">
-          <p className="text-gray-400 tracking-wider text-xs md:text-sm">{t('footer.copyright')}</p>
-          <p className="flex items-center gap-2 text-gray-400 tracking-wider text-xs md:text-sm">
-            {t('footer.built')} <Zap size={14} className="text-[#E30613]" /> Aachen
-          </p>
-        </div>
-      </div>
-    </footer>
-  );
-}
+// Footer → src/pages/landing/Footer.jsx
 
 function PWAInstallBanner() {
   const [show, setShow] = useState(false);
@@ -1265,67 +1066,7 @@ function KostenlosBanner() {
   );
 }
 
-// ─── Verkehrsunfall Support Intro ─────────────────
-function VerkehrsunfallSection({ onBook }) {
-  const { t } = useLang();
-  const points = t('about.points');
-  return (
-    <section id="ueber-uns" className="relative py-24 md:py-32" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-stretch mb-12">
-          <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.8, ease: easeOut }}
-            className="relative rounded-3xl overflow-hidden order-2 md:order-1"
-            style={{ border: '1px solid rgba(227,6,19,0.25)', boxShadow: '0 0 50px rgba(227,6,19,0.15)' }}>
-            <img src="/images/unfall.jpg" alt="Unfallfahrzeug mit Warndreieck" loading="lazy"
-              className="block w-full h-full object-cover" />
-          </motion.div>
-          <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.8, ease: easeOut }}
-            className="order-1 md:order-2">
-            <p className="text-xs uppercase mb-4 font-semibold tracking-widest" style={{ color: '#E30613' }}>
-              {t('about.eyebrow')}
-            </p>
-            <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-6"
-              style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-              {t('about.heading_pre')} <span style={{ color: '#E30613' }}>{t('about.heading_red')}</span>!
-            </h2>
-            <p className="text-lg leading-relaxed" style={{ color: C.textDim }}>
-              {t('about.description')}
-            </p>
-          </motion.div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {points.map((p, i) => (
-            <motion.div key={i}
-              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.6, ease: easeOut, delay: i * 0.1 }}
-              className="rounded-2xl p-6 flex gap-5"
-              style={{ background: '#FAFAFA', border: `1px solid ${C.border}`,
-                backdropFilter: 'blur(4px)' }}>
-              <div className="flex-shrink-0 mt-1">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, #E30613, #B0050F)',
-                    boxShadow: '0 0 20px rgba(227,6,19,0.25)' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-lg font-bold mb-1" style={{ color: C.text }}>{p.title}</h3>
-                <p className="leading-relaxed" style={{ color: C.textDim }}>{p.desc}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
+// VerkehrsunfallSection → src/pages/landing/VerkehrsunfallSection.jsx
 
 // ─── Vehicle classes / Fahrzeugklassen ────────────
 function FahrzeugklassenSection({ onBook }) {
