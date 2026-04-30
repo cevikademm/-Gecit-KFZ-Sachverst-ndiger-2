@@ -141,7 +141,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
     const u3 = blur.on('change', v => setBl(`blur(${v}px)`));
     return () => { u1(); u2(); u3(); };
   }, [bgOp, brOp, blur]);
-  const links = ['Hizmetler', 'Nasıl Çalışır', 'Paketler', 'İletişim'];
+  const links = ['Leistungen', 'Ablauf', 'Pakete', 'Kontakt'];
   const initials = user ? user.email.slice(0, 2).toUpperCase() : '';
   return (
     <motion.nav initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
@@ -168,7 +168,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
             <button onClick={onEnterApp}
               className="hidden sm:inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-md transition-all"
               style={{ background: 'rgba(227,6,19,0.08)', border: '1px solid rgba(227,6,19,0.25)', color: C.neon }}>
-              Panele Git
+              Zum Dashboard
               <ArrowRight size={14} />
             </button>
             <div className="relative">
@@ -179,7 +179,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
                   style={{ background: '#E30613', color: '#FFFFFF' }}>
                   {initials}
                 </span>
-                <span className="hidden sm:inline" style={{ color: C.text }}>{user.role === 'super_admin' ? 'Süper Admin' : 'Kullanıcı'}</span>
+                <span className="hidden sm:inline" style={{ color: C.text }}>{user.role === 'super_admin' ? 'Super Admin' : 'Benutzer'}</span>
               </button>
               <AnimatePresence>
                 {menuOpen && (
@@ -191,14 +191,14 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
                     <div className="px-3 py-2" style={{ color: C.textDim }}>
                       <p className="truncate" style={{ color: C.text }}>{user.email}</p>
                       <p className="text-xs mt-0.5" style={{ color: C.neon }}>
-                        {user.role === 'super_admin' ? '● Süper Admin' : '● Kullanıcı'}
+                        {user.role === 'super_admin' ? '● Super Admin' : '● Benutzer'}
                       </p>
                     </div>
                     <div className="h-px my-1" style={{ background: C.border }} />
                     <button onMouseDown={(e) => { e.preventDefault(); onLogout(); setMenuOpen(false); }}
                       className="w-full text-left px-3 py-2 rounded-xl transition-colors hover:bg-black/5"
                       style={{ color: C.text }}>
-                      Çıkış Yap
+                      Abmelden
                     </button>
                   </motion.div>
                 )}
@@ -210,12 +210,12 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
               className="inline-flex items-center gap-1.5 text-sm font-medium px-3.5 sm:px-4 py-2 rounded-md transition-all"
               style={{ background: 'rgba(227,6,19,0.07)', border: `1px solid ${C.neon}55`, color: C.neon }}>
               <Svg size={14}><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></Svg>
-              <span className="hidden sm:inline">Giriş Yap</span>
-              <span className="sm:hidden">Giriş</span>
+              <span className="hidden sm:inline">Anmelden</span>
+              <span className="sm:hidden">Login</span>
             </button>
           )}
           <MagneticButton variant="primary" ariaLabel="Online Termin Al" className="text-sm !px-4 sm:!px-7 !py-2.5 sm:!py-3.5" onClick={onBook}>
-            <span className="hidden sm:inline">Online Termin Al</span>
+            <span className="hidden sm:inline">Online-Termin</span>
             <span className="sm:hidden">Termin</span>
             <ArrowRight size={16} />
           </MagneticButton>
@@ -270,7 +270,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
           setEmail(''); setPassword('');
           onClose();
         } else {
-          setError('E-posta veya şifre hatalı. Şifre en az 4 karakter olmalı.');
+          setError('E-Mail oder Passwort falsch. Das Passwort muss mindestens 4 Zeichen lang sein.');
         }
       }
       setLoading(false);
@@ -316,7 +316,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
           <motion.aside key="drawer"
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 280, damping: 32 }}
-            role="dialog" aria-modal="true" aria-label="Giriş Yap"
+            role="dialog" aria-modal="true" aria-label="Anmelden"
             className="fixed top-0 right-0 bottom-0 flex flex-col overflow-y-auto"
             style={{ zIndex: 61, width: 'min(440px, 100vw)',
               paddingTop: 'env(safe-area-inset-top)',
@@ -345,20 +345,20 @@ function LoginDrawer({ open, onClose, onLogin }) {
 
             <div className="relative flex-1 p-8">
               <p className="text-xs uppercase mb-3" style={{ color: C.neon, letterSpacing: '0.25em' }}>
-                Hesap Girişi
+                Konto-Anmeldung
               </p>
               <h2 className="text-3xl font-semibold mb-2"
                 style={{ color: C.text, letterSpacing: '-0.02em' }}>
-                Tekrar hoş geldin.
+                Willkommen zurück.
               </h2>
               <p className="text-sm mb-8" style={{ color: C.textDim }}>
-                Gecit Kfz Sachverständiger Yönetim Paneli'ne erişmek için giriş yapın.
+                Melden Sie sich an, um auf das Gecit Kfz Dashboard zuzugreifen.
               </p>
 
               <form onSubmit={submit} className="space-y-5">
                 <div>
                   <label className="block text-xs uppercase mb-2"
-                    style={{ color: C.textDim, letterSpacing: '0.2em' }}>E-posta</label>
+                    style={{ color: C.textDim, letterSpacing: '0.2em' }}>E-Mail</label>
                   <input type="email" required value={email} autoFocus
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
@@ -371,7 +371,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
                 </div>
                 <div>
                   <label className="block text-xs uppercase mb-2"
-                    style={{ color: C.textDim, letterSpacing: '0.2em' }}>Şifre</label>
+                    style={{ color: C.textDim, letterSpacing: '0.2em' }}>Passwort</label>
                   <input type="password" required value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
@@ -398,9 +398,9 @@ function LoginDrawer({ open, onClose, onLogin }) {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" defaultChecked
                       style={{ accentColor: C.neon }} />
-                    Beni hatırla
+                    Angemeldet bleiben
                   </label>
-                  <a href="#" className="hover:text-gray-900 transition-colors">Şifremi unuttum</a>
+                  <a href="#" className="hover:text-gray-900 transition-colors">Passwort vergessen</a>
                 </div>
 
                 <motion.button type="submit" disabled={loading}
@@ -408,18 +408,18 @@ function LoginDrawer({ open, onClose, onLogin }) {
                   className="w-full py-3.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
                   style={{ background: '#E30613', color: '#FFFFFF',
                     boxShadow: '0 4px 16px rgba(227,6,19,0.30)' }}>
-                  {loading ? 'Giriş yapılıyor…' : <>Giriş Yap <ArrowRight size={16} /></>}
+                  {loading ? 'Anmeldung läuft…' : <>Anmelden <ArrowRight size={16} /></>}
                 </motion.button>
               </form>
 
               <div className="my-8 flex items-center gap-3 text-xs" style={{ color: C.textDim }}>
                 <div className="flex-1 h-px" style={{ background: C.border }} />
-                HIZLI GİRİŞ (DEMO)
+                SCHNELLANMELDUNG (DEMO)
                 <div className="flex-1 h-px" style={{ background: C.border }} />
               </div>
 
               <p className="text-xs mb-3 text-center" style={{ color: C.textDim }}>
-                Tek tıkla istediğin role gir — şifreler henüz devre dışı
+                Mit einem Klick einloggen — Passwörter sind noch deaktiviert
               </p>
 
               <div className="grid grid-cols-2 gap-2.5">
@@ -449,12 +449,12 @@ function LoginDrawer({ open, onClose, onLogin }) {
               </div>
 
               <p className="text-center text-[11px] mt-5" style={{ color: C.textDim }}>
-                Şifreyle giriş için yukarıdaki formu kullan · Hızlı giriş yalnızca demo amaçlıdır
+                Nutzen Sie das Formular oben für den Login mit Passwort · Der Schnell-Login dient nur Demo-Zwecken
               </p>
             </div>
 
             <div className="relative p-6 text-xs" style={{ color: C.textDim, borderTop: `1px solid ${C.border}` }}>
-              <p>Güvenli bağlantı · KVKK uyumlu · Supabase Auth</p>
+              <p>Sichere Verbindung · DSGVO-konform · Supabase Auth</p>
             </div>
           </motion.aside>
         </>
@@ -2480,15 +2480,15 @@ function AdminHome({ db }) {
 
   // Animated stat cards
   const statCards = [
-    { label: 'Günün Terminleri', value: todaysApts.length, icon: CalendarIcon, color: C.neon, trend: '+2' },
-    { label: 'Aktif Ekspertiz', value: activeApr, icon: Wrench, color: C.cyan, trend: '-1' },
-    { label: 'Toplam Müşteri', value: db.customers.length, icon: UsersIcon, color: C.magenta, trend: '+4' },
-    { label: 'Toplam Tahsilat', value: '₺' + (totalRevenue / 1000).toFixed(1) + 'K', icon: Receipt, color: '#34D399', trend: '+8%' },
+    { label: 'Heutige Termine', value: todaysApts.length, icon: CalendarIcon, color: C.neon, trend: '+2' },
+    { label: 'Aktive Gutachten', value: activeApr, icon: Wrench, color: C.cyan, trend: '-1' },
+    { label: 'Gesamtkunden', value: db.customers.length, icon: UsersIcon, color: C.magenta, trend: '+4' },
+    { label: 'Gesamteinnahmen', value: '€' + (totalRevenue / 1000).toFixed(1) + 'K', icon: Receipt, color: '#34D399', trend: '+8%' },
   ];
 
   const days = [...Array(7)].map((_, i) => {
     const d = new Date(today); d.setDate(d.getDate() + i);
-    return { iso: d.toISOString().slice(0,10), label: d.toLocaleDateString('tr-TR', { weekday: 'short', day: '2-digit', month: 'short' }) };
+    return { iso: d.toISOString().slice(0,10), label: d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: 'short' }) };
   });
 
   // Progress ring data
@@ -2504,11 +2504,11 @@ function AdminHome({ db }) {
 
   // Activity feed (mock data)
   const activities = [
-    { id: 1, type: 'vehicle', text: 'Yeni araç eklendi: 34 ABC 123', time: '10 dakika önce', dot: C.cyan },
-    { id: 2, type: 'complete', text: 'Ekspertiz tamamlandı: Renault Megane', time: '1 saat önce', dot: '#34D399' },
-    { id: 3, type: 'customer', text: 'Yeni müşteri kaydı: Mehmet Yıldız', time: '2 saat önce', dot: C.neon },
-    { id: 4, type: 'appointment', text: 'Termin onaylandı: Ali Veli (10:00)', time: '3 saat önce', dot: C.magenta },
-    { id: 5, type: 'invoice', text: 'Fatura ödendi: Gecit Kfz Sachverständiger-2026-0421', time: '5 saat önce', dot: '#34D399' },
+    { id: 1, type: 'vehicle', text: 'Neues Fahrzeug hinzugefügt: 34 ABC 123', time: 'vor 10 Minuten', dot: C.cyan },
+    { id: 2, type: 'complete', text: 'Gutachten abgeschlossen: Renault Megane', time: 'vor 1 Stunde', dot: '#34D399' },
+    { id: 3, type: 'customer', text: 'Neue Kundenregistrierung: Mehmet Yıldız', time: 'vor 2 Stunden', dot: C.neon },
+    { id: 4, type: 'appointment', text: 'Termin bestätigt: Ali Veli (10:00)', time: 'vor 3 Stunden', dot: C.magenta },
+    { id: 5, type: 'invoice', text: 'Rechnung bezahlt: Gecit Kfz Sachverständiger-2026-0421', time: 'vor 5 Stunden', dot: '#34D399' },
   ];
 
   // CircularProgress component
@@ -2533,7 +2533,7 @@ function AdminHome({ db }) {
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <p className="text-2xl font-bold font-mono" style={{ color: C.text }}>{value}/{max}</p>
-            <p className="text-xs mt-1" style={{ color: C.textDim }}>tamamlandı</p>
+            <p className="text-xs mt-1" style={{ color: C.textDim }}>abgeschlossen</p>
           </div>
         </div>
         <p className="text-xs mt-3 text-center uppercase" style={{ color: C.textDim, letterSpacing: '0.15em' }}>{label}</p>
@@ -2565,20 +2565,20 @@ function AdminHome({ db }) {
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <p className="text-sm uppercase" style={{ color: C.neon, letterSpacing: '0.2em' }}>Hoş geldiniz</p>
+                <p className="text-sm uppercase" style={{ color: C.neon, letterSpacing: '0.2em' }}>Willkommen</p>
                 <Sparkles size={14} style={{ color: C.neon }} />
               </div>
               <h2 className="text-3xl md:text-4xl font-semibold mb-1" style={{ color: C.text, letterSpacing: '-0.02em' }}>
                 {greeting}, Admin
               </h2>
               <p className="text-sm" style={{ color: C.textDim }}>
-                Bugün {todaysApts.length} termin var · {activeApr} aktif ekspertiz sürdüğünde · Son 7 günde harika ilerleme kaydettiniz
+                Heute gibt es {todaysApts.length} Termine · {activeApr} aktive Gutachten laufen · Sie haben in den letzten 7 Tagen großartige Fortschritte gemacht.
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs uppercase mb-1" style={{ color: C.textDim, letterSpacing: '0.1em' }}>Bugün</p>
-              <p className="text-xl font-bold" style={{ color: C.text }}>{today.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}</p>
-              <p className="text-xs mt-2" style={{ color: C.neon }}>● Sistem Aktif</p>
+              <p className="text-xs uppercase mb-1" style={{ color: C.textDim, letterSpacing: '0.1em' }}>Heute</p>
+              <p className="text-xl font-bold" style={{ color: C.text }}>{today.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}</p>
+              <p className="text-xs mt-2" style={{ color: C.neon }}>● System Aktiv</p>
             </div>
           </div>
         </div>
@@ -2800,7 +2800,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
       if (sortBy === 'name') {
         const an = (isKurum ? a.company : a.full_name) || '';
         const bn = (isKurum ? b.company : b.full_name) || '';
-        return an.localeCompare(bn, 'tr');
+        return an.localeCompare(bn, 'de');
       }
       if (sortBy === 'recent') return (b.created_at || '').localeCompare(a.created_at || '');
       return 0;
@@ -2834,16 +2834,16 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
   };
 
   const STATS = [
-    { label: isKurum ? 'Kurumsal Müşteri' : 'Toplam Müşteri', value: totalCustomers, icon: isKurum ? Building : UsersIcon, color: accent },
-    { label: 'Bu Ay Yeni', value: newThisMonth, icon: TrendingUp, color: '#34D399' },
-    { label: 'Kayıtlı Araç', value: totalVehicles, icon: CarIcon, color: '#F59E0B' },
-    { label: 'Aktif Ekspertiz', value: activeAppraisals, icon: Wrench, color: C.magenta },
+    { label: isKurum ? 'Geschäftskunden' : 'Gesamtkunden', value: totalCustomers, icon: isKurum ? Building : UsersIcon, color: accent },
+    { label: 'Diesen Monat neu', value: newThisMonth, icon: TrendingUp, color: '#34D399' },
+    { label: 'Reg. Fahrzeuge', value: totalVehicles, icon: CarIcon, color: '#F59E0B' },
+    { label: 'Aktive Gutachten', value: activeAppraisals, icon: Wrench, color: C.magenta },
   ];
 
   return (
     <>
       <AdminTopbar title={title} subtitle={subtitle}
-        action={<AdminButton variant="primary" onClick={() => setNewOpen(true)}><PlusIcon size={14} /> Yeni Kayıt</AdminButton>} />
+        action={<AdminButton variant="primary" onClick={() => setNewOpen(true)}><PlusIcon size={14} /> Neuer Eintrag</AdminButton>} />
 
       {/* Stats Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
@@ -2872,15 +2872,15 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
       <div className="flex items-center gap-3 mb-5 flex-wrap">
         <div className="flex-1 min-w-[240px] relative">
           <SearchIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: C.textDim }} />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder={isKurum ? 'Firma, vergi no, yetkili ara…' : 'Ad, e-posta, telefon ara…'}
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder={isKurum ? 'Firma, Steuernummer, Ansprechpartner suchen…' : 'Name, E-Mail, Telefon suchen…'}
             className="w-full pl-11 pr-4 py-2.5 rounded-full text-sm outline-none"
             style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
         </div>
         <select value={sortBy} onChange={e => setSortBy(e.target.value)}
           className="text-xs px-3 py-2.5 rounded-full outline-none cursor-pointer"
           style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
-          <option value="recent">En Yeni</option>
-          <option value="name">İsme Göre</option>
+          <option value="recent">Neueste</option>
+          <option value="name">Nach Name</option>
         </select>
         <div className="inline-flex rounded-full p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
           {[
@@ -2900,7 +2900,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
         </div>
         <span className="text-xs px-3 py-1 rounded-full"
           style={{ color: accent, background: `rgba(${accentRgb},0.08)`, border: `1px solid rgba(${accentRgb},0.25)` }}>
-          {list.length} kayıt
+          {list.length} {list.length === 1 ? 'Eintrag' : 'Einträge'}
         </span>
       </div>
 
@@ -2912,8 +2912,8 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
             style={{ background: `${accent}10`, border: `1px solid ${accent}30` }}>
             {isKurum ? <Building size={28} style={{ color: accent }} /> : <UsersIcon size={28} style={{ color: accent }} />}
           </div>
-          <p className="text-sm" style={{ color: C.text }}>{q ? 'Aramayla eşleşen kayıt yok.' : 'Henüz kayıt eklenmemiş.'}</p>
-          <p className="text-xs mt-1" style={{ color: C.textDim }}>{q ? 'Farklı bir arama dene.' : 'Sağ üstten "Yeni Kayıt" ile başla.'}</p>
+          <p className="text-sm" style={{ color: C.text }}>{q ? 'Keine Treffer für diese Suche.' : 'Noch keine Einträge vorhanden.'}</p>
+          <p className="text-xs mt-1" style={{ color: C.textDim }}>{q ? 'Versuchen Sie es mit einem anderen Begriff.' : 'Beginnen Sie oben rechts mit "Neuer Eintrag".'}</p>
         </div>
       )}
 
@@ -2957,12 +2957,12 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: accent }}>
-                        {isKurum ? 'Kurumsal · ' + (c.tax_office || '—') : 'Bireysel'}
+                        {isKurum ? 'Geschäftlich · ' + (c.tax_office || '—') : 'Privat'}
                       </p>
                       <h3 className="text-base font-semibold truncate" style={{ color: C.text }}>
                         {isKurum ? c.company : c.full_name}
                       </h3>
-                      {isKurum && <p className="text-xs mt-0.5 truncate" style={{ color: C.textDim }}>Yetkili: {c.full_name}</p>}
+                      {isKurum && <p className="text-xs mt-0.5 truncate" style={{ color: C.textDim }}>Ansprechpartner: {c.full_name}</p>}
                     </div>
                   </div>
 
@@ -2985,9 +2985,9 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
 
                   <div className="grid grid-cols-3 gap-2 mb-4">
                     {[
-                      { v: vehicles.length, l: 'Araç', icon: CarIcon, col: '#F59E0B' },
-                      { v: apprs.length, l: 'Ekspertiz', icon: Wrench, col: C.cyan },
-                      { v: activeAprs, l: 'Aktif', icon: TrendingUp, col: C.magenta },
+                      { v: vehicles.length, l: 'Fahrzeuge', icon: CarIcon, col: '#F59E0B' },
+                      { v: apprs.length, l: 'Gutachten', icon: Wrench, col: C.cyan },
+                      { v: activeAprs, l: 'Aktiv', icon: TrendingUp, col: C.magenta },
                     ].map((s, idx) => (
                       <div key={idx} className="rounded-xl p-2 text-center"
                         style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
@@ -3003,7 +3003,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                       {lawyer && (
                         <span className="text-[10px] px-2 py-1 rounded-full inline-flex items-center gap-1"
                           style={{ background: 'rgba(245,158,11,0.08)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.2)' }}>
-                          <ScaleIcon size={10} /> {lawyer.name.replace('Av. ', '')}
+                          <ScaleIcon size={10} /> {lawyer.name.replace('Av. ', '').replace('RA ', '')}
                         </span>
                       )}
                       {insurer && (
@@ -3017,7 +3017,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
 
                   <div className="flex items-center justify-between pt-3" style={{ borderTop: `1px solid ${C.border}` }}>
                     <p className="text-[10px]" style={{ color: C.textDim }}>
-                      Kayıt: {c.created_at || '—'}
+                      Reg: {c.created_at || '—'}
                     </p>
                     <div className="flex items-center gap-1">
                       {phoneDigits && (
@@ -3038,7 +3038,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                       )}
                       <span className="ml-1 text-[10px] inline-flex items-center gap-1 px-2 py-1 rounded-lg"
                         style={{ color: accent, background: `rgba(${accentRgb},0.08)` }}>
-                        Detay <ChevronRight size={10} />
+                        Details <ChevronRight size={10} />
                       </span>
                     </div>
                   </div>
@@ -5978,7 +5978,7 @@ function RuhsatUploadModal({ open, onClose, customerId, onSave }) {
   };
 
   return (
-    <GecitKfzModal open={open} onClose={onClose} title="Yeni Araç Ekle" subtitle="Ruhsatı yükle, AI bilgileri otomatik doldursun" width={680}>
+    <GecitKfzModal open={open} onClose={onClose} title="Neues Fahrzeug hinzufügen" subtitle="Ruhsatı yükle, AI bilgileri otomatik doldursun" width={680}>
       {stage === 'upload' && (
         <div>
           <label className="block rounded-3xl p-10 text-center cursor-pointer transition-all hover:bg-black/[0.03]"
@@ -6006,8 +6006,8 @@ function RuhsatUploadModal({ open, onClose, customerId, onSave }) {
               mask: 'radial-gradient(circle, transparent 55%, black 58%)',
               WebkitMask: 'radial-gradient(circle, transparent 55%, black 58%)',
               boxShadow: `0 0 40px ${C.glow}` }} />
-          <p className="text-lg font-medium" style={{ color: C.text }}>Ruhsat Analiz Ediliyor…</p>
-          <p className="text-sm mt-2" style={{ color: C.textDim }}>AI OCR çalışıyor · şasi, plaka ve araç bilgisi okunuyor</p>
+          <p className="text-lg font-medium" style={{ color: C.text }}>Fahrzeugschein wird analysiert…</p>
+          <p className="text-sm mt-2" style={{ color: C.textDim }}>AI OCR läuft · Fahrgestellnummer, Kennzeichen und Fahrzeugdaten werden ausgelesen</p>
           <div className="mt-4 inline-block text-xs px-3 py-1 rounded-full" style={{ background: 'rgba(227,6,19,0.06)', color: C.neon, border: `1px solid ${C.neon}33`, letterSpacing: '0.15em' }}>● VISION API ACTIVE</div>
         </div>
       )}
@@ -6015,7 +6015,7 @@ function RuhsatUploadModal({ open, onClose, customerId, onSave }) {
         <div>
           <div className="flex items-center gap-2 text-sm mb-4 px-4 py-2.5 rounded-xl"
             style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.3)', color: '#34D399' }}>
-            <Check size={16} /> Ruhsat başarıyla okundu. Alanları kontrol edip kaydedebilirsin.
+            <Check size={16} /> Fahrzeugschein erfolgreich ausgelesen. Bitte die Felder prüfen und speichern.
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <Field label="Plaka" required><TextInput value={form.plate} onChange={(e) => setForm(f => ({ ...f, plate: e.target.value }))} /></Field>
@@ -6029,18 +6029,18 @@ function RuhsatUploadModal({ open, onClose, customerId, onSave }) {
             <div className="rounded-2xl p-5 mb-6" style={{ background: 'rgba(227,6,19,0.03)', border: '1px solid rgba(0,0,0,0.10)' }}>
               <div className="flex items-center gap-2 mb-3">
                 <Shield size={16} style={{ color: C.cyan }} />
-                <p className="text-sm font-medium" style={{ color: C.text }}>Araç Geçmişi (Tramer)</p>
+                <p className="text-sm font-medium" style={{ color: C.text }}>Fahrzeughistorie (Tramer)</p>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><p className="text-xs uppercase mb-1" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Tramer Toplam</p><p className="font-mono" style={{ color: C.text }}>₺{history.tramer_total.toLocaleString('tr-TR')}</p></div>
-                <div><p className="text-xs uppercase mb-1" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Kaza Sayısı</p><p className="font-mono" style={{ color: C.text }}>{history.accidents}</p></div>
-                <div className="col-span-2"><p className="text-xs uppercase mb-1" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Değişen Parça</p><p style={{ color: C.text }}>{history.changed_parts.length ? history.changed_parts.join(', ') : 'Tespit edilmedi'}</p></div>
+                <div><p className="text-xs uppercase mb-1" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Tramer Gesamt</p><p className="font-mono" style={{ color: C.text }}>€{history.tramer_total.toLocaleString('de-DE')}</p></div>
+                <div><p className="text-xs uppercase mb-1" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Unfälle</p><p className="font-mono" style={{ color: C.text }}>{history.accidents}</p></div>
+                <div className="col-span-2"><p className="text-xs uppercase mb-1" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Geänderte Teile</p><p style={{ color: C.text }}>{history.changed_parts.length ? history.changed_parts.join(', ') : 'Keine festgestellt'}</p></div>
               </div>
             </div>
           )}
           <div className="flex justify-between pt-4" style={{ borderTop: `1px solid ${C.border}` }}>
-            <AdminButton onClick={() => setStage('upload')}>Yeniden Yükle</AdminButton>
-            <AdminButton variant="primary" onClick={save}><Check size={14} /> Kaydet</AdminButton>
+            <AdminButton onClick={() => setStage('upload')}>Neu laden</AdminButton>
+            <AdminButton variant="primary" onClick={save}><Check size={14} /> Speichern</AdminButton>
           </div>
         </div>
       )}
@@ -6053,14 +6053,14 @@ function AdminAppointments({ db, setDb }) {
   const statuses = ['bekliyor','onaylandi','iptal','tamamlandi'];
   return (
     <>
-      <AdminTopbar title="Termin Planlayıcı" subtitle="Tüm randevular Google Takvim ile senkron" />
+      <AdminTopbar title="Terminplaner" subtitle="Alle Termine sind mit Google Kalender synchronisiert" />
       <GlassCard padding="p-0">
         <div className="grid gap-0 text-xs uppercase px-6 py-3"
           style={{ gridTemplateColumns: '160px 2fr 1.5fr 160px 140px',
             color: C.textDim, letterSpacing: '0.2em', borderBottom: `1px solid ${C.border}` }}>
-          <div>Tarih / Saat</div><div>Müşteri</div><div>Hizmet</div><div>Durum</div><div>Not</div>
+          <div>Datum / Uhrzeit</div><div>Kunde</div><div>Leistung</div><div>Status</div><div>Notiz</div>
         </div>
-        {db.appointments.length === 0 && <div className="py-10 text-center text-sm" style={{ color: C.textDim }}>Termin yok.</div>}
+        {db.appointments.length === 0 && <div className="py-10 text-center text-sm" style={{ color: C.textDim }}>Keine Termine.</div>}
         {db.appointments.map(a => {
           const c = db.customers.find(x => x.id === a.customer_id);
           return (
@@ -6127,18 +6127,18 @@ function AdminSettings({ user, db, setDb }) {
 
   return (
     <>
-      <AdminTopbar title="Ayarlar" subtitle="Hesap, entegrasyon ve yetki ayarları" />
+      <AdminTopbar title="Einstellungen" subtitle="Konto-, Integrations- und Berechtigungseinstellungen" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <GlassCard>
-          <h3 className="text-lg font-semibold mb-4" style={{ color: C.text }}>Hesap Bilgileri</h3>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: C.text }}>Kontoinformationen</h3>
           <div className="space-y-4">
-            <Field label="Ad Soyad"><TextInput value={user?.name || ''} onChange={() => {}} /></Field>
-            <Field label="E-posta"><TextInput value={user?.email || ''} onChange={() => {}} /></Field>
-            <Field label="Rol"><TextInput value={user?.role === 'super_admin' ? 'Süper Admin' : 'Admin'} onChange={() => {}} /></Field>
+            <Field label="Vor- & Nachname"><TextInput value={user?.name || ''} onChange={() => {}} /></Field>
+            <Field label="E-Mail"><TextInput value={user?.email || ''} onChange={() => {}} /></Field>
+            <Field label="Rolle"><TextInput value={user?.role === 'super_admin' ? 'Super Admin' : 'Admin'} onChange={() => {}} /></Field>
           </div>
         </GlassCard>
         <GlassCard>
-          <h3 className="text-lg font-semibold mb-4" style={{ color: C.text }}>Entegrasyonlar</h3>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: C.text }}>Integrationen</h3>
           {<Iife>{() => {
             const [sbOpen, setSbOpen] = React.useState(false);
             const [sbUrl, setSbUrl] = React.useState(SUPABASE_CONFIG.url);
@@ -6184,7 +6184,7 @@ function AdminSettings({ user, db, setDb }) {
                       <div>
                         <p className="text-sm font-medium" style={{ color: C.text }}>Supabase Database</p>
                         <p className="text-xs" style={{ color: isLive ? '#34D399' : C.textDim }}>
-                          ● {isLive ? 'CANLI — Realtime aktif' : `Demo Mode — localStorage (${currentMode})`}
+                          ● {isLive ? 'LIVE — Realtime aktiv' : `Demo-Modus — localStorage (${currentMode})`}
                         </p>
                       </div>
                     </div>
@@ -7035,7 +7035,7 @@ function AdminLiveDashboard({ db, setDb }) {
 
   const feedColors = { gelen: C.cyan, giden: C.magenta, tamamlandi: '#34D399' };
   const statusColors = { bekliyor: '#8B8B8B', islemde: C.neon, bitti: '#34D399' };
-  const statusLabels = { bekliyor: 'Bekliyor', islemde: 'İşlemde', bitti: 'Tamamlandı' };
+  const statusLabels = { bekliyor: 'Wartend', islemde: 'In Bearbeitung', bitti: 'Abgeschlossen' };
 
   const addFeed = (e) => {
     e.preventDefault();
@@ -7055,16 +7055,16 @@ function AdminLiveDashboard({ db, setDb }) {
 
   return (
     <>
-      <AdminTopbar title="Canlı Dashboard" subtitle="Gelen · Giden · Yapıldı · Bekliyor — gerçek zamanlı iş takibi"
-        action={<AdminButton variant="primary" onClick={() => setFeedModal(true)}><PlusIcon size={14} /> Yeni Kayıt</AdminButton>} />
+      <AdminTopbar title="Live-Dashboard" subtitle="Eingang · Ausgang · Erledigt · Wartend — Echtzeit-Tracking"
+        action={<AdminButton variant="primary" onClick={() => setFeedModal(true)}><PlusIcon size={14} /> Neuer Eintrag</AdminButton>} />
 
       {/* Live Stats Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Gelen Araç', value: gelen, icon: ArrowRight, color: C.cyan, rotate: '0deg' },
-          { label: 'Giden Araç', value: giden, icon: ArrowRight, color: C.magenta, rotate: '180deg' },
-          { label: 'Tamamlanan', value: tamamlanan, icon: Check, color: '#34D399', rotate: '0deg' },
-          { label: 'Bekleyen', value: bekleyen, icon: ClockIcon, color: '#F59E0B', rotate: '0deg' },
+          { label: 'Eingang Fahrzeug', value: gelen, icon: ArrowRight, color: C.cyan, rotate: '0deg' },
+          { label: 'Ausgang Fahrzeug', value: giden, icon: ArrowRight, color: C.magenta, rotate: '180deg' },
+          { label: 'Abgeschlossen', value: tamamlanan, icon: Check, color: '#34D399', rotate: '0deg' },
+          { label: 'Wartend', value: bekleyen, icon: ClockIcon, color: '#F59E0B', rotate: '0deg' },
         ].map((s, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}>
@@ -7089,15 +7089,15 @@ function AdminLiveDashboard({ db, setDb }) {
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#34D399', boxShadow: '0 0 8px rgba(52,211,153,0.6)' }} />
-            <h3 className="text-lg font-semibold" style={{ color: C.text }}>Bugünün Akışı</h3>
-            <span className="text-xs" style={{ color: C.textDim }}>{todayFeed.length} kayıt</span>
+            <h3 className="text-lg font-semibold" style={{ color: C.text }}>Heutiger Verlauf</h3>
+            <span className="text-xs" style={{ color: C.textDim }}>{todayFeed.length} Einträge</span>
           </div>
         </div>
 
         {todayFeed.length === 0 ? (
           <div className="py-16 text-center">
             <ActivityIcon size={48} style={{ color: C.textDim, margin: '0 auto 16px' }} />
-            <p style={{ color: C.textDim }}>Bugün henüz kayıt yok.</p>
+            <p style={{ color: C.textDim }}>Heute gibt es noch keine Einträge.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -7120,9 +7120,9 @@ function AdminLiveDashboard({ db, setDb }) {
                   <SelectInput value={f.status}
                     onChange={(e) => updateFeedStatus(f.id, e.target.value)}
                     options={[
-                      { value: 'bekliyor', label: '○ Bekliyor' },
-                      { value: 'islemde', label: '◐ İşlemde' },
-                      { value: 'bitti', label: '● Tamamlandı' },
+                      { value: 'bekliyor', label: '○ Wartend' },
+                      { value: 'islemde', label: '◐ In Bearbeitung' },
+                      { value: 'bitti', label: '● Abgeschlossen' },
                     ]} />
                 </div>
                 <div className="w-3 h-3 rounded-full flex-shrink-0"
@@ -7135,7 +7135,7 @@ function AdminLiveDashboard({ db, setDb }) {
         {/* Older Feed */}
         {feed.filter(f => f.date !== todayIso).length > 0 && (
           <div className="mt-6 pt-6" style={{ borderTop: `1px solid ${C.border}` }}>
-            <p className="text-xs uppercase mb-3" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Geçmiş Kayıtlar</p>
+            <p className="text-xs uppercase mb-3" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Frühere Einträge</p>
             <div className="space-y-1.5">
               {feed.filter(f => f.date !== todayIso).slice(0, 10).map(f => (
                 <div key={f.id} className="flex items-center gap-3 p-2 rounded-lg text-xs" style={{ color: C.textDim }}>
@@ -10084,7 +10084,7 @@ function ActivityLogPanel({ db, setDb }) {
           {filtered.length > visible.length && (
             <div className="mt-3 text-center">
               <AdminButton size="sm" onClick={() => setLimit(l => l + 100)}>
-                Daha fazla yükle ({filtered.length - visible.length} kayıt daha)
+                Mehr laden ({filtered.length - visible.length} weitere Einträge)
               </AdminButton>
             </div>
           )}
@@ -10105,7 +10105,7 @@ function AdminApp({ user, onLogout, onHome }) {
     if (!sessionStorage.getItem(sessionKey)) {
       logActivity(setDb, makeLogEntry({
         user, action: 'login',
-        details: `${user?.name || user?.email} admin paneline giriş yaptı`,
+        details: `${user?.name || user?.email} hat sich im Admin-Panel angemeldet`,
       }));
       sessionStorage.setItem(sessionKey, '1');
     }
@@ -10120,27 +10120,27 @@ function AdminApp({ user, onLogout, onHome }) {
   };
 
   const sectionLabels = {
-    home: 'Ana Sayfa', live: 'Canlı Dashboard', bireysel: 'Bireysel Müşteriler', kurumsal: 'Kurumsal Firmalar',
-    appointments: 'Termin Planlayıcı', appraisals: 'Ekspertiz Bilgileri', tuv: 'TÜF Takip', invoices: 'Faturalar',
-    partners: 'Avukatlar & Sigorta', gallery: 'Galeri', reminders: 'Hatırlatmalar',
-    file_flows: 'Dosya Akış Motoru', whatsapp_tpl: 'WhatsApp Şablonları',
-    activity_logs: 'Aktivite Logları', settings: 'Ayarlar',
+    home: 'Übersicht', live: 'Live-Dashboard', bireysel: 'Privatkunden', kurumsal: 'Geschäftskunden',
+    appointments: 'Terminplaner', appraisals: 'Gutachten-Infos', tuv: 'HU/AU-Tracking', invoices: 'Rechnungen',
+    partners: 'Anwälte & Versicherungen', gallery: 'Galerie', reminders: 'Erinnerungen',
+    file_flows: 'Dateifluss-Engine', whatsapp_tpl: 'WhatsApp-Vorlagen',
+    activity_logs: 'Aktivitätsprotokolle', settings: 'Einstellungen',
   };
   const reminderCount = (db.reminders || []).filter(r => r.status === 'active').length;
   const adminNavItems = [
-    { key: 'home',          label: 'Ana Sayfa',           icon: LayoutDashboard },
-    { key: 'live',          label: 'Canlı Dashboard',     icon: ActivityIcon },
-    { key: 'bireysel',      label: 'Bireysel Müşteriler', icon: UsersIcon },
-    { key: 'kurumsal',      label: 'Kurumsal Firmalar',   icon: Building },
-    { key: 'appointments',  label: 'Termin',              icon: CalendarIcon },
-    { key: 'tuv',           label: 'TÜF Takip',           icon: Shield },
-    { key: 'partners',      label: 'Avukatlar & Sigorta', icon: ScaleIcon },
-    { key: 'gallery',       label: 'Galeri',              icon: CameraIcon },
-    { key: 'reminders',     label: 'Hatırlatmalar',       icon: BellIcon, badge: reminderCount },
-    { key: 'file_flows',    label: 'Dosya Akış Motoru',   icon: Zap },
-    { key: 'whatsapp_tpl',  label: 'WhatsApp Şablonları', icon: MessageIcon },
-    { key: 'activity_logs', label: 'Aktivite Logları',    icon: EyeIcon },
-    { key: 'settings',      label: 'Ayarlar',             icon: SettingsIcon },
+    { key: 'home',          label: 'Übersicht',           icon: LayoutDashboard },
+    { key: 'live',          label: 'Live-Dashboard',     icon: ActivityIcon },
+    { key: 'bireysel',      label: 'Privatkunden',       icon: UsersIcon },
+    { key: 'kurumsal',      label: 'Geschäftskunden',     icon: Building },
+    { key: 'appointments',  label: 'Termine',             icon: CalendarIcon },
+    { key: 'tuv',           label: 'HU/AU-Tracking',      icon: Shield },
+    { key: 'partners',      label: 'Anwälte & Versicherungen', icon: ScaleIcon },
+    { key: 'gallery',       label: 'Galerie',             icon: CameraIcon },
+    { key: 'reminders',     label: 'Erinnerungen',       icon: BellIcon, badge: reminderCount },
+    { key: 'file_flows',    label: 'Dateifluss-Engine',   icon: Zap },
+    { key: 'whatsapp_tpl',  label: 'WhatsApp-Vorlagen',  icon: MessageIcon },
+    { key: 'activity_logs', label: 'Aktivitätsprotokolle', icon: EyeIcon },
+    { key: 'settings',      label: 'Einstellungen',        icon: SettingsIcon },
   ];
   return (
     <div className="min-h-screen flex flex-col lg:flex-row" style={{ background: C.bg }}>
@@ -10153,10 +10153,10 @@ function AdminApp({ user, onLogout, onHome }) {
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 90px)' }}>
         {section === 'home' && <AdminHome db={db} />}
         {section === 'live' && <AdminLiveDashboard db={db} setDb={setDb} />}
-        {section === 'bireysel' && <CustomerListView title="Bireysel Müşteriler" type="bireysel"
-          subtitle="Bireysel müşteri kayıtları" db={db} setDb={setDb} onOpenCustomer={setOpenCustomer} currentUser={user} />}
-        {section === 'kurumsal' && <CustomerListView title="Kurumsal Firmalar" type="kurumsal"
-          subtitle="Galeri, sigorta ve filo firmaları" db={db} setDb={setDb} onOpenCustomer={setOpenCustomer} currentUser={user} />}
+        {section === 'bireysel' && <CustomerListView title="Privatkunden" type="bireysel"
+          subtitle="Privatkunden-Einträge" db={db} setDb={setDb} onOpenCustomer={setOpenCustomer} currentUser={user} />}
+        {section === 'kurumsal' && <CustomerListView title="Geschäftskunden" type="kurumsal"
+          subtitle="Autohäuser, Versicherungen und Flotten" db={db} setDb={setDb} onOpenCustomer={setOpenCustomer} currentUser={user} />}
         {section === 'appointments' && <AdminAppointments db={db} setDb={setDb} />}
         {section === 'tuv' && <AdminTuvTracking db={db} setDb={setDb} />}
         {section === 'partners' && <AdminPartners db={db} setDb={setDb} currentUser={user} />}

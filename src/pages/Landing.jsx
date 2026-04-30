@@ -136,6 +136,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     return scrollY.on('change', (latest) => {
@@ -159,16 +160,18 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
       animate={{ y: 0 }}
       className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
       style={{
-        background: scrolled ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(10px)' : 'none',
-        borderBottom: scrolled ? `1px solid ${C.border}` : 'none',
-        height: scrolled ? '80px' : '100px',
+        background: scrolled ? 'rgba(255, 255, 255, 0.8)' : 'transparent',
+        backdropFilter: scrolled ? 'blur(12px) saturate(180%)' : 'none',
+        WebkitBackdropFilter: scrolled ? 'blur(12px) saturate(180%)' : 'none',
+        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.05)' : 'none',
+        height: scrolled ? '72px' : '96px',
+        boxShadow: scrolled ? '0 4px 30px rgba(0, 0, 0, 0.03)' : 'none',
       }}
     >
       <div className="mx-auto px-6 h-full flex items-center justify-between" style={{ maxWidth: 1200 }}>
         {/* Logo */}
         <a href="#" className="flex items-center gap-3 h-full py-4">
-          <img src="/logo-gecit-final.png" alt="GECIT-KFZ" className="h-full object-contain" />
+          <img src="/logo-header.png" alt="GECIT-KFZ" className="h-full object-contain" />
         </a>
 
         {/* Desktop Nav */}
@@ -237,9 +240,23 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
           )}
           <button
             onClick={onBook}
-            className="px-6 py-3 bg-[#E30613] text-white text-xs font-bold tracking-widest rounded-md hover:bg-[#B0050F] transition-colors shadow-lg shadow-red-500/20 keep-white"
+            className="hidden sm:block px-6 py-3 bg-[#E30613] text-white text-xs font-bold tracking-widest rounded-md hover:bg-[#B0050F] transition-colors shadow-lg shadow-red-500/20 keep-white"
           >
             TERMIN VEREINBAREN
+          </button>
+          
+          {/* Mobile Toggle */}
+          <button 
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200"
+          >
+            <Svg size={20}>
+              {mobileOpen ? (
+                <path d="M18 6 6 18M6 6l12 12" />
+              ) : (
+                <path d="M4 12h16M4 6h16M4 18h16" />
+              )}
+            </Svg>
           </button>
         </div>
       </div>
@@ -536,9 +553,9 @@ function Hero({ onBook }) {
       <div className="mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center" style={{ maxWidth: 1200 }}>
         {/* Left Side: Content */}
         <motion.div
-          initial={{ opacity: 0, x: -50 }}
+          initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8, ease: easeOut }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="relative z-10"
         >
           <motion.div 
@@ -555,10 +572,11 @@ function Hero({ onBook }) {
               <Typewriter text="KI-GESTÜTZTE ANALYSE & BEGUTACHTUNG" />
             </span>
           </motion.div>
-          <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-[#0A0A0A] leading-none mb-2">
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-[#0A0A0A] leading-[0.9] mb-4">
             KFZ-GUTACHTER
           </h1>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-[#E30613] mb-8">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-[#E30613] mb-8 flex items-center gap-3">
+            <span className="w-12 h-1 bg-[#E30613]" />
             IHR PARTNER IM SCHADENFALL
           </h2>
           <div className="w-20 h-1.5 bg-[#E30613] mb-8" />
@@ -764,7 +782,7 @@ function Footer() {
               <ul className="space-y-5">
                 {col.links.map((l, j) => (
                   <li key={j}>
-                    <a href="#" className="text-sm text-gray-500 hover:text-[#E30613] hover:translate-x-1.5 inline-block transition-all duration-300">
+                    <a href="#" className="text-sm text-gray-700 hover:text-[#E30613] hover:translate-x-1.5 inline-block transition-all duration-300 font-medium">
                       {l}
                     </a>
                   </li>
@@ -1106,10 +1124,9 @@ function PlatformFeatures() {
                     <span className="inline-flex items-center gap-1 text-sm" style={{ color: f.accent }}>
                       Details ansehen <ChevronRight size={14} />
                     </span>
-                    <span>{b}</span>
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                </div>
+              </SpotlightCard>
             </motion.div>
           ))}
         </div>
@@ -1129,8 +1146,8 @@ function KostenlosBanner() {
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.8, ease: easeOut }}
           className="relative rounded-3xl overflow-hidden"
-          style={{ background: '#FFFFFF',
-            border: '1px solid rgba(239,68,68,0.2)' }}>
+          style={{ background: '#E30613',
+            border: '1px solid rgba(255,255,255,0.1)' }}>
           {/* Glow effects kaldırıldı */}
 
           <div className="relative p-10 md:p-16">
@@ -1157,41 +1174,41 @@ function KostenlosBanner() {
 
               {/* Center: Content */}
               <div className="flex-1 text-center md:text-left">
-                <p className="text-xs uppercase mb-3 font-semibold tracking-widest" style={{ color: '#EF4444' }}>
+                <p className="text-xs uppercase mb-3 font-semibold tracking-widest" style={{ color: 'rgba(255,255,255,0.7)' }}>
                   Ihre Vorteile mit uns
                 </p>
                 <h2 className="text-3xl md:text-5xl font-bold mb-4"
-                  style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-                  Kostenlos für <span style={{ color: '#EF4444' }}>Geschädigte</span>
+                  style={{ color: '#FFFFFF', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+                  Kostenlos für <span className="opacity-90">Geschädigte</span>
                 </h2>
-                <p className="text-lg md:text-xl leading-relaxed max-w-2xl" style={{ color: C.textDim }}>
+                <p className="text-lg md:text-xl leading-relaxed max-w-2xl" style={{ color: 'rgba(255,255,255,0.9)' }}>
                   Bei Fremdverschuldung zahlen Sie nichts. Wir rechnen direkt mit der gegnerischen Versicherung ab.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-4 justify-center md:justify-start">
                   <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
-                    style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                    <span style={{ color: '#34D399', fontSize: 16 }}>✓</span>
-                    <span className="text-sm" style={{ color: '#34D399' }}>Keine Vorauszahlung</span>
+                    style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                    <span style={{ color: '#FFFFFF', fontSize: 16 }}>✓</span>
+                    <span className="text-sm" style={{ color: '#FFFFFF' }}>Keine Vorauszahlung</span>
                   </div>
                   <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
-                    style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                    <span style={{ color: '#34D399', fontSize: 16 }}>✓</span>
-                    <span className="text-sm" style={{ color: '#34D399' }}>Direkte Abrechnung</span>
+                    style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                    <span style={{ color: '#FFFFFF', fontSize: 16 }}>✓</span>
+                    <span className="text-sm" style={{ color: '#FFFFFF' }}>Direkte Abrechnung</span>
                   </div>
                   <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
-                    style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                    <span style={{ color: '#34D399', fontSize: 16 }}>✓</span>
-                    <span className="text-sm" style={{ color: '#34D399' }}>Professionelles Gutachten</span>
+                    style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                    <span style={{ color: '#FFFFFF', fontSize: 16 }}>✓</span>
+                    <span className="text-sm" style={{ color: '#FFFFFF' }}>Professionelles Gutachten</span>
                   </div>
                 </div>
               </div>
             </div>
             <p className="text-sm md:text-base font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>
-              Profesyonel araç ekspertiz hizmetiniz — Aachen ve çevresinde
+              Ihr professioneller Kfz-Gutachter — Aachen und Umgebung
             </p>
           </div>
           {/* Right — CTA button */}
-          <a href="tel:+490000000000"
+          <a href="tel:+4915739647834"
             className="inline-flex items-center gap-3 px-7 py-3.5 rounded-lg font-bold text-sm flex-shrink-0 transition-all"
             style={{ background: 'transparent', border: '2px solid rgba(255,255,255,0.80)',
               color: '#FFFFFF', letterSpacing: '0.04em', textDecoration: 'none' }}
@@ -1200,9 +1217,10 @@ function KostenlosBanner() {
             <Svg size={16} style={{ color: '#FFFFFF' }}>
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 6 6l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.5 16h.5z"/>
             </Svg>
-            ŞİMDİ ARA
+            JETZT ANRUFEN
           </a>
-        </div>
+
+        </motion.div>
       </div>
     </section>
   );
@@ -1452,7 +1470,7 @@ function WhyGecitKfz() {
       gradient: `linear-gradient(135deg, ${C.cyan}18, rgba(6,182,212,0.05))`,
       borderColor: `${C.cyan}30`,
       stat: '24/7',
-      statLabel: 'Kesintisiz Hizmet',
+      statLabel: 'Rund um die Uhr',
     },
     {
       icon: UsersGroupIcon,
@@ -1476,13 +1494,13 @@ function WhyGecitKfz() {
     },
     {
       icon: FolderCheckIcon,
-      title: 'Merkezi Evrak Takibi',
-      desc: '51 kategoride belgeler, tek panelden yönetim. Ekspertiz, sigorta, hukuki süreç — her evrak yerli yerinde.',
+      title: 'Zentrale Belegverfolgung',
+      desc: 'Belege in 51 Kategorien, Verwaltung über ein einziges Panel. Begutachtung, Versicherung, rechtlicher Prozess – jedes Dokument an seinem Platz.',
       accent: '#F59E0B',
       gradient: 'linear-gradient(135deg, rgba(245,158,11,0.09), rgba(217,119,6,0.04))',
       borderColor: 'rgba(245,158,11,0.3)',
       stat: '51',
-      statLabel: 'Belge Kategorisi',
+      statLabel: 'Dokumentenkategorien',
     },
   ];
 
@@ -1689,7 +1707,7 @@ function Stats() {
           </h2>
         </motion.div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-8">
-          <Stat value={15} suffix="K+" label="Oklanan Ekspertiz" />
+          <Stat value={15} suffix="K+" label="Erstellte Gutachten" />
           <Stat value={3} suffix="sn" label="Scan-Zeit" />
           <Stat value={120} suffix="+" label="Prüfpunkte" />
           <Stat value={98} suffix="%" label="Kundenzufriedenheit" />
@@ -1867,7 +1885,7 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
   const today = new Date();
   const [days] = useState(() => [...Array(14)].map((_, i) => {
     const d = new Date(today); d.setDate(d.getDate() + i);
-    return { iso: d.toISOString().slice(0,10), day: d.getDate(), wd: d.toLocaleDateString('tr-TR', { weekday: 'short' }) };
+    return { iso: d.toISOString().slice(0,10), day: d.getDate(), wd: d.toLocaleDateString('de-DE', { weekday: 'short' }) };
   }));
   const slots = ['09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00'];
   const [date, setDate] = useState(null);
@@ -1972,11 +1990,7 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
 // LangProvider ile saralanir; tum ic component'ler useLang() kullanabilir.
 // ═══════════════════════════════════════════════════════════════════
 export default function Landing(props) {
-  return (
-    <LangProvider>
-      <LandingInner {...props} />
-    </LangProvider>
-  );
+  return <LandingInner {...props} />;
 }
 
 function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
