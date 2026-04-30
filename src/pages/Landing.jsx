@@ -26,6 +26,7 @@ import {
   TrendingUp, Rocket, Shield, BarChart3, Globe, Layers, Cpu, Database, Code, Quote,
   XClose, LogOutIcon, Wrench, MailIcon, ScaleIcon, ShieldIcon, GlobeIcon,
   InfinityIcon, UsersGroupIcon, RadioTowerIcon, FolderCheckIcon,
+  CarIcon, ClipboardIcon, FileText, MessageIcon, PhoneIcon, PlusIcon
 } from '../components/icons.jsx';
 import { GecitKfzModal } from '../components/Modal.jsx';
 import { LangProvider, useLang } from '../i18n/LangContext.jsx';
@@ -34,11 +35,31 @@ import { LanguageSelector } from '../i18n/LanguageSelector.jsx';
 // IIFE-with-hooks pattern icin kucuk yardimci.
 function Iife({ children }) { return children(); }
 
+function Typewriter({ text, speed = 80 }) {
+  const [disp, setDisp] = useState('');
+  useEffect(() => {
+    let i = 0;
+    let isDeleting = false;
+    const tick = () => {
+      setDisp(isDeleting ? text.substring(0, i - 1) : text.substring(0, i + 1));
+      i = isDeleting ? i - 1 : i + 1;
+      let delta = speed - Math.random() * 40;
+      if (isDeleting) delta /= 2.5;
+      if (!isDeleting && i === text.length) { isDeleting = true; delta = 3000; }
+      else if (isDeleting && i === 0) { isDeleting = false; delta = 1000; }
+      setTimeout(tick, delta);
+    };
+    const t = setTimeout(tick, 1000);
+    return () => clearTimeout(t);
+  }, [text, speed]);
+  return <span className="border-r-2 border-[#E30613] pr-1">{disp}</span>;
+}
+
 // ─── Noise overlay ──────────────────────────────
 function NoiseOverlay() {
   return (
     <div className="pointer-events-none fixed inset-0 z-40"
-         style={{ mixBlendMode: 'overlay', opacity: 0.05 }} aria-hidden="true">
+         style={{ mixBlendMode: 'overlay', opacity: 0.01 }} aria-hidden="true">
       <svg className="w-full h-full">
         <filter id="noiseFilter">
           <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" stitchTiles="stitch" />
@@ -74,7 +95,6 @@ function CustomCursor() {
 
 // ─── Mesh BG (minimal — light theme) ────────────
 function MeshBackground() {
-  // Beyaz tema: animasyonlu blob kaldırıldı, sadece çok soluk kırmızı vinyetler
   return null;
 }
 
@@ -116,124 +136,110 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const u = scrollY.on('change', v => setScrolled(v > 20));
-    return () => u();
+    return scrollY.on('change', (latest) => {
+      setScrolled(latest > 20);
+    });
   }, [scrollY]);
 
-  const links = [t('nav.services'), t('nav.howItWorks'), t('nav.packages'), t('nav.contact')];
+  const links = [
+    { label: 'STARTSEITE', href: '#home' },
+    { label: 'LEISTUNGEN', href: '#leistungen' },
+    { label: 'ÜBER UNS', href: '#ueber-uns' },
+    { label: 'ABLAUF', href: '#ablauf' },
+    { label: 'KONTAKT', href: '#kontakt' },
+  ];
+
   const initials = user ? user.email.slice(0, 2).toUpperCase() : '';
 
   return (
-    <motion.nav initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: easeOut }}
-      className="fixed top-0 left-0 right-0 z-40"
+    <motion.nav
+      initial={{ y: -100 }}
+      animate={{ y: 0 }}
+      className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
       style={{
-        background: '#FFFFFF',
-        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.10)' : '1px solid rgba(0,0,0,0.06)',
-        boxShadow: scrolled ? '0 2px 16px rgba(0,0,0,0.06)' : 'none',
-      }}>
-      <div className="mx-auto flex items-center justify-between px-6 py-4 gap-4" style={{ maxWidth: 1280 }}>
-        {/* Logo + Name */}
-        <a href="#" className="flex items-center gap-3 flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 1 }}>
-          <img src="./logo-car-only.png" alt="Gecit KFZ Logo" className="h-10 md:h-12 w-auto object-contain"
-               style={{ filter: 'brightness(0) saturate(100%)' }} />
-          <div className="flex flex-col items-start">
-            <div className="text-xl md:text-2xl font-black tracking-tight" style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap', lineHeight: 1 }}>
-              <span style={{ color: '#E30613' }}>GECIT</span>
-              <span style={{ color: '#0A0A0A', margin: '0 1px' }}>-</span>
-              <span style={{ color: '#0A0A0A' }}>KFZ</span>
-            </div>
-            <span className="text-[10px] font-semibold tracking-[0.16em] uppercase" style={{ color: '#6B6B6B', whiteSpace: 'nowrap' }}>
-              Sachverständigenbüro
-            </span>
-          </div>
+        background: scrolled ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
+        backdropFilter: scrolled ? 'blur(10px)' : 'none',
+        borderBottom: scrolled ? `1px solid ${C.border}` : 'none',
+        height: scrolled ? '80px' : '100px',
+      }}
+    >
+      <div className="mx-auto px-6 h-full flex items-center justify-between" style={{ maxWidth: 1200 }}>
+        {/* Logo */}
+        <a href="#" className="flex items-center gap-3 h-full py-4">
+          <img src="/logo-gecit-final.png" alt="GECIT-KFZ" className="h-full object-contain" />
         </a>
 
-        {/* Desktop nav links */}
-        <nav className="hidden md:flex items-center gap-6 lg:gap-8" aria-label="Ana menü">
-          {links.map(l => (
-            <a key={l} href="#"
-              className="text-sm font-medium uppercase tracking-wide transition-colors relative group"
-              style={{ color: '#1F1F1F', textDecoration: 'none', letterSpacing: '0.06em' }}>
-              {l}
-              <span className="absolute -bottom-1 left-0 right-0 h-[2px] bg-[#E30613] scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
+        {/* Desktop Nav */}
+        <div className="hidden md:flex items-center gap-8 h-full">
+          {links.map((link, i) => (
+            <a
+              key={link.label}
+              href={link.href}
+              className="relative text-sm font-bold tracking-wider transition-colors hover:text-[#E30613]"
+              style={{ color: i === 0 ? '#E30613' : '#0A0A0A' }}
+            >
+              {link.label}
+              {i === 0 && (
+                <motion.div
+                  layoutId="nav-underline"
+                  className="absolute -bottom-2 left-0 right-0 h-0.5 bg-[#E30613]"
+                />
+              )}
             </a>
           ))}
-        </nav>
+        </div>
 
-        {/* Right actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <LanguageSelector />
+        {/* Actions */}
+        <div className="flex items-center gap-4">
           {user ? (
-            <>
-              <button onClick={onEnterApp}
-                className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-md transition-all"
-                style={{ background: 'rgba(227,6,19,0.06)', border: '1px solid rgba(227,6,19,0.2)', color: '#E30613' }}>
-                {t('nav.toPanel')}
-                <ArrowRight size={14} />
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="flex items-center gap-2 p-1 rounded-full border border-gray-200"
+              >
+                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold">
+                  {initials}
+                </div>
               </button>
-              <div className="relative">
-                <button onClick={() => setMenuOpen(v => !v)} onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
-                  className="flex items-center gap-2 text-sm px-2 py-1.5 rounded-md transition-colors"
-                  style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.10)', color: '#0A0A0A' }}>
-                  <span className="w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold"
-                    style={{ background: '#E30613', color: '#FFFFFF' }}>
-                    {initials}
-                  </span>
-                  <span className="hidden sm:inline" style={{ color: '#0A0A0A' }}>{user.role === 'super_admin' ? 'Süper Admin' : 'Kullanıcı'}</span>
-                </button>
-                <AnimatePresence>
-                  {menuOpen && (
-                    <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 mt-2 w-56 rounded-xl p-2 text-sm"
-                      style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.10)',
-                        boxShadow: '0 12px 40px -8px rgba(0,0,0,0.15)' }}>
-                      <div className="px-3 py-2">
-                        <p className="truncate font-medium" style={{ color: '#0A0A0A' }}>{user.email}</p>
-                        <p className="text-xs mt-0.5" style={{ color: '#E30613' }}>
-                          {user.role === 'super_admin' ? '● Süper Admin' : '● Kullanıcı'}
-                        </p>
-                      </div>
-                      <div className="h-px my-1" style={{ background: 'rgba(0,0,0,0.08)' }} />
-                      <button onMouseDown={(e) => { e.preventDefault(); onLogout(); setMenuOpen(false); }}
-                        className="w-full text-left px-3 py-2 rounded-lg transition-colors hover:bg-gray-50"
-                        style={{ color: '#0A0A0A' }}>
-                        {t('nav.logout')}
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </>
+              <AnimatePresence>
+                {menuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 p-2 overflow-hidden"
+                  >
+                    <button
+                      onClick={onEnterApp}
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 rounded-lg"
+                    >
+                      Dashboard
+                    </button>
+                    <button
+                      onClick={onLogout}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      Abmelden
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           ) : (
-            <button onClick={onLoginClick}
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-md transition-all hover:bg-gray-50"
-              style={{ color: '#0A0A0A', border: '1px solid rgba(0,0,0,0.12)' }}>
-              <Svg size={14}><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></Svg>
-              <span>{t('nav.login')}</span>
+            <button
+              onClick={onLoginClick}
+              className="hidden sm:block text-xs font-bold tracking-widest text-gray-500 hover:text-black transition-colors"
+            >
+              LOGIN
             </button>
           )}
-          <button onClick={onBook}
-            className="inline-flex items-center gap-2 text-sm font-semibold px-4 sm:px-5 py-2.5 rounded-lg transition-all"
-            style={{ background: '#E30613', color: '#FFFFFF', letterSpacing: '0.02em' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#B0050F'}
-            onMouseLeave={e => e.currentTarget.style.background = '#E30613'}>
-            <Svg size={15}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Svg>
-            <span className="hidden sm:inline">{t('nav.book')}</span>
-            <span className="sm:hidden">{t('nav.bookShort')}</span>
-          </button>
-
-          {/* Mobile hamburger */}
-          <button className="md:hidden p-2 rounded-md" onClick={() => setMobileOpen(v => !v)}
-            style={{ color: '#0A0A0A' }} aria-label="Menüyü aç/kapat">
-            <Svg size={22}>{mobileOpen
-              ? <><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>
-              : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>
-            }</Svg>
+          <button
+            onClick={onBook}
+            className="px-6 py-3 bg-[#E30613] text-white text-xs font-bold tracking-widest rounded-md hover:bg-[#B0050F] transition-colors shadow-lg shadow-red-500/20 keep-white"
+          >
+            TERMIN VEREINBAREN
           </button>
         </div>
       </div>
@@ -284,7 +290,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
     setTimeout(() => {
       const em = email.trim().toLowerCase();
       if (em === 'cevikademm@gmail.com' && password === 'Adem123') {
-        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Adem Çevik' };
+        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Adem Cevik' };
         try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
         onLogin(user);
         setEmail(''); setPassword('');
@@ -308,7 +314,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
           setEmail(''); setPassword('');
           onClose();
         } else {
-          setError('E-posta veya şifre hatalı. Şifre en az 4 karakter olmalı.');
+          setError('E-Mail oder Passwort falsch. Das Passwort muss mindestens 4 Zeichen lang sein.');
         }
       }
       setLoading(false);
@@ -320,17 +326,17 @@ function LoginDrawer({ open, onClose, onLogin }) {
     const dbData = dbRaw ? (() => { try { return JSON.parse(dbRaw); } catch(e) { return null; } })() : null;
     let user = null;
     if (role === 'admin') {
-      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Adem Çevik' };
+      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Adem Cevik' };
     } else if (role === 'customer') {
       const c = (dbData?.customers || [])[0];
       user = c
         ? { email: c.email, role: 'customer', name: c.full_name || c.company || c.email }
-        : { email: 'demo.musteri@gmail.com', role: 'customer', name: 'Demo Müşteri' };
+        : { email: 'demo.musteri@gmail.com', role: 'customer', name: 'Demo Kunde' };
     } else if (role === 'lawyer') {
       const l = (dbData?.lawyers || []).find(x => x.active) || (dbData?.lawyers || [])[0];
       user = l
         ? { email: l.email, role: 'lawyer', name: l.name, lawyer_id: l.id }
-        : { email: 'demo.avukat@hukuk.com', role: 'lawyer', name: 'Demo Avukat', lawyer_id: 'demo' };
+        : { email: 'demo.avukat@hukuk.com', role: 'lawyer', name: 'Demo Anwalt', lawyer_id: 'demo' };
     }
     if (!user) return;
     try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
@@ -362,7 +368,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 12 }}
               transition={{ type: 'spring', stiffness: 280, damping: 32 }}
-              role="dialog" aria-modal="true" aria-label="Giriş Yap"
+              role="dialog" aria-modal="true" aria-label="Anmelden"
               onClick={(e) => e.stopPropagation()}
               className="relative flex flex-col overflow-y-auto pointer-events-auto rounded-2xl"
               style={{ width: 'min(440px, 100%)', maxHeight: '90vh',
@@ -384,21 +390,22 @@ function LoginDrawer({ open, onClose, onLogin }) {
               </button>
             </div>
 
-            <div className="flex-1 p-8">
-              <p className="text-xs uppercase mb-2 font-semibold" style={{ color: '#E30613', letterSpacing: '0.22em' }}>
-                Hesap Girişi
+            <div className="relative flex-1 p-8">
+              <p className="text-xs uppercase mb-3" style={{ color: C.neon, letterSpacing: '0.25em' }}>
+                Konto-Anmeldung
               </p>
-              <h2 className="text-2xl font-bold mb-1" style={{ color: '#0A0A0A' }}>
-                Tekrar hoş geldin.
+              <h2 className="text-3xl font-semibold mb-2"
+                style={{ color: C.text, letterSpacing: '-0.02em' }}>
+                Willkommen zurück.
               </h2>
-              <p className="text-sm mb-7" style={{ color: '#6B6B6B' }}>
-                Gecit Kfz Sachverständiger paneline erişmek için giriş yapın.
+              <p className="text-sm mb-8" style={{ color: C.textDim }}>
+                Melden Sie sich an, um auf das Gecit Kfz Dashboard zuzugreifen.
               </p>
 
               <form onSubmit={submit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5 uppercase"
-                    style={{ color: '#6B6B6B', letterSpacing: '0.15em' }}>E-posta</label>
+                  <label className="block text-xs uppercase mb-2"
+                    style={{ color: C.textDim, letterSpacing: '0.2em' }}>E-Mail</label>
                   <input type="email" required value={email} autoFocus
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
@@ -409,8 +416,8 @@ function LoginDrawer({ open, onClose, onLogin }) {
                     onBlur={(e) => { e.target.style.border = '1px solid rgba(0,0,0,0.12)'; e.target.style.background = '#FAFAFA'; }} />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5 uppercase"
-                    style={{ color: '#6B6B6B', letterSpacing: '0.15em' }}>Şifre</label>
+                  <label className="block text-xs uppercase mb-2"
+                    style={{ color: C.textDim, letterSpacing: '0.2em' }}>Passwort</label>
                   <input type="password" required value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
@@ -433,35 +440,38 @@ function LoginDrawer({ open, onClose, onLogin }) {
 
                 <div className="flex items-center justify-between text-xs" style={{ color: '#6B6B6B' }}>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" defaultChecked style={{ accentColor: '#E30613' }} />
-                    Beni hatırla
+                    <input type="checkbox" defaultChecked
+                      style={{ accentColor: C.neon }} />
+                    Angemeldet bleiben
                   </label>
-                  <a href="#" className="hover:text-[#E30613] transition-colors">Şifremi unuttum</a>
+                  <a href="#" className="hover:text-white transition-colors">Passwort vergessen</a>
                 </div>
 
                 <motion.button type="submit" disabled={loading}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full py-3.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
-                  style={{ background: '#E30613', color: '#FFFFFF', boxShadow: '0 4px 16px rgba(227,6,19,0.30)' }}>
-                  {loading ? 'Giriş yapılıyor…' : <>Giriş Yap <ArrowRight size={16} /></>}
+                  className="w-full py-3.5 rounded-full font-medium text-sm flex items-center justify-center gap-2 transition-opacity disabled:opacity-60"
+                  style={{ background: `linear-gradient(135deg, ${C.neon} 0%, ${C.neon2} 100%)`,
+                    color: '#FFFFFF',
+                    boxShadow: `0 12px 40px -12px ${C.glow}` }}>
+                  {loading ? 'Anmeldung läuft…' : <>Anmelden <ArrowRight size={16} /></>}
                 </motion.button>
               </form>
 
-              <div className="my-6 flex items-center gap-3 text-xs" style={{ color: '#6B6B6B' }}>
-                <div className="flex-1 h-px" style={{ background: 'rgba(0,0,0,0.08)' }} />
-                HIZLI GİRİŞ (DEMO)
-                <div className="flex-1 h-px" style={{ background: 'rgba(0,0,0,0.08)' }} />
+              <div className="my-8 flex items-center gap-3 text-xs" style={{ color: C.textDim }}>
+                <div className="flex-1 h-px" style={{ background: C.border }} />
+                SCHNELLANMELDUNG (DEMO)
+                <div className="flex-1 h-px" style={{ background: C.border }} />
               </div>
 
-              <p className="text-xs mb-3 text-center" style={{ color: '#6B6B6B' }}>
-                Tek tıkla istediğin role gir
+              <p className="text-xs mb-3 text-center" style={{ color: C.textDim }}>
+                Mit einem Klick einloggen — Passwörter sind noch deaktiviert
               </p>
 
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { role: 'admin',    label: 'Admin',   desc: 'Yönetim',  color: '#E30613', bg: 'rgba(227,6,19,0.06)',  border: 'rgba(227,6,19,0.20)', icon: <Svg size={13}><path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></Svg> },
-                  { role: 'customer', label: 'Müşteri', desc: 'Portal',   color: '#0A0A0A', bg: 'rgba(0,0,0,0.04)',    border: 'rgba(0,0,0,0.12)',    icon: <Svg size={13}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></Svg> },
-                  { role: 'lawyer',   label: 'Avukat',  desc: 'Hukuk',   color: '#B0050F', bg: 'rgba(176,5,15,0.06)', border: 'rgba(176,5,15,0.20)', icon: <Svg size={13}><path d="M12 3v18"/><path d="M5 8h14"/><path d="M5 8l-2 6a4 4 0 0 0 8 0L9 8"/><path d="M19 8l-2 6a4 4 0 0 0 8 0l-2-6"/></Svg> },
+                  { role: 'admin',     label: 'Admin',     desc: 'Verwaltungs-Dashboard', color: C.neon,   bg: 'rgba(227,6,19,0.10)', border: 'rgba(227,6,19,0.35)', icon: <Svg size={14}><path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></Svg> },
+                  { role: 'customer',  label: 'Kunde',   desc: 'Kundenportal', color: '#22D3EE', bg: 'rgba(34,211,238,0.10)',  border: 'rgba(34,211,238,0.35)',  icon: <Svg size={14}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></Svg> },
+                  { role: 'lawyer',    label: 'Anwalt',    desc: 'Anwaltsportal',  color: '#F59E0B', bg: 'rgba(245,158,11,0.10)',  border: 'rgba(245,158,11,0.35)',  icon: <Svg size={14}><path d="M12 3v18"/><path d="M5 8h14"/><path d="M5 8l-2 6a4 4 0 0 0 8 0L9 8"/><path d="M19 8l-2 6a4 4 0 0 0 8 0l-2-6"/></Svg> },
                 ].map(b => (
                   <motion.button
                     key={b.role}
@@ -483,13 +493,13 @@ function LoginDrawer({ open, onClose, onLogin }) {
                 ))}
               </div>
 
-              <p className="text-center text-[11px] mt-4" style={{ color: '#6B6B6B' }}>
-                Hızlı giriş yalnızca demo amaçlıdır
+              <p className="text-center text-[11px] mt-5" style={{ color: C.textDim }}>
+                Nutzen Sie das Formular oben für den Login mit Passwort · Der Schnell-Login dient nur Demo-Zwecken
               </p>
             </div>
 
-            <div className="p-5 text-xs" style={{ color: '#6B6B6B', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-              <p>Güvenli bağlantı · KVKK uyumlu · Supabase Auth</p>
+            <div className="relative p-6 text-xs" style={{ color: C.textDim, borderTop: `1px solid ${C.border}` }}>
+              <p>Sichere Verbindung · DSGVO-konform · Supabase Auth</p>
             </div>
             </motion.aside>
           </div>
@@ -519,127 +529,366 @@ function RevealHeading({ text, className = '', style = {}, delay = 0 }) {
 }
 
 // ─── Hero ───────────────────────────────────────
-function Hero() {
-  const { t } = useLang();
+function Hero({ onBook }) {
   const rm = useReducedMotion();
   return (
-    <section className="relative overflow-hidden" style={{
-      background: '#FFFFFF',
-      paddingTop: 'calc(env(safe-area-inset-top) + 88px)',
-      paddingBottom: 0,
-      borderBottom: '1px solid rgba(0,0,0,0.06)',
-    }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1280 }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center" style={{ minHeight: 'min(80vh, 680px)' }}>
-          {/* Left column — text */}
-          <div className="py-16 md:py-20">
-            {/* Badge */}
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: easeOut }}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 text-xs font-semibold uppercase"
-              style={{ background: 'rgba(227,6,19,0.06)', border: '1px solid rgba(227,6,19,0.20)',
-                color: '#7A0309', letterSpacing: '0.18em' }}>
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: '#E30613' }} />
-                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: '#E30613' }} />
-              </span>
-              {t('hero.badge')}
-            </motion.div>
-
-            {/* Headline */}
-            <div>
-              <RevealHeading text={t('hero.title1')}
-                className="text-5xl md:text-6xl lg:text-7xl font-black leading-none"
-                style={{ color: '#0A0A0A', letterSpacing: '-0.03em', lineHeight: 0.95 }} />
-              <RevealHeading text={t('hero.title2')}
-                className="text-5xl md:text-6xl lg:text-7xl font-black mt-1"
-                style={{ color: '#E30613', letterSpacing: '-0.03em', lineHeight: 0.95 }} delay={0.25} />
+    <section id="home" className="relative min-h-[85vh] flex items-center overflow-hidden bg-white pt-32 pb-16">
+      <div className="mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center" style={{ maxWidth: 1200 }}>
+        {/* Left Side: Content */}
+        <motion.div
+          initial={{ opacity: 0, x: -50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, ease: easeOut }}
+          className="relative z-10"
+        >
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.8 }}
+            className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-white border border-red-100 mb-12 shadow-md"
+          >
+            <div className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
             </div>
-
-            {/* Red accent line */}
-            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
-              transition={{ duration: 0.7, ease: easeOut, delay: 0.6 }}
-              className="h-1 w-20 rounded-full mt-6 mb-6 origin-left"
-              style={{ background: '#E30613' }} aria-hidden="true" />
-
-            {/* Subtitle */}
-            <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, ease: easeOut, delay: 0.8 }}
-              className="text-base md:text-lg leading-relaxed max-w-md"
-              style={{ color: '#6B6B6B' }}>
-              {t('hero.subtitle')}
-            </motion.p>
-
-            {/* CTA */}
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, ease: easeOut, delay: 1.0 }}
-              className="mt-8 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-              <button
-                onClick={() => window.dispatchEvent(new CustomEvent('gecit-kfz:book'))}
-                className="inline-flex items-center gap-2.5 text-sm font-bold px-6 py-3.5 rounded-lg transition-all"
-                style={{ background: '#E30613', color: '#FFFFFF', letterSpacing: '0.02em',
-                  boxShadow: '0 4px 20px rgba(227,6,19,0.35)' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#B0050F'}
-                onMouseLeave={e => e.currentTarget.style.background = '#E30613'}>
-                <Svg size={16}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></Svg>
-                {t('hero.cta')}
-              </button>
-              <a href="tel:+490000000000"
-                className="inline-flex items-center gap-2 text-sm font-medium px-5 py-3.5 rounded-lg transition-all hover:bg-gray-50"
-                style={{ color: '#1F1F1F', border: '1px solid rgba(0,0,0,0.12)' }}>
-                <Svg size={15}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 6 6l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.5 16h.5z"/></Svg>
-                Jetzt anrufen
-              </a>
-            </motion.div>
-
-            {/* Trust signals */}
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              transition={{ duration: 0.7, delay: 1.3 }}
-              className="mt-8 flex flex-wrap items-center gap-4">
-              {['Kostenlos für Geschädigte', 'Schnell & Unabhängig', 'Aachen & Umgebung'].map((s, i) => (
-                <span key={i} className="flex items-center gap-1.5 text-xs font-medium" style={{ color: '#6B6B6B' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E30613" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                  {s}
-                </span>
-              ))}
-            </motion.div>
-          </div>
-
-          {/* Right column — image */}
-          <motion.div
-            initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.9, ease: easeOut, delay: 0.3 }}
-            className="relative hidden md:flex items-end justify-center h-full"
-            style={{ minHeight: 480 }}>
-            {/* Image wrapper — full height right panel */}
-            <div className="absolute inset-0 overflow-hidden rounded-l-3xl"
-              style={{ background: 'linear-gradient(160deg, #F8F8F8 0%, #EEEEEE 100%)' }}>
-              <img src="/images/accident.jpg" alt="Beschädigtes Fahrzeug"
-                className="w-full h-full object-cover"
-                style={{ opacity: 0.9 }}
-                onError={e => { e.currentTarget.style.display = 'none'; }} />
-              {/* Overlay gradient */}
-              <div className="absolute inset-0"
-                style={{ background: 'linear-gradient(270deg, transparent 40%, rgba(255,255,255,0.7) 100%)' }} />
-              {/* Red accent corner */}
-              <div className="absolute bottom-0 left-0 right-0 h-1" style={{ background: '#E30613' }} />
-            </div>
-            {/* Floating stat card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 1.1 }}
-              className="absolute bottom-8 left-8 rounded-xl p-4"
-              style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.10)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.12)', minWidth: 180 }}>
-              <p className="text-2xl font-black" style={{ color: '#E30613' }}>15.000+</p>
-              <p className="text-xs font-medium mt-0.5" style={{ color: '#6B6B6B' }}>Tamamlanan Ekspertiz</p>
-            </motion.div>
+            <span className="text-[11px] font-black tracking-[0.2em] text-[#E30613] uppercase whitespace-nowrap">
+              <Typewriter text="KI-GESTÜTZTE ANALYSE & BEGUTACHTUNG" />
+            </span>
           </motion.div>
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-[#0A0A0A] leading-none mb-2">
+            KFZ-GUTACHTER
+          </h1>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-[#E30613] mb-8">
+            IHR PARTNER IM SCHADENFALL
+          </h2>
+          <div className="w-20 h-1.5 bg-[#E30613] mb-8" />
+          <p className="text-lg md:text-xl text-[#4B5563] leading-relaxed max-w-lg mb-10">
+            Als unabhängiger Kfz-Gutachter stehe ich Ihnen mit fachkompetenter und persönlicher Beratung zur Seite.
+            Ich erstelle schnelle, zuverlässige und rechtssichere Gutachten.
+          </p>
+          <button
+            onClick={onBook}
+            className="group flex items-center gap-3 px-8 py-4 bg-[#E30613] text-white font-bold rounded-md hover:bg-[#B0050F] transition-all transform hover:scale-105 shadow-xl shadow-red-500/30 keep-white"
+          >
+            <PhoneIcon size={20} className="group-hover:animate-bounce" />
+            JETZT TERMIN VEREINBAREN
+          </button>
+        </motion.div>
+
+        {/* Right Side: Image */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, x: 50 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
+          transition={{ duration: 1, ease: easeOut }}
+          className="relative"
+        >
+          <div className="relative rounded-2xl overflow-hidden shadow-2xl">
+            <img
+              src="/hero-car.png"
+              alt="KFZ Gutachter Schadenfall"
+              className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700"
+            />
+            {/* Overlay Gradient */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
+          </div>
+          {/* Decorative Elements */}
+          {/* Dekoratif blob'lar kaldırıldı */}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+function CTA({ onBook }) {
+  return (
+    <section className="py-12 bg-[#E30613] text-white keep-white">
+      <div className="mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8" style={{ maxWidth: 1200 }}>
+        <div className="flex items-center gap-6">
+          <div className="w-16 h-16 rounded-full border-2 border-white flex items-center justify-center">
+            <PhoneIcon size={32} />
+          </div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase leading-none mb-1">
+              SCHNELL • UNABHÄNGIG • ZUVERLÄSSIG
+            </h2>
+            <p className="text-white/80 font-medium">
+              Ihr Kfz-Gutachter in Aachen und Umgebung
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => window.location.href = 'tel:+4915739647834'}
+          className="px-8 py-4 border-2 border-white text-white font-bold rounded-md hover:bg-white hover:text-[#E30613] transition-all"
+        >
+          JETZT ANRUFEN <br />
+          <span className="text-xl">+49 157 396 478 34</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// ─── Features ───────────────────────────────────
+function Features() {
+  const features = [
+    {
+      icon: CarIcon,
+      title: 'SCHADENGUTACHTEN',
+      desc: 'Detaillierte und unabhängige Gutachten nach einem Unfall zur Durchsetzung Ihrer Ansprüche gegenüber der Versicherung.',
+      list: ['Unfallaufnahme und Analyse', 'Feststellung der Schadenhöhe', 'Reparaturweg und Wertminderung', 'Unterstützung bei der Schadenregulierung'],
+    },
+    {
+      icon: ClipboardIcon,
+      title: 'KFZ-GUTACHTEN',
+      desc: 'Umfassende Gutachten für verschiedene Anlässe – unabhängig, neutral und rechtssicher.',
+      list: ['Unfallgutachten', 'Beweissicherungsgutachten', 'Oldtimer-Gutachten', 'Sonstige Anlässe'],
+    },
+    {
+      icon: ShieldIcon,
+      title: 'WERTGUTACHTEN',
+      desc: 'Ermittlung des aktuellen Marktwertes Ihres Fahrzeugs – z. B. für Verkauf, Versicherung oder Finanzierungszwecke.',
+      list: ['Marktwertanalyse', 'Restwertermittlung', 'Wertgutachten für Klassiker und Sammlerfahrzeuge'],
+    },
+    {
+      icon: FileText,
+      title: 'KOSTENVORANSCHLÄGE',
+      desc: 'Erstellung von detaillierten Kostenvoranschlägen für Reparaturen – schnell, transparent und nachvollziehbar.',
+      list: ['Reparaturkostenaufstellung', 'Teile- und Arbeitskosten', 'Grundlage für die Schadenregulierung'],
+    },
+    {
+      icon: MessageIcon,
+      title: 'ERSTE KUNDENBERATUNG',
+      desc: 'Persönliche Beratung und erste Einschätzung – kompetent, unverbindlich und kostenlos.',
+      list: ['Ersteinschätzung des Falls', 'Klärung Ihrer Fragen', 'Empfehlung des weiteren Vorgehens'],
+    },
+    {
+      icon: CarIcon,
+      title: 'LEASINGRÜCKLÄUFER-CHECK',
+      desc: 'Professionelle Prüfung Ihres Fahrzeugs zur Rückgabe – vermeiden Sie Nachzahlungen und Diskussionen.',
+      list: ['Überprüfung auf Schäden und Mängel', 'Bewertung nach Leasingkriterien', 'Dokumentation mit Prüfbericht', 'Neutrale und faire Einschätzung'],
+    },
+  ];
+
+  return (
+    <section id="leistungen" className="py-24 bg-[#F9FAFB]">
+      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+        <div className="text-center mb-16">
+          <h2 className="text-5xl font-black tracking-tight text-[#0A0A0A] mb-4 uppercase">
+            UNSERE <span className="text-[#E30613]">LEISTUNGEN</span>
+          </h2>
+          <div className="w-20 h-1 bg-[#E30613] mx-auto" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border border-gray-100">
+          {features.map((f, i) => (
+            <div
+              key={i}
+              className="p-10 bg-white border border-gray-50 flex flex-col items-start text-left group hover:shadow-xl transition-all duration-300"
+            >
+              <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-8 text-[#E30613] group-hover:bg-[#E30613] group-hover:text-white transition-colors duration-300">
+                <f.icon size={32} />
+              </div>
+              <h3 className="text-2xl font-bold text-[#0A0A0A] mb-6 tracking-tight uppercase leading-tight">
+                {f.title}
+              </h3>
+              <p className="text-[#4B5563] text-sm leading-relaxed mb-8">
+                {f.desc}
+              </p>
+              <ul className="space-y-3 mt-auto">
+                {f.list.map((item, j) => (
+                  <li key={j} className="flex items-start gap-3 text-sm text-[#4B5563]">
+                    <Check size={14} className="text-[#E30613] mt-1 flex-shrink-0" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </div>
     </section>
+  );
+}
+
+function Footer() {
+  const cols = [
+    { title: 'Leistungen', links: ['Unfallgutachten', 'Wertgutachten', 'Reparaturkosten', 'Leasing-Check', 'Oldtimer'] },
+    { title: 'Unternehmen', links: ['Über uns', 'Philosophie', 'Standorte', 'Karriere', 'Kontakt'] },
+    { title: 'Rechtliches', links: ['Impressum', 'Datenschutz', 'AGB', 'Cookie-Richtlinie'] },
+  ];
+
+  return (
+    <footer id="kontakt" className="relative pt-24 pb-12 bg-white border-t border-gray-100 overflow-hidden" style={{ zIndex: 2 }}>
+      <div className="mx-auto px-6 relative" style={{ maxWidth: 1200 }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 lg:gap-8 mb-20">
+          
+          {/* Brand Col */}
+          <div className="lg:col-span-2">
+            <div className="mb-8">
+              <img src="/logo-gecit-final.png" alt="GECIT-KFZ" className="h-10 md:h-12 object-contain" />
+            </div>
+            <p className="text-gray-500 text-sm leading-relaxed max-w-sm mb-10">
+              Ihr unabhängiger Partner für professionelle Kfz-Gutachten. Schnell, zuverlässig und immer in Ihrem Interesse. Wir setzen uns für Ihre Rechte ein.
+            </p>
+            <div className="space-y-4">
+              <a href="tel:+4915739647834" className="group flex items-center gap-4 text-sm text-gray-600 hover:text-[#E30613] transition-colors w-fit">
+                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 text-[#E30613] group-hover:bg-[#E30613] group-hover:text-white transition-all duration-300">
+                  <PhoneIcon size={16} />
+                </div>
+                <span className="tracking-wide font-medium">+49 157 396 478 34</span>
+              </a>
+              <a href="mailto:info@kfz-gutachter-aachen.de" className="group flex items-center gap-4 text-sm text-gray-600 hover:text-[#E30613] transition-colors w-fit">
+                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 text-[#E30613] group-hover:bg-[#E30613] group-hover:text-white transition-all duration-300">
+                  <MailIcon size={16} />
+                </div>
+                <span className="tracking-wide font-medium">info@kfz-gutachter-aachen.de</span>
+              </a>
+              <div className="group flex items-start gap-4 text-sm text-gray-600 w-fit">
+                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 text-[#E30613] mt-1">
+                  <PlusIcon size={16} />
+                </div>
+                <address className="not-italic tracking-wide leading-loose font-medium">
+                  Am Gutshof 37 <br />
+                  52080 Aachen
+                </address>
+              </div>
+            </div>
+          </div>
+
+          {/* Links Cols */}
+          {cols.map((col, i) => (
+            <div key={i} className="pt-2">
+              <h3 className="text-[#0A0A0A] font-bold text-sm mb-8 uppercase tracking-widest flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-[#E30613]"></span>
+                {col.title}
+              </h3>
+              <ul className="space-y-5">
+                {col.links.map((l, j) => (
+                  <li key={j}>
+                    <a href="#" className="text-sm text-gray-500 hover:text-[#E30613] hover:translate-x-1.5 inline-block transition-all duration-300">
+                      {l}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom Bar */}
+        <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-6 text-sm border-t border-gray-100">
+          <p className="text-gray-400 tracking-wider text-xs md:text-sm">© 2024 KFZ-Gutachter Aachen. Alle Rechte vorbehalten.</p>
+          <p className="flex items-center gap-2 text-gray-400 tracking-wider text-xs md:text-sm">
+            Entwickelt mit <Zap size={14} className="text-[#E30613]" /> in Aachen
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+function PWAInstallBanner() {
+  const [show, setShow] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isPWA, setIsPWA] = useState(false);
+
+  useEffect(() => {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    setIsPWA(standalone);
+    if (standalone) return; // Already installed
+
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    setIsIOS(ios);
+
+    // Check if dismissed recently
+    const dismissed = localStorage.getItem('gecit_kfz_pwa_dismissed');
+    if (dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 60 * 60 * 1000) return;
+
+    if (ios) {
+      // iOS: show Safari install instructions
+      const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+      if (isSafari) {
+        setTimeout(() => setShow(true), 3000);
+      }
+    } else {
+      // Android/Desktop: listen for beforeinstallprompt
+      const handler = (e) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+        setTimeout(() => setShow(true), 2000);
+      };
+      window.addEventListener('beforeinstallprompt', handler);
+      return () => window.removeEventListener('beforeinstallprompt', handler);
+    }
+  }, []);
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') setShow(false);
+      setDeferredPrompt(null);
+    }
+  };
+
+  const dismiss = () => {
+    setShow(false);
+    localStorage.setItem('gecit_kfz_pwa_dismissed', Date.now().toString());
+  };
+
+  if (!show || isPWA) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: 80 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 80 }}
+        style={{ position: 'fixed', bottom: 20, left: 16, right: 16, zIndex: 9999,
+          background: 'linear-gradient(135deg, #1a1030 0%, #0E0B18 100%)',
+          border: '1px solid rgba(124,58,237,0.3)', borderRadius: 20,
+          padding: '20px', boxShadow: '0 8px 40px rgba(124,58,237,0.2)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(124,58,237,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24 }}>
+            📲
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#EDE9FE', marginBottom: 4 }}>
+              Gecit Kfz Sachverständiger'u Zum Home-Bildschirm
+            </div>
+            {isIOS ? (
+              <div style={{ fontSize: 13, color: '#8B85A8', lineHeight: 1.5 }}>
+                <span style={{ color: '#22D3EE' }}>Safari</span>'de alttaki{' '}
+                <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(124,58,237,0.15)',
+                  borderRadius: 6, padding: '2px 6px', fontSize: 12, verticalAlign: 'middle' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.5">
+                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/>
+                    <line x1="12" y1="2" x2="12" y2="15"/>
+                  </svg>
+                </span>{' '}
+                Drücken Sie die Teilen-Schaltfläche und wählen Sie <strong style={{ color: '#EDE9FE' }}>"Zum Home-Bildschirm"</strong>.
+                Push-Benachrichtigungen funktionieren nur in der PWA.
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: '#8B85A8', lineHeight: 1.5 }}>
+                Installieren Sie die App auf Ihrem Telefon — erhalten Sie Push-Benachrichtigungen und arbeiten Sie offline.
+              </div>
+            )}
+          </div>
+          <button onClick={dismiss} style={{ background: 'none', border: 'none', color: '#8B85A8',
+            fontSize: 20, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
+        </div>
+        {!isIOS && deferredPrompt && (
+          <button onClick={handleInstall}
+            style={{ width: '100%', marginTop: 14, padding: '12px 0', borderRadius: 12,
+              background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
+              border: 'none', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            Jetzt hochladen
+          </button>
+        )}
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -651,14 +900,14 @@ function BannerShowcase() {
       src: '/banner/unnamed%20(13).png',
       alt: 'Gecit Kfz Sachverständiger — Ein Index, Vier Welten: Kunde, Anwalt, Versicherer, Admin',
       title: 'Vier Portale, Ein Index',
-      desc: 'Müşteri, avukat, sigortacı ve admin — dört rolün dört portali, tek `index.html` dosyasında.',
+      desc: 'Kunden, Anwälte, Versicherer und Admin — vier Portale in einer index.html Datei.',
       accent: C.neon,
     },
     {
       src: '/banner/unnamed%20(14).png',
       alt: 'Gecit Kfz Sachverständiger — One File Architecture: Das gesamte Kfz-Expertise-Ökosystem',
       title: 'One File Architecture',
-      desc: 'Kurulum yok, sunucu yok. Tüm ekosistem tarayıcıda doğrudan çalışır.',
+      desc: 'Keine Installation, kein Server. Das gesamte Ökosystem läuft direkt im Browser.',
       accent: C.cyan,
     },
   ];
@@ -671,10 +920,10 @@ function BannerShowcase() {
           className="text-center mb-12">
           <p className="text-xs uppercase mb-4" style={{ color: C.neon, letterSpacing: '0.25em' }}>Sistem Anatomisi</p>
           <h2 className="text-3xl md:text-5xl font-semibold" style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-            Tek Dosya, <span style={{ color: C.neon }}>Dört Portal</span>, Tüm Ekosistem
+            Eine Datei, <span style={{ color: C.neon }}>Vier Portale</span>, Ein Ökosystem
           </h2>
           <p className="mt-4 text-base md:text-lg max-w-2xl mx-auto" style={{ color: C.textDim }}>
-            Gecit Kfz Sachverständiger'nin mimari özeti: KFZ-ekspertiz iş kolunun tüm halkaları tek bir dosyada birleşir.
+            Architektur-Zusammenfassung: Alle Glieder der Kfz-Expertise-Kette vereint in einer Datei.
           </p>
         </motion.div>
 
@@ -708,7 +957,7 @@ function BannerShowcase() {
                   </div>
                   <span className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
                     style={{ background: `${b.accent}15`, color: b.accent, border: `1px solid ${b.accent}33` }}>
-                    Büyüt <ChevronRight size={12} />
+                    Vergrößern <ChevronRight size={12} />
                   </span>
                 </div>
               </div>
@@ -747,17 +996,17 @@ function BannerShowcase() {
 function Marquee() {
   const { t } = useLang();
   const logos = [
-    { Icon: Shield, label: 'OtoGüven' }, { Icon: Rocket, label: 'Motorex' },
+    { Icon: Shield, label: 'OtoVERTRAUEN' }, { Icon: Rocket, label: 'Motorex' },
     { Icon: BarChart3, label: 'TramerX' }, { Icon: Globe, label: 'AutoNet' },
-    { Icon: Layers, label: 'Dinamo' }, { Icon: Cpu, label: 'ŞasiPro' },
+    { Icon: Layers, label: 'Dynamo' }, { Icon: Cpu, label: 'ChassisPro' },
     { Icon: Database, label: 'GaraBox' }, { Icon: Code, label: 'OtoLink' },
   ];
   const doubled = [...logos, ...logos];
   const rm = useReducedMotion();
   return (
-    <section className="relative py-12 overflow-hidden" style={{ zIndex: 2, background: '#E30613' }}>
+    <section className="relative py-12 overflow-hidden keep-white" style={{ zIndex: 2, background: '#E30613' }}>
       <p className="text-center text-xs uppercase mb-6 font-bold" style={{ color: '#FFFFFF', letterSpacing: '0.25em' }}>
-        {t('marquee.title')}
+        Deutschlands zuverlässiges Gutachternetzwerk · 500+ Partner
       </p>
       <div className="relative">
         <motion.div className="flex gap-20 whitespace-nowrap"
@@ -805,130 +1054,57 @@ function SpotlightCard({ children, className = '', size = 'md' }) {
   );
 }
 
-// ─── Leistungen / Features ──────────────────────
-function Features() {
+// ─── Features ───────────────────────────────────
+function PlatformFeatures() {
   const features = [
-    {
-      icon: Wrench,
-      title: 'SCHADENGUTACHTEN',
-      subtitle: 'Kaza Ekspertizi',
-      desc: 'Detaylı ve bağımsız ekspertiz raporları, kaza sonrası sigortaya karşı haklarınızı korumak için.',
-      bullets: ['Kaza tespiti ve analiz', 'Hasar boyutunun belirlenmesi', 'Tamir yolu ve değer kaybı', 'Sigorta süreci desteği'],
-    },
-    {
-      icon: ScaleIcon,
-      title: 'KFZ-GUTACHTEN',
-      subtitle: 'Araç Ekspertizi',
-      desc: 'Çeşitli durumlar için kapsamlı raporlar — bağımsız, tarafsız ve hukuki olarak güvenli.',
-      bullets: ['Kaza ekspertizi', 'Delil güvenceleme raporu', 'Klasik araç ekspertizi', 'Diğer özel durumlar'],
-    },
-    {
-      icon: TrendingUp,
-      title: 'WERTGUTACHTEN',
-      subtitle: 'Değer Tespiti',
-      desc: 'Aracınızın güncel piyasa değerinin belirlenmesi — satış, sigorta veya finansman amaçlı.',
-      bullets: ['Piyasa değer analizi', 'Kalan değer tespiti', 'Klasik ve koleksiyon araç değerleme'],
-    },
-    {
-      icon: Target,
-      title: 'KOSTENVORANSCHLÄGE',
-      subtitle: 'Maliyet Tahmini',
-      desc: 'Onarımlar için detaylı maliyet tahminleri — hızlı, şeffaf ve takip edilebilir.',
-      bullets: ['Onarım maliyet listesi', 'Parça ve işçilik bedelleri', 'Hasar süreci için temel'],
-    },
-    {
-      icon: Brain,
-      title: 'ERSTE KUNDENBERATUNG',
-      subtitle: 'İlk Müşteri Danışmanlığı',
-      desc: 'Kişisel danışmanlık ve ilk değerlendirme — yetkin, bağımsız ve ücretsiz.',
-      bullets: ['Olayın ilk değerlendirmesi', 'Sorularınızın açıklanması', 'Sonraki adımlar için öneri'],
-    },
-    {
-      icon: ShieldIcon,
-      title: 'LEASINGRÜCKLÄUFER-CHECK',
-      subtitle: 'Leasing İade Kontrolü',
-      desc: 'Aracınızın iade öncesi profesyonel kontrolü — ek ödemeleri ve anlaşmazlıkları önleyin.',
-      bullets: ['Hasar ve eksik kontrolü', 'Leasing kriterlerine göre değerleme', 'Kontrol raporu ile belgeleme', 'Tarafsız ve adil değerlendirme'],
-    },
+    { icon: Brain, title: 'KI-Fahrzeugschein-Scan (OCR)', desc: 'Laden Sie ein Foto des Fahrzeugscheins hoch — Fahrgestellnummer, Kennzeichen, Marke und Modell werden in Sekunden ausgefüllt.', span: 'col-span-12 md:col-span-8', size: 'lg', accent: C.neon },
+    { icon: Zap, title: 'Echtzeit-Fahrzeughistorie', desc: 'Greifen Sie mit einem Klick auf die Historie, Unfälle und Teileberichte über Fahrgestellnummer oder Kennzeichen zu.', span: 'col-span-12 md:col-span-4', size: 'lg', accent: C.cyan },
+    { icon: Target, title: 'Online-Terminsystem', desc: 'Synchronisiert mit Google Kalender. Kunden buchen Termine, die sofort in Ihren Kalender eingetragen werden.', span: 'col-span-12 md:col-span-5', size: 'md', accent: C.magenta },
+    { icon: TrendingUp, title: 'Live-Begutachtungs-Tracking', desc: 'Mechanik, Karosserie, Lackierung, Bericht. Der Kunde sieht jede Phase des Prozesses in Echtzeit.', span: 'col-span-12 md:col-span-7', size: 'md', accent: C.neon2 },
   ];
 
   return (
-    <section id="leistungen" className="relative py-20 md:py-28" style={{ background: '#FFFFFF' }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1280 }}>
-        {/* Header — left/right split */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center mb-16 md:mb-20">
-          {/* Left — title + description */}
-          <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
-            transition={{ duration: 0.7, ease: easeOut }}>
-            <p className="text-2xl md:text-3xl font-black uppercase tracking-tight" style={{ color: '#0A0A0A' }}>
-              Unsere
-            </p>
-            <h2 className="text-5xl md:text-7xl font-black uppercase leading-[0.95] mt-1" style={{ color: '#E30613', letterSpacing: '-0.02em' }}>
-              Leistungen
+    <section className="relative py-32 md:py-40" style={{ zIndex: 2 }}>
+      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+        <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-100px' }}
+          transition={{ duration: 0.8, ease: easeOut }} className="mb-16 md:mb-24 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-10 items-center">
+          <div>
+            <p className="text-xs uppercase mb-5" style={{ color: C.neon, letterSpacing: '0.25em' }}>FUNKTIONEN</p>
+            <h2 className="text-4xl md:text-6xl font-semibold max-w-3xl" style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.05 }}>
+              Der <span style={{ color: C.neon }}>digitale Standard</span> der Kfz-Begutachtung.
             </h2>
-            <div className="mt-5 h-1 w-20 rounded-full" style={{ background: '#E30613' }} />
-            <p className="mt-7 text-base md:text-lg leading-relaxed max-w-md" style={{ color: '#4B4B4B' }}>
-              Bağımsız bir KFZ ekspertiz uzmanı olarak, aracınızla ilgili tüm konularda profesyonel ve objektif
-              ekspertizler ile danışmanlık hizmetleri sunuyoruz. Hızlı, güvenilir ve şeffaf — güvenliğiniz için.
+            <p className="mt-6 text-lg max-w-2xl" style={{ color: C.textDim }}>
+              Fahrzeugschein-Scan, Historie, Terminmanagement und Kundenportal — alles unter einem Dach.
             </p>
-          </motion.div>
-
-          {/* Right — B&W image */}
-          <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
-            transition={{ duration: 0.7, ease: easeOut, delay: 0.15 }}
-            className="relative h-[280px] md:h-[340px] rounded-xl overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #2A2A2A 0%, #4A4A4A 50%, #6B6B6B 100%)' }}>
-            <img src="/logo-gecit.png" alt="" aria-hidden="true"
-              className="absolute inset-0 w-full h-full object-contain p-10"
-              style={{ filter: 'grayscale(100%) brightness(1.4) opacity(0.35)', mixBlendMode: 'screen' }} />
-            <div className="absolute inset-0"
-              style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.4) 100%)' }} />
-            <div className="absolute inset-0 pointer-events-none"
-              style={{ boxShadow: 'inset 0 0 80px rgba(255,255,255,0.05)' }} />
-          </motion.div>
-        </div>
-
-        {/* 3x2 Card Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          </div>
+          <div className="relative rounded-3xl overflow-hidden w-full md:w-80 h-56 md:h-64"
+            style={{ border: `1px solid ${C.border}`, boxShadow: `0 0 40px ${C.glow}` }}>
+            <img src="/images/keys.jpg" alt="Schlüsselübergabe" loading="lazy"
+              className="absolute inset-0 w-full h-full object-cover" />
+            {/* Gradyan kaldırıldı */}
+          </div>
+        </motion.div>
+        <div className="grid grid-cols-12 gap-4">
           {features.map((f, i) => (
             <motion.div key={i}
-              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.6, ease: easeOut, delay: i * 0.06 }}
-              whileHover={{ y: -4 }}
-              className="group relative bg-white p-8 md:p-10 flex flex-col items-center text-center transition-all"
-              style={{
-                border: '1px solid rgba(0,0,0,0.08)',
-                borderRadius: 12,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-              }}>
-              {/* Icon circle */}
-              <div className="w-20 h-20 rounded-full flex items-center justify-center mb-5 transition-transform group-hover:scale-105"
-                style={{ background: '#F5F5F5', color: '#E30613', border: '1px solid rgba(0,0,0,0.04)' }}>
-                <f.icon size={36} strokeWidth={1.8} />
-              </div>
-              {/* Title */}
-              <h3 className="text-lg md:text-xl font-black uppercase tracking-wide mb-1" style={{ color: '#0A0A0A', letterSpacing: '0.04em' }}>
-                {f.title}
-              </h3>
-              <p className="text-xs font-semibold uppercase mb-4" style={{ color: '#E30613', letterSpacing: '0.15em' }}>
-                {f.subtitle}
-              </p>
-              {/* Desc */}
-              <p className="text-sm leading-relaxed mb-5" style={{ color: '#6B6B6B' }}>
-                {f.desc}
-              </p>
-              {/* Bullets */}
-              <ul className="w-full text-left space-y-2 mt-auto">
-                {f.bullets.map((b, j) => (
-                  <li key={j} className="flex items-start gap-2.5 text-sm" style={{ color: '#1F1F1F' }}>
-                    <span className="flex-shrink-0 mt-0.5" style={{ color: '#E30613' }}>
-                      <Svg size={16}>
-                        <circle cx="12" cy="12" r="10" fill="none" strokeWidth="1.8" />
-                        <polyline points="9 12 11 14 15 10" strokeWidth="2" />
-                      </Svg>
+              initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-50px' }}
+              transition={{ duration: 0.7, ease: easeOut, delay: i * 0.1 }}
+              className={f.span}>
+              <SpotlightCard size={f.size} className="h-full">
+                <div className="flex flex-col h-full p-8 md:p-10">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6"
+                    style={{ background: `${f.accent}20`, border: `1px solid ${f.accent}44`,
+                      color: f.accent, boxShadow: `0 0 30px ${f.accent}22` }}>
+                    <f.icon size={22} strokeWidth={1.8} />
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-semibold mb-3"
+                    style={{ color: C.text, letterSpacing: '-0.02em' }}>{f.title}</h3>
+                  <p className="leading-relaxed" style={{ color: C.textDim }}>{f.desc}</p>
+                  <div className="mt-auto pt-8">
+                    <span className="inline-flex items-center gap-1 text-sm" style={{ color: f.accent }}>
+                      Details ansehen <ChevronRight size={14} />
                     </span>
                     <span>{b}</span>
                   </li>
@@ -945,18 +1121,70 @@ function Features() {
 // ─── Kirmizi bant CTA ────────────────────────────
 function KostenlosBanner() {
   return (
-    <section style={{ background: '#E30613' }}>
-      <div className="mx-auto px-6 py-10 md:py-12" style={{ maxWidth: 1280 }}>
-        <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-          {/* Left */}
-          <div className="text-center md:text-left">
-            <div className="flex items-center gap-3 justify-center md:justify-start mb-2">
-              <Svg size={22} style={{ color: '#FFFFFF', flexShrink: 0 }}>
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 6 6l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.5 16h.5z"/>
-              </Svg>
-              <p className="text-xl md:text-2xl font-black tracking-wide" style={{ color: '#FFFFFF' }}>
-                HIZLI · BAĞIMSIZ · GÜVENİLİR
-              </p>
+    <section className="relative py-20 md:py-28 overflow-hidden" style={{ zIndex: 2 }}>
+      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ duration: 0.8, ease: easeOut }}
+          className="relative rounded-3xl overflow-hidden"
+          style={{ background: '#FFFFFF',
+            border: '1px solid rgba(239,68,68,0.2)' }}>
+          {/* Glow effects kaldırıldı */}
+
+          <div className="relative p-10 md:p-16">
+            <div className="flex flex-col md:flex-row items-center gap-10">
+              {/* Left: Photo */}
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                whileInView={{ scale: 1, opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="flex-shrink-0">
+                <div className="relative w-full md:w-80 h-56 md:h-64 rounded-3xl overflow-hidden"
+                  style={{ border: '1px solid rgba(239,68,68,0.25)',
+                    boxShadow: '0 0 40px rgba(239,68,68,0.12)' }}>
+                  <img src="/images/inspection.jpg" alt="Unfallgutachten Inspektion" loading="lazy"
+                    className="absolute inset-0 w-full h-full object-cover" />
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.18), transparent 60%)' }} />
+                  <div className="absolute top-3 left-3 w-12 h-12 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'rgba(239,68,68,0.92)', backdropFilter: 'blur(6px)' }}>
+                    <ScaleIcon size={22} style={{ color: '#fff' }} />
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Center: Content */}
+              <div className="flex-1 text-center md:text-left">
+                <p className="text-xs uppercase mb-3 font-semibold tracking-widest" style={{ color: '#EF4444' }}>
+                  Ihre Vorteile mit uns
+                </p>
+                <h2 className="text-3xl md:text-5xl font-bold mb-4"
+                  style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+                  Kostenlos für <span style={{ color: '#EF4444' }}>Geschädigte</span>
+                </h2>
+                <p className="text-lg md:text-xl leading-relaxed max-w-2xl" style={{ color: C.textDim }}>
+                  Bei Fremdverschuldung zahlen Sie nichts. Wir rechnen direkt mit der gegnerischen Versicherung ab.
+                </p>
+                <div className="mt-6 flex flex-wrap gap-4 justify-center md:justify-start">
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
+                    style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
+                    <span style={{ color: '#34D399', fontSize: 16 }}>✓</span>
+                    <span className="text-sm" style={{ color: '#34D399' }}>Keine Vorauszahlung</span>
+                  </div>
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
+                    style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
+                    <span style={{ color: '#34D399', fontSize: 16 }}>✓</span>
+                    <span className="text-sm" style={{ color: '#34D399' }}>Direkte Abrechnung</span>
+                  </div>
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
+                    style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
+                    <span style={{ color: '#34D399', fontSize: 16 }}>✓</span>
+                    <span className="text-sm" style={{ color: '#34D399' }}>Professionelles Gutachten</span>
+                  </div>
+                </div>
+              </div>
             </div>
             <p className="text-sm md:text-base font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>
               Profesyonel araç ekspertiz hizmetiniz — Aachen ve çevresinde
@@ -981,14 +1209,14 @@ function KostenlosBanner() {
 }
 
 // ─── Verkehrsunfall Support Intro ─────────────────
-function VerkehrsunfallSection() {
+function VerkehrsunfallSection({ onBook }) {
   const points = [
     { title: 'Unabhängig & neutral', desc: 'Wir arbeiten ausschließlich in Ihrem Interesse — nicht im Auftrag der Versicherung.' },
     { title: 'Schnelle Terminvergabe', desc: 'Begutachtung meist innerhalb von 24 Stunden. Kein langes Warten, kein Druck.' },
     { title: 'Volle Ansprüche sichern', desc: 'Wir dokumentieren jeden Schaden lückenlos, damit Ihnen kein Cent verloren geht.' },
   ];
   return (
-    <section className="relative py-24 md:py-32" style={{ zIndex: 2 }}>
+    <section id="ueber-uns" className="relative py-24 md:py-32" style={{ zIndex: 2 }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-stretch mb-12">
           <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }}
@@ -1049,7 +1277,7 @@ function VerkehrsunfallSection() {
 }
 
 // ─── Vehicle classes / Fahrzeugklassen ────────────
-function FahrzeugklassenSection() {
+function FahrzeugklassenSection({ onBook }) {
   const RED = '#E30613';
   const iconProps = { width: 36, height: 36, viewBox: '0 0 24 24', fill: 'none', stroke: RED, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
   const items = [
@@ -1167,7 +1395,7 @@ function RechteSection() {
               Ihre Rechte nach einem <span style={{ color: '#E30613' }}>Unfall</span>
             </h2>
             <p className="text-lg" style={{ color: C.textDim }}>
-              Als Geschädigter stehen Ihnen viele Rechte zu. Wir setzen diese für Sie durch.
+              Als Geschädigter haben Sie viele Rechte. Wir setzen diese für Sie durch.
             </p>
           </motion.div>
         </div>
@@ -1208,18 +1436,18 @@ function WhyGecitKfz() {
   const benefits = [
     {
       icon: InfinityIcon,
-      title: 'Ömür Boyu Erişim',
-      desc: 'Ekspertiz raporlarınız ve belgeleriniz sonsuza kadar dijital arşivde. İstediğiniz zaman, istediğiniz yerden ulaşın.',
+      title: 'Lebenslanger Zugriff',
+      desc: 'Ihre Gutachten sind dauerhaft in Ihrem digitalen Archiv gespeichert. Jederzeit abrufbar.',
       accent: C.neon,
       gradient: `linear-gradient(135deg, ${C.neon}18, ${C.neon2}08)`,
       borderColor: `${C.neon}30`,
       stat: '∞',
-      statLabel: 'Sınırsız Saklama',
+      statLabel: 'Unbegrenzte Speicherung',
     },
     {
       icon: GlobeIcon,
-      title: 'Her Yerden Erişim',
-      desc: 'Mobil, tablet veya bilgisayar — fark etmez. Belgeleriniz her cihazda, her zaman yanınızda.',
+      title: 'Zugriff von überall',
+      desc: 'Smartphone, Tablet oder Computer — Ihre Dokumente sind auf jedem Gerät dabei.',
       accent: C.cyan,
       gradient: `linear-gradient(135deg, ${C.cyan}18, rgba(6,182,212,0.05))`,
       borderColor: `${C.cyan}30`,
@@ -1228,23 +1456,23 @@ function WhyGecitKfz() {
     },
     {
       icon: UsersGroupIcon,
-      title: 'Tek Portal, Üç Kullanıcı',
-      desc: 'Müşteri, avukat ve sigortacı aynı platformu kullanır. Bilgi akışı kopma olmadan, tek merkezden yönetilir.',
+      title: 'Ein Portal, drei Nutzer',
+      desc: 'Kunden, Anwälte und Versicherer nutzen dieselbe Plattform für einen reibungslosen Informationsfluss.',
       accent: C.magenta,
       gradient: `linear-gradient(135deg, ${C.magenta}18, rgba(236,72,153,0.05))`,
       borderColor: `${C.magenta}30`,
       stat: '3in1',
-      statLabel: 'Birleşik Platform',
+      statLabel: 'Vereinte Plattform',
     },
     {
       icon: RadioTowerIcon,
-      title: 'Canlı Veri Akışı',
-      desc: 'Ekspertiz sürecini adım adım canlı takip edin. Mekanik, kaporta, rapor — her aşama anlık güncellenir.',
+      title: 'Live-Datenfluss',
+      desc: 'Verfolgen Sie die Begutachtung live. Mechanik, Karosserie, Bericht — alles in Echtzeit.',
       accent: '#34D399',
       gradient: 'linear-gradient(135deg, rgba(52,211,153,0.09), rgba(16,185,129,0.04))',
       borderColor: 'rgba(52,211,153,0.3)',
       stat: 'LIVE',
-      statLabel: 'Gerçek Zamanlı',
+      statLabel: 'Echtzeit',
     },
     {
       icon: FolderCheckIcon,
@@ -1259,19 +1487,21 @@ function WhyGecitKfz() {
   ];
 
   return (
-    <section className="relative py-32 md:py-40 overflow-hidden" style={{ zIndex: 2, background: '#FFFFFF' }}>
+    <section className="relative py-32 md:py-40 overflow-hidden" style={{ zIndex: 2 }}>
+      {/* Ambient glow */}
+      {/* Ambient glow kaldırıldı */}
 
       <div className="mx-auto px-6 relative" style={{ maxWidth: 1200 }}>
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.8, ease: easeOut }} className="text-center mb-20">
-          <p className="text-xs uppercase mb-5 font-semibold" style={{ color: '#E30613', letterSpacing: '0.25em' }}>Warum Gecit Kfz Sachverständiger?</p>
-          <h2 className="text-4xl md:text-6xl font-semibold max-w-4xl mx-auto" style={{ color: '#0A0A0A', letterSpacing: '-0.03em', lineHeight: 1.05 }}>
-            Neden <span style={{ color: '#e10600' }}>Gecit</span> Kfz Sachverständiger'u Tercih Etmelisiniz?
+          <p className="text-xs uppercase mb-5 font-semibold" style={{ color: C.cyan, letterSpacing: '0.25em' }}>Warum Gecit Kfz Sachverständiger?</p>
+          <h2 className="text-4xl md:text-6xl font-semibold max-w-4xl mx-auto" style={{ color: '#000', letterSpacing: '-0.03em', lineHeight: 1.05 }}>
+            Warum <span style={{ color: "#e10600" }}>Gecit</span> Kfz Sachverständiger wählen?
           </h2>
           <p className="mt-6 text-lg max-w-2xl mx-auto" style={{ color: C.textDim }}>
-            Belgeleriniz güvende, süreçleriniz şeffaf, herkes aynı sayfada.
+            Ihre Dokumente sind sicher, Ihre Prozesse transparent, alle auf demselben Stand.
           </p>
         </motion.div>
 
@@ -1350,19 +1580,19 @@ function HowItWorks() {
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
   const pathLen = useTransform(scrollYProgress, [0.1, 0.8], [0, 1]);
   const steps = [
-    { n: '01', title: 'Termin Al', desc: 'Online takvimden uygun saati seç. Randevu Google Takvim üzerinde işaretlenir, SMS ve e-posta ile onay gelir.', align: 'left' },
-    { n: '02', title: 'Ruhsatını Yükle', desc: 'Ruhsat fotoğrafını sürükle-bırak ile yükle. AI saniyeler içinde araç bilgisini okur; tramer ve kaza geçmişi anında görünür.', align: 'right' },
-    { n: '03', title: 'Raporunu Al', desc: 'Mekanik, kaporta ve boya kontrolü tamamlandığında detaylı PDF rapor müşteri portalına ve e-postana düşer.', align: 'left' },
+    { n: '01', title: 'Termin vereinbaren', desc: 'Wählen Sie einen passenden Termin im Online-Kalender. Bestätigung erfolgt per SMS und E-Mail.', align: 'left' },
+    { n: '02', title: 'Fahrzeugschein hochladen', desc: 'Laden Sie den Fahrzeugschein per Drag & Drop hoch. Die KI liest die Daten in Sekunden aus.', align: 'right' },
+    { n: '03', title: 'Bericht erhalten', desc: 'Nach Abschluss der Prüfung erhalten Sie das detaillierte PDF-Gutachten im Portal und per E-Mail.', align: 'left' },
   ];
   return (
-    <section ref={ref} className="relative py-32 md:py-40 overflow-hidden" style={{ zIndex: 2, background: '#FAFAFA' }}>
+    <section id="ablauf" ref={ref} className="relative py-32 md:py-40 overflow-hidden" style={{ zIndex: 2 }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.8, ease: easeOut }} className="text-center mb-20">
-          <p className="text-xs uppercase mb-5" style={{ color: C.neon, letterSpacing: '0.25em' }}>Nasıl Çalışır</p>
+          <p className="text-xs uppercase mb-5" style={{ color: C.neon, letterSpacing: '0.25em' }}>SO FUNKTIONIERT ES</p>
           <h2 className="text-4xl md:text-6xl font-semibold" style={{ color: C.text, letterSpacing: '-0.03em' }}>
-            3 Adımda <span style={{ color: C.neon }}>Güvenli Ekspertiz</span>
+            In 3 Schritten zum <span style={{ color: C.neon }}>Sicherem Gutachten</span>
           </h2>
         </motion.div>
         <div className="relative">
@@ -1437,8 +1667,8 @@ function Stat({ value, prefix = '', suffix = '', label }) {
     <motion.div ref={ref} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.8, ease: easeOut }} className="text-center md:text-left">
-      <div className="font-mono tabular-nums text-5xl md:text-7xl font-black"
-        style={{ color: '#E30613', letterSpacing: '-0.04em' }}>
+      <div className="font-mono tabular-nums text-5xl md:text-7xl font-semibold"
+        style={{ color: C.neon, letterSpacing: '-0.04em' }}>
         {prefix}{disp}{suffix}
       </div>
       <p className="mt-3 text-sm uppercase" style={{ color: C.textDim, letterSpacing: '0.2em' }}>{label}</p>
@@ -1452,17 +1682,17 @@ function Stats() {
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
-          transition={{ duration: 0.8, ease: easeOut }} className="mb-16">
-          <p className="text-xs uppercase mb-4 font-bold" style={{ color: '#E30613', letterSpacing: '0.25em' }}>Güven</p>
-          <h2 className="text-4xl md:text-6xl font-black max-w-3xl" style={{ color: '#0A0A0A', letterSpacing: '-0.03em' }}>
-            Sayılarla güvenin adı.
+          transition={{ duration: 0.8, ease: easeOut }} className="mb-20">
+          <p className="text-xs uppercase mb-5" style={{ color: C.neon, letterSpacing: '0.25em' }}>VERTRAUEN</p>
+          <h2 className="text-4xl md:text-6xl font-semibold max-w-3xl" style={{ color: C.text, letterSpacing: '-0.03em' }}>
+            Vertrauen in Zahlen.
           </h2>
         </motion.div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-8">
-          <Stat value={15} suffix="K+" label="Tamamlanan Ekspertiz" />
-          <Stat value={3} suffix="sn" label="Ruhsat OCR Süresi" />
-          <Stat value={120} suffix="+" label="Kontrol Noktası" />
-          <Stat value={98} suffix="%" label="Müşteri Memnuniyeti" />
+          <Stat value={15} suffix="K+" label="Oklanan Ekspertiz" />
+          <Stat value={3} suffix="sn" label="Scan-Zeit" />
+          <Stat value={120} suffix="+" label="Prüfpunkte" />
+          <Stat value={98} suffix="%" label="Kundenzufriedenheit" />
         </div>
       </div>
     </section>
@@ -1478,18 +1708,19 @@ function Testimonial() {
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.9, ease: easeOut }}
           className="relative p-10 md:p-16 rounded-3xl"
-          style={{ background: '#F8F8F8', border: '1px solid rgba(0,0,0,0.08)' }}>
+          style={{ background: '#FFFFFF',
+            border: `1px solid ${C.border}`, backdropFilter: 'blur(16px)' }}>
           <Quote size={48} style={{ color: C.neon, opacity: 0.6 }} />
           <blockquote className="mt-6 text-3xl md:text-5xl italic leading-tight"
             style={{ color: C.text, letterSpacing: '-0.02em', fontFamily: 'Georgia, "Times New Roman", serif' }}>
-            "İkinci el araç aldık; Gecit Kfz Sachverständiger ruhsattan saniyede okudu, 20 yıllık galericinin bile kaçırdığı değişen parçayı yakaladı. Paranın tam karşılığı."
+            "Wir haben einen Gebrauchtwagen gekauft; Gecit Kfz Sachverständiger hat den Schein in Sekunden gelesen und den Mangel gefunden. Absolut empfehlenswert."
           </blockquote>
           <div className="mt-10 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center font-mono text-lg font-bold"
-              style={{ background: '#E30613', color: '#FFFFFF' }}>MY</div>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center font-mono text-lg"
+              style={{ background: `linear-gradient(135deg, ${C.neon}, ${C.magenta})`, color: '#FFFFFF' }}>MY</div>
             <div>
-              <p style={{ color: C.text }} className="font-medium">Mehmet Yıldız</p>
-              <p className="text-sm" style={{ color: C.textDim }}>Kurucu Ortak @ Yıldız Motors</p>
+              <p style={{ color: C.text }} className="font-medium">Mehmet Yildiz</p>
+              <p className="text-sm" style={{ color: C.textDim }}>Mitbegründer @ Yıldız Motors</p>
             </div>
           </div>
         </motion.div>
@@ -1501,43 +1732,48 @@ function Testimonial() {
 // ─── Pricing ────────────────────────────────────
 function PricingCard({ name, price, desc, features, highlighted, cta }) {
   return (
-    <motion.div whileHover={{ y: -6 }} transition={spring}
-      className="relative p-8 rounded-3xl h-full flex flex-col"
-      style={{ background: highlighted ? '#FFFFFF' : '#FAFAFA',
-        border: highlighted ? '2px solid #E30613' : '1px solid rgba(0,0,0,0.08)',
-        boxShadow: highlighted ? '0 8px 40px rgba(227,6,19,0.15)' : 'none' }}>
+    <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }} transition={{ duration: 0.6 }}
+      className={`relative p-8 rounded-3xl h-full flex flex-col transition-all duration-500 ${highlighted ? 'keep-white' : ''}`}
+      style={{ 
+        background: highlighted ? C.neon : 'white',
+        border: highlighted ? 'none' : `1px solid ${C.border}`,
+        boxShadow: highlighted ? `0 20px 40px ${C.glow}40` : 'none',
+        color: highlighted ? '#FFFFFF' : C.text 
+      }}>
       {highlighted && (
-        <div className="absolute px-4 py-1 rounded-full text-xs uppercase font-bold"
-          style={{ top: -14, left: '50%', transform: 'translateX(-50%)',
-            background: '#E30613', color: '#FFFFFF', letterSpacing: '0.12em', whiteSpace: 'nowrap' }}>En Popüler</div>
+        <div className="absolute px-4 py-1 rounded-full text-[10px] uppercase font-bold"
+          style={{ top: 16, right: 16, background: 'rgba(255,255,255,0.2)', color: '#FFFFFF', letterSpacing: '0.1em' }}>AM BELIEBTESTEN</div>
       )}
-      <p className="text-sm uppercase mb-4" style={{ color: C.neon, letterSpacing: '0.2em' }}>{name}</p>
+      <p className="text-xs uppercase mb-4 font-bold" style={{ color: highlighted ? '#FFFFFF' : C.neon, opacity: highlighted ? 0.8 : 1, letterSpacing: '0.15em' }}>{name}</p>
       <div className="flex items-baseline gap-1 mb-2">
-        <span className="text-5xl font-semibold font-mono tabular-nums"
-          style={{ color: C.text, letterSpacing: '-0.03em' }}>{price}</span>
-        {price !== 'Özel' && <span style={{ color: C.textDim }}>/ay</span>}
+        <span className="text-5xl font-bold font-mono tabular-nums"
+          style={{ letterSpacing: '-0.03em' }}>{price}</span>
+        {price !== 'Individuell' && <span className="text-sm opacity-60">/ay</span>}
       </div>
-      <p className="mb-8 text-sm" style={{ color: C.textDim }}>{desc}</p>
-      <ul className="space-y-3 mb-8 flex-1">
+      <p className="mb-8 text-sm opacity-80">{desc}</p>
+      <ul className="space-y-4 mb-8 flex-1">
         {features.map((f, i) => (
-          <li key={i} className="flex items-start gap-3 text-sm" style={{ color: C.text }}>
-            <Check size={16} style={{ color: C.neon, marginTop: 3, flexShrink: 0 }} />{f}
+          <li key={i} className="flex items-start gap-3 text-sm">
+            <Check size={16} className={highlighted ? "text-white" : "text-[#E30613]"} style={{ marginTop: 3, flexShrink: 0 }} />
+            <span className={highlighted ? "text-white" : "text-[#0A0A0A]"}>{f}</span>
           </li>
         ))}
       </ul>
-      <button data-magnetic className="w-full py-3 rounded-lg font-semibold text-sm transition-all"
+      <button 
+        data-magnetic 
+        className="w-full py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all"
         style={highlighted
-          ? { background: '#E30613', color: '#FFFFFF', boxShadow: '0 4px 16px rgba(227,6,19,0.30)' }
-          : { background: 'transparent', color: '#0A0A0A', border: '1px solid rgba(0,0,0,0.12)' }}
-        onMouseEnter={e => { if (highlighted) e.currentTarget.style.background = '#B0050F'; else e.currentTarget.style.background = '#F5F5F5'; }}
-        onMouseLeave={e => { if (highlighted) e.currentTarget.style.background = '#E30613'; else e.currentTarget.style.background = 'transparent'; }}>
+          ? { background: '#FFFFFF', color: C.neon }
+          : { background: '#F9FAFB', color: '#0A0A0A', border: `1px solid ${C.border}` }}
+      >
         {cta}
       </button>
     </motion.div>
   );
 }
 
-function Pricing() {
+function Pricing({ onBook }) {
   return (
     <section className="relative py-24 md:py-32" style={{ zIndex: 2, background: '#FFFFFF' }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
@@ -1546,257 +1782,86 @@ function Pricing() {
           transition={{ duration: 0.8, ease: easeOut }} className="text-center mb-16">
           <p className="text-xs uppercase mb-4 font-bold" style={{ color: '#E30613', letterSpacing: '0.25em' }}>Paketler</p>
           <h2 className="text-4xl md:text-6xl font-semibold" style={{ color: C.text, letterSpacing: '-0.03em' }}>
-            Her araç için doğru paket.
+            Das richtige Paket für jedes Fahrzeug.
           </h2>
         </motion.div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <PricingCard name="Standart" price="₺1.490" desc="Bireysel araç sahipleri için temel ekspertiz paketi."
-            features={['60 nokta görsel kontrol', 'Dijital PDF rapor', 'Tramer geçmişi sorgulama', 'Online termin + SMS bildirim']} cta="Termin Al" />
-          <PricingCard name="Premium" price="₺2.990" desc="İkinci el alıcılar ve oto galerilerinin ilk tercihi."
-            features={['120 nokta detaylı kontrol', 'AI ruhsat OCR analizi', 'Kaporta + boya kalınlık ölçümü', 'Motor + şanzıman testi', 'Müşteri portalına tam erişim']}
-            highlighted cta="Premium Seç" />
-          <PricingCard name="Kurumsal" price="Özel" desc="Galeri, sigorta ve filo firmalarına özel çözümler."
-            features={['Aylık sınırsız ekspertiz', 'Özel CRM + API entegrasyonu', 'Kurumsal fatura & cari takip', 'Öncelikli servis hattı + SLA']} cta="Bizimle Görüş" />
+          <PricingCard name="Standard" price="₺1.490" desc="Das Basis-Paket für Privatpersonen."
+            features={['60 Punkte Sichtprüfung', 'Digitaler PDF-Bericht', 'Abfrage der Fahrzeughistorie', 'Online-Termin + SMS-Benachrichtigung']} cta="Termin vereinbaren" />
+          <PricingCard name="Premium" price="₺2.990" desc="Die erste Wahl für Gebrauchtwagenkäufer und Autohäuser."
+            features={['120 Punkte Detailprüfung', 'KI-Fahrzeugschein-OCR-Analyse', 'Karosserie + Lackdickenmessung', 'Motor + Getriebetest', 'Vollständiger Zugriff auf das Kundenportal']}
+            highlighted cta="Premium wählen" />
+          <PricingCard name="Business" price="Individuell" desc="Spezielle Lösungen für Autohäuser, Versicherungen und Flotten."
+            features={['Monatlich unbegrenzte Gutachten', 'CRM + API Integration', 'Rechnungsstellung & Tracking', 'Priorisierte Service-Hotline + SLA']} cta="Kontaktieren Sie uns" />
         </div>
       </div>
     </section>
   );
 }
 
-// ─── Footer CTA ─────────────────────────────────
-function FooterCTA() {
+function AdminButton({ children, variant = 'ghost', size = 'md', onClick, type = 'button', disabled, className = '' }) {
+  const sizeCls = size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2.5 text-sm';
+  const style = variant === 'primary'
+    ? { background: `linear-gradient(135deg, ${C.neon} 0%, ${C.neon2} 100%)`, color: '#FFFFFF', boxShadow: `0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px -8px ${C.glow}` }
+    : variant === 'danger'
+    ? { background: 'rgba(244,114,182,0.1)', border: '1px solid rgba(244,114,182,0.3)', color: C.magenta }
+    : { background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text };
   return (
-    <section className="relative py-24 md:py-32 overflow-hidden"
-      style={{ background: '#FFFFFF', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-      {/* Subtle red vignette top */}
-      <div className="absolute top-0 left-0 right-0 h-1" style={{ background: '#E30613' }} />
-      <div className="relative text-center px-6 mx-auto" style={{ maxWidth: 800 }}>
-        <motion.p initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.6, ease: easeOut }}
-          className="text-xs font-bold uppercase mb-6" style={{ color: '#E30613', letterSpacing: '0.25em' }}>
-          Jetzt Termin vereinbaren
+    <button type={type} onClick={onClick} disabled={disabled}
+      className={`inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all hover:opacity-90 disabled:opacity-50 ${sizeCls} ${className}`}
+      style={style}>{children}</button>
+  );
+}
+
+function Field({ label, children, required }) {
+  return (
+    <label className="block">
+      <span className="block text-xs uppercase mb-2" style={{ color: C.textDim, letterSpacing: '0.2em' }}>
+        {label}{required && <span style={{ color: C.magenta }}> *</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function TextInput({ value, onChange, placeholder, type = 'text', required }) {
+  const [focus, setFocus] = useState(false);
+  return (
+    <input type={type} value={value || ''} onChange={onChange} placeholder={placeholder} required={required}
+      onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
+      className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors"
+      style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${focus ? C.neon : C.border}`, color: C.text }} />
+  );
+}
+
+function FooterCTA({ onBook }) {
+  const rm = useReducedMotion();
+  return (
+    <section className="relative flex items-center justify-center overflow-hidden"
+      style={{ minHeight: '100vh', zIndex: 2 }}>
+      {/* Dekoratif blob'lar kaldırıldı */}
+      <div className="relative text-center px-6" style={{ maxWidth: 900 }}>
+        <RevealHeading text="Entdecken Sie die wahre Geschichte Ihres Fahrzeugs."
+          className="text-5xl md:text-7xl lg:text-8xl font-semibold"
+          style={{ color: C.text, letterSpacing: '-0.04em', lineHeight: 0.95 }} />
+        <motion.p initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }} transition={{ duration: 0.8, ease: easeOut, delay: 0.6 }}
+          className="mt-8 text-lg md:text-xl" style={{ color: C.textDim }}>
+          15% Rabatt auf Ihr erstes Gutachten. Termin in 5 Minuten.
         </motion.p>
-        <RevealHeading text="Aracının Gerçek Hikayesini Öğren."
-          className="text-4xl md:text-6xl lg:text-7xl font-black"
-          style={{ color: '#0A0A0A', letterSpacing: '-0.03em', lineHeight: 1.0 }} />
-        <motion.p initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.7, ease: easeOut, delay: 0.5 }}
-          className="mt-6 text-base md:text-lg" style={{ color: '#6B6B6B' }}>
-          İlk ekspertizinde %15 indirim. 5 dakikada online termin.
-        </motion.p>
-        <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.7, ease: easeOut, delay: 0.7 }}
-          className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            className="inline-flex items-center justify-center gap-2 text-sm font-bold px-8 py-4 rounded-lg transition-all"
-            style={{ background: '#E30613', color: '#FFFFFF', boxShadow: '0 6px 24px rgba(227,6,19,0.35)' }}
-            onClick={() => window.dispatchEvent(new CustomEvent('gecit-kfz:book'))}
-            onMouseEnter={e => e.currentTarget.style.background = '#B0050F'}
-            onMouseLeave={e => e.currentTarget.style.background = '#E30613'}>
-            Online Termin Al <ArrowRight size={18} />
-          </button>
-          <a href="tel:+490000000000"
-            className="inline-flex items-center justify-center gap-2 text-sm font-semibold px-8 py-4 rounded-lg transition-all hover:bg-gray-50"
-            style={{ color: '#0A0A0A', border: '1px solid rgba(0,0,0,0.14)', textDecoration: 'none' }}>
-            Jetzt anrufen
-          </a>
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }} transition={{ duration: 0.8, ease: easeOut, delay: 0.8 }}
+          className="mt-10 flex justify-center">
+          <MagneticButton variant="primary" ariaLabel="Online termin al" className="text-base"
+            onClick={() => window.dispatchEvent(new CustomEvent('gecit-kfz:book'))}>
+            Online Termin vereinbaren <ArrowRight size={18} />
+          </MagneticButton>
         </motion.div>
       </div>
     </section>
   );
 }
 
-// ─── Footer ─────────────────────────────────────
-function Footer() {
-  const contactItems = [
-    { icon: <Svg size={14}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 6 6l.94-.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.5 16h.5z"/></Svg>, label: '+49 241 000 0000' },
-    { icon: <Svg size={14}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></Svg>, label: 'info@gecit-kfz.de' },
-    { icon: <Svg size={14}><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></Svg>, label: 'www.gecit-kfz.de' },
-  ];
-  return (
-    <footer style={{ background: '#FFFFFF', borderTop: '1px solid rgba(0,0,0,0.08)', zIndex: 2 }}>
-      <div className="mx-auto px-6 py-16" style={{ maxWidth: 1280 }}>
-        {/* 3 columns */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
-          {/* Left: Logo + tagline */}
-          <div>
-            <div className="flex items-center gap-1 font-black tracking-tight mb-3" style={{ lineHeight: 1 }}>
-              <span style={{ color: '#E30613', fontSize: 22 }}>GECIT</span>
-              <span style={{ color: '#0A0A0A', fontSize: 22, margin: '0 1px' }}>-</span>
-              <span style={{ color: '#0A0A0A', fontSize: 22 }}>KFZ</span>
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: '#6B6B6B' }}>
-              Sachverständigenbüro
-            </p>
-            <p className="text-sm leading-relaxed" style={{ color: '#6B6B6B' }}>
-              Bağımsız, hızlı ve güvenilir araç ekspertiz hizmetleri. Kaza anından itibaren yanınızdayız.
-            </p>
-          </div>
-
-          {/* Middle: Address */}
-          <div>
-            <p className="text-xs font-bold uppercase mb-4" style={{ color: '#0A0A0A', letterSpacing: '0.16em' }}>
-              ADRESSE
-            </p>
-            <div className="text-sm leading-relaxed space-y-1" style={{ color: '#6B6B6B' }}>
-              <p>Am Gutshof 37</p>
-              <p>52080 Aachen</p>
-              <p>Deutschland</p>
-              <a href="https://www.google.com/maps/search/?api=1&query=Am+Gutshof+37,+52080+Aachen,+Deutschland"
-                target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 mt-3 text-xs font-semibold transition-colors hover:opacity-70"
-                style={{ color: '#E30613', textDecoration: 'none' }}>
-                Google Maps'te aç <ChevronRight size={12} />
-              </a>
-            </div>
-          </div>
-
-          {/* Right: Contact */}
-          <div>
-            <p className="text-xs font-bold uppercase mb-4" style={{ color: '#0A0A0A', letterSpacing: '0.16em' }}>
-              KONTAKT
-            </p>
-            <div className="space-y-3">
-              {contactItems.map((c, i) => (
-                <div key={i} className="flex items-center gap-3 text-sm" style={{ color: '#6B6B6B' }}>
-                  <span className="flex-shrink-0" style={{ color: '#E30613' }}>{c.icon}</span>
-                  <span>{c.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Map */}
-        <div className="mb-10 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.08)' }}>
-          <iframe
-            title="Gecit Kfz Sachverständiger - Standort"
-            src="https://www.google.com/maps?q=Am+Gutshof+37,+52080+Aachen,+Deutschland&output=embed"
-            width="100%" height="280"
-            style={{ border: 0, display: 'block' }}
-            loading="lazy" referrerPolicy="no-referrer-when-downgrade" allowFullScreen />
-        </div>
-
-        {/* Copyright */}
-        <div className="pt-6 flex flex-col md:flex-row justify-between items-center gap-3 text-xs"
-          style={{ borderTop: '1px solid rgba(0,0,0,0.08)', color: '#6B6B6B' }}>
-          <p>© 2026 Gecit Kfz Sachverständiger. Tüm hakları saklıdır.</p>
-          <div className="flex items-center gap-4">
-            {['Gizlilik', 'KVKK', 'Impressum'].map(l => (
-              <a key={l} href="#" className="hover:text-[#E30613] transition-colors" style={{ color: '#6B6B6B', textDecoration: 'none' }}>{l}</a>
-            ))}
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
-function PWAInstallBanner() {
-  const [show, setShow] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [isIOS, setIsIOS] = useState(false);
-  const [isPWA, setIsPWA] = useState(false);
-
-  useEffect(() => {
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    setIsPWA(standalone);
-    if (standalone) return; // Already installed
-
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    setIsIOS(ios);
-
-    // Check if dismissed recently
-    const dismissed = localStorage.getItem('gecit_kfz_pwa_dismissed');
-    if (dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 60 * 60 * 1000) return;
-
-    if (ios) {
-      // iOS: show Safari install instructions
-      const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
-      if (isSafari) {
-        setTimeout(() => setShow(true), 3000);
-      }
-    } else {
-      // Android/Desktop: listen for beforeinstallprompt
-      const handler = (e) => {
-        e.preventDefault();
-        setDeferredPrompt(e);
-        setTimeout(() => setShow(true), 2000);
-      };
-      window.addEventListener('beforeinstallprompt', handler);
-      return () => window.removeEventListener('beforeinstallprompt', handler);
-    }
-  }, []);
-
-  const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') setShow(false);
-      setDeferredPrompt(null);
-    }
-  };
-
-  const dismiss = () => {
-    setShow(false);
-    localStorage.setItem('gecit_kfz_pwa_dismissed', Date.now().toString());
-  };
-
-  if (!show || isPWA) return null;
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 80 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 80 }}
-        style={{ position: 'fixed', bottom: 20, left: 16, right: 16, zIndex: 9999,
-          background: '#FFFFFF',
-          border: '1px solid rgba(0,0,0,0.12)', borderRadius: 20,
-          padding: '20px', boxShadow: '0 8px 40px rgba(0,0,0,0.15)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(227,6,19,0.08)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24 }}>
-            📲
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#0A0A0A', marginBottom: 4 }}>
-              Gecit Kfz Sachverständiger'u Ana Ekrana Ekle
-            </div>
-            {isIOS ? (
-              <div style={{ fontSize: 13, color: '#6B6B6B', lineHeight: 1.5 }}>
-                <span style={{ color: '#E30613' }}>Safari</span>'de alttaki{' '}
-                <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(227,6,19,0.08)',
-                  borderRadius: 6, padding: '2px 6px', fontSize: 12, verticalAlign: 'middle' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E30613" strokeWidth="2.5">
-                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/>
-                    <line x1="12" y1="2" x2="12" y2="15"/>
-                  </svg>
-                </span>{' '}
-                paylaş butonuna bas, sonra <strong style={{ color: '#0A0A0A' }}>"Ana Ekrana Ekle"</strong> seç.
-                Push bildirimleri sadece PWA'da çalışır.
-              </div>
-            ) : (
-              <div style={{ fontSize: 13, color: '#6B6B6B', lineHeight: 1.5 }}>
-                Uygulamayı telefonuna yükle — push bildirimleri al, çevrimdışı çalış.
-              </div>
-            )}
-          </div>
-          <button onClick={dismiss} style={{ background: 'none', border: 'none', color: '#6B6B6B',
-            fontSize: 20, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
-        </div>
-        {!isIOS && deferredPrompt && (
-          <button onClick={handleInstall}
-            style={{ width: '100%', marginTop: 14, padding: '12px 0', borderRadius: 12,
-              background: '#E30613',
-              border: 'none', color: 'white', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-            Şimdi Yükle
-          </button>
-        )}
-      </motion.div>
-    </AnimatePresence>
-  );
-}
 
 function AppointmentBookingModal({ open, onClose, onBook }) {
   const today = new Date();
@@ -1807,11 +1872,11 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
   const slots = ['09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00'];
   const [date, setDate] = useState(null);
   const [time, setTime] = useState(null);
-  const [service, setService] = useState('Premium Ekspertiz');
+  const [service, setService] = useState('Premium-Begutachtung');
   const [form, setForm] = useState({});
   const [done, setDone] = useState(false);
 
-  useEffect(() => { if (open) { setDate(null); setTime(null); setForm({}); setDone(false); setService('Premium Ekspertiz'); } }, [open]);
+  useEffect(() => { if (open) { setDate(null); setTime(null); setForm({}); setDone(false); setService('Premium-Begutachtung'); } }, [open]);
 
   const submit = (e) => {
     e.preventDefault();
@@ -1820,8 +1885,8 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
   };
 
   return (
-    <GecitKfzModal open={open} onClose={onClose} title={done ? "Terminin Oluşturuldu 🎉" : "Online Termin Al"}
-      subtitle={done ? "Google Takvim'e eklendi, SMS ile onay gönderildi" : "Boş saatlerden seç, 30 saniyede tamamla"} width={720}>
+    <GecitKfzModal open={open} onClose={onClose} title={done ? "Termin vereinbart 🎉" : "Online Termin vereinbaren"}
+      subtitle={done ? "In Google Kalender eingetragen, Bestätigung per SMS gesendet." : "Wählen Sie freie Zeiten, fertig in 30 Sekunden."} width={720}>
       {done ? (
         <div className="py-8 text-center">
           <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-5"
@@ -1830,33 +1895,34 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
           </div>
           <p className="text-lg font-medium" style={{ color: C.text }}>{date} · {time}</p>
           <p className="text-sm mt-2" style={{ color: C.textDim }}>{service}</p>
-          <div className="mt-6"><AdminButton variant="primary" onClick={onClose}>Tamam</AdminButton></div>
+          <div className="mt-6"><AdminButton variant="primary" onClick={onClose}>Ok</AdminButton></div>
         </div>
       ) : (
         <form onSubmit={submit} className="space-y-5">
           <div>
-            <p className="text-xs uppercase mb-3" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Hizmet Paketi</p>
+            <p className="text-xs uppercase mb-3" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Service-Paket</p>
             <div className="grid grid-cols-3 gap-2">
-              {['Standart Ekspertiz','Premium Ekspertiz','Kurumsal Filo'].map(s => (
+              {['Standard-Begutachtung','Premium-Begutachtung','Unternehmensflotte'].map(s => (
                 <button type="button" key={s} onClick={() => setService(s)}
                   className="p-3 rounded-xl text-xs text-left transition-all"
                   style={{
-                    background: service === s ? 'rgba(227,6,19,0.08)' : '#FAFAFA',
-                    border: `1px solid ${service === s ? C.neon : C.border}`,
-                    color: service === s ? '#E30613' : C.textDim,
+                    background: service === s ? 'rgba(227,6,19,0.1)' : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${service === s ? '#E30613' : C.border}`,
+                    color: service === s ? C.text : C.textDim,
+                    boxShadow: service === s ? `0 0 16px rgba(227,6,19,0.2)` : 'none',
                   }}>{s}</button>
               ))}
             </div>
           </div>
           <div>
-            <p className="text-xs uppercase mb-3" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Tarih</p>
+            <p className="text-xs uppercase mb-3" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Datum</p>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {days.map(d => (
                 <button type="button" key={d.iso} onClick={() => setDate(d.iso)}
                   className="flex-shrink-0 w-16 p-3 rounded-xl text-center transition-all"
                   style={{
-                    background: date === d.iso ? '#E30613' : '#FAFAFA',
-                    border: `1px solid ${date === d.iso ? '#E30613' : C.border}`,
+                    background: date === d.iso ? `linear-gradient(135deg, ${C.neon}, ${C.neon2})` : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${date === d.iso ? 'transparent' : C.border}`,
                     color: date === d.iso ? '#FFFFFF' : C.text,
                   }}>
                   <p className="text-[10px] uppercase" style={{ letterSpacing: '0.15em' }}>{d.wd}</p>
@@ -1867,15 +1933,15 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
           </div>
           {date && (
             <div>
-              <p className="text-xs uppercase mb-3" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Saat</p>
+              <p className="text-xs uppercase mb-3" style={{ color: C.textDim, letterSpacing: '0.2em' }}>Uhrzeit</p>
               <div className="grid grid-cols-4 gap-2">
                 {slots.map(s => (
                   <button type="button" key={s} onClick={() => setTime(s)}
                     className="p-2.5 rounded-xl text-sm font-mono transition-all"
                     style={{
-                      background: time === s ? 'rgba(227,6,19,0.08)' : '#FAFAFA',
-                      border: `1px solid ${time === s ? C.neon : C.border}`,
-                      color: time === s ? '#E30613' : C.textDim,
+                      background: time === s ? C.neon : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${time === s ? 'transparent' : C.border}`,
+                      color: time === s ? '#FFFFFF' : C.textDim,
                     }}>{s}</button>
                 ))}
               </div>
@@ -1884,14 +1950,14 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
           {date && time && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4" style={{ borderTop: `1px solid ${C.border}` }}>
-                <Field label="Ad Soyad" required><TextInput value={form.full_name} onChange={(e) => setForm(f => ({...f, full_name: e.target.value}))} required /></Field>
+                <Field label="Vor- & Nachname" required><TextInput value={form.full_name} onChange={(e) => setForm(f => ({...f, full_name: e.target.value}))} required /></Field>
                 <Field label="Telefon" required><TextInput value={form.phone} onChange={(e) => setForm(f => ({...f, phone: e.target.value}))} required /></Field>
-                <Field label="E-posta"><TextInput type="email" value={form.email} onChange={(e) => setForm(f => ({...f, email: e.target.value}))} /></Field>
-                <Field label="Plaka"><TextInput value={form.plate} onChange={(e) => setForm(f => ({...f, plate: e.target.value}))} /></Field>
+                <Field label="E-Mail"><TextInput type="email" value={form.email} onChange={(e) => setForm(f => ({...f, email: e.target.value}))} /></Field>
+                <Field label="Kennzeichen"><TextInput value={form.plate} onChange={(e) => setForm(f => ({...f, plate: e.target.value}))} /></Field>
               </div>
               <div className="flex justify-between pt-2">
-                <p className="text-xs self-center" style={{ color: C.textDim }}>✓ Google Takvim'e otomatik eklenir</p>
-                <AdminButton type="submit" variant="primary">Termin Oluştur <ArrowRight size={14} /></AdminButton>
+                <p className="text-xs self-center" style={{ color: C.textDim }}>✓ Wird automatisch in Google Kalender eingetragen</p>
+                <AdminButton type="submit" variant="primary">Termin buchen <ArrowRight size={14} /></AdminButton>
               </div>
             </>
           )}
@@ -1927,24 +1993,121 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
     <div className="landing-root relative min-h-screen overflow-x-hidden"
       style={{ background: '#FAFAFA', color: '#0A0A0A' }}>
       <style>{`
-        /* Kirmizi+beyaz tema — token degerleri guncellendi, minimal override gerekiyor */
+        html { scroll-behavior: smooth; }
+        /* Not: Tarayici inline style'i rgb()'ye normalize ediyor.
+           Bu yuzden hex degil rgb formatinda hedef aliyoruz. */
 
         /* hover:text-white tailwind class -> siyah arkaplanda anlamsiz, kirmizi yap */
         .landing-root .hover\\:text-white:hover {
           color: #E30613 !important;
         }
 
-        /* BannerShowcase ve SpotlightCard koyu surface background'lari acik griye */
-        .landing-root [style*="background: rgb(14, 11, 24)"],
-        .landing-root [style*="background: rgb(20, 16, 39)"],
-        .landing-root [style*="background: rgb(7, 6, 11)"] {
-          background: #F8F8F8 !important;
+        /* 2) Mor / mavi / pembe vurgular -> KIRMIZI */
+        /* #A78BFA = rgb(227,6,19) | #7C3AED = rgb(124,58,237) | #22D3EE = rgb(34,211,238) | #F472B6 = rgb(244,114,182) */
+        .landing-light [style*="color: rgb(167, 139, 250)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(227,6,19)"]:not(footer):not(footer *),
+        .landing-light [style*="color: rgb(124, 58, 237)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(124,58,237)"]:not(footer):not(footer *),
+        .landing-light [style*="color: rgb(34, 211, 238)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(34,211,238)"]:not(footer):not(footer *),
+        .landing-light [style*="color: rgb(244, 114, 182)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(244,114,182)"]:not(footer):not(footer *) {
+          color: #E30613 !important;
+        }
+
+        /* 2b) Koyu yuzey arka planlarini acik gri yap (kart icleri okunabilir olsun) */
+        /* C.surface = #0E0B18 = rgb(14,11,24) | C.surface2 = #141027 = rgb(20,16,39) | C.bg = #07060B = rgb(7,6,11) */
+        .landing-light [style*="background: rgb(14, 11, 24)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(14,11,24)"]:not(footer):not(footer *),
+        .landing-light [style*="background-color: rgb(14, 11, 24)"]:not(footer):not(footer *),
+        .landing-light [style*="background-color:rgb(14,11,24)"]:not(footer):not(footer *),
+        .landing-light [style*="background: rgb(20, 16, 39)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(20,16,39)"]:not(footer):not(footer *),
+        .landing-light [style*="background-color: rgb(20, 16, 39)"]:not(footer):not(footer *),
+        .landing-light [style*="background-color:rgb(20,16,39)"]:not(footer):not(footer *),
+        .landing-light [style*="background: rgb(7, 6, 11)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(7,6,11)"]:not(footer):not(footer *) {
+          background: #f5f5f7 !important;
+          background-color: #f5f5f7 !important;
           border-color: rgba(0,0,0,0.08) !important;
         }
 
-        /* Gradient text-fill -> kirmizi */
-        .landing-root [style*="-webkit-text-fill-color: transparent"] {
+        /* 2d) MeshBackground'taki mor/cyan/pembe blob'lari hafifletip kirmiziya cevir */
+        .landing-light [style*="background: rgb(124, 58, 237)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(124,58,237)"]:not(footer):not(footer *) {
+          background: #E30613 !important;
+          opacity: 0.06 !important;
+        }
+        .landing-light [style*="background: rgb(34, 211, 238)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(34,211,238)"]:not(footer):not(footer *) {
+          background: #fca5a5 !important;
+          opacity: 0.05 !important;
+        }
+        .landing-light [style*="background: rgb(244, 114, 182)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(244,114,182)"]:not(footer):not(footer *) {
+          background: #fecaca !important;
+          opacity: 0.05 !important;
+        }
+        .landing-light [style*="background: rgb(167, 139, 250)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(227,6,19)"]:not(footer):not(footer *) {
+          background: #E30613 !important;
+          opacity: 0.05 !important;
+        }
+
+        /* 2e) Mor glow (rgba(227,6,19,...)) iceren box-shadow ve textShadow'lari notrlestir */
+        .landing-light [style*="rgba(167, 139, 250"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(227,6,19"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(124, 58, 237"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(124,58,237"]:not(footer):not(footer *) {
+          box-shadow: 0 4px 16px rgba(227, 6, 19, 0.08) !important;
+          text-shadow: none !important;
+        }
+
+        /* 2f) Beyaz textShadow'lari kaldir (siyah yazi uzerinde anlamsiz) */
+        .landing-light [style*="text-shadow: rgb(255, 255, 255)"]:not(footer):not(footer *),
+        .landing-light [style*="text-shadow:rgb(255,255,255)"]:not(footer):not(footer *),
+        .landing-light [style*="text-shadow: rgb(255, 255, 240)"]:not(footer):not(footer *) {
+          text-shadow: none !important;
+        }
+
+        /* 2g) Beyaz/seffaf borderlari acik griye ceviri */
+        .landing-light [style*="rgba(255, 255, 255, 0.08)"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(255,255,255,0.08)"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(255, 255, 255, 0.16)"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(255,255,255,0.16)"]:not(footer):not(footer *) {
+          border-color: rgba(0, 0, 0, 0.12) !important;
+        }
+
+        /* 2h) Tailwind hover:text-white -> beyaz arkaplanda gorunmez; siyah yap */
+        .landing-light .hover\\:text-white:hover {
+          color: #000000 !important;
+        }
+
+        /* 2i) Footer'daki .hover:text-white DOKUNULMASIN — footer hala koyu zeminli */
+        .landing-light footer .hover\\:text-white:hover {
+          color: #ffffff !important;
+        }
+
+        /* 2j) NoiseOverlay opacity'i daha da dusur (beyazda dikkat dagitiyor) */
+        .landing-light [style*="mix-blend-mode: overlay"]:not(footer):not(footer *) {
+          opacity: 0.02 !important;
+        }
+
+        /* 4) Hero/sayfa arkaplanindaki dekoratif blob'lari tamamen kapat (minimalist) */
+        .landing-light .fixed.inset-0.overflow-hidden[aria-hidden="true"] {
+          display: none !important;
+        }
+
+        /* 5) Kart hover spotlight kenari mor yerine KIRMIZI olsun */
+        .landing-light [style*="rgba(167, 139, 250, 0.4)"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(227,6,19,0.4)"]:not(footer):not(footer *) {
+          border-color: #E30613 !important;
+        }
+
+        /* 3) Gradient text-fill (WebkitBackgroundClip + TextFillColor transparent) -> KIRMIZI dolgu */
+        .landing-light [style*="-webkit-text-fill-color"]:not(footer):not(footer *) {
           -webkit-text-fill-color: #E30613 !important;
+          color: #E30613 !important;
           background: none !important;
         }
 
@@ -1959,22 +2122,27 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
       <Navbar user={user} onLoginClick={() => setLoginOpen(true)} onLogout={onLogout}
         onEnterApp={onEnterApp} onBook={() => setBookOpen(true)} />
       <LoginDrawer open={loginOpen} onClose={() => setLoginOpen(false)} onLogin={onLogin} />
-      <AppointmentBookingModal open={bookOpen} onClose={() => setBookOpen(false)} onBook={() => {}} />
+      <AppointmentBookingModal open={bookOpen} onClose={() => setBookOpen(false)} onBook={(data) => {
+        console.log('Booking:', data);
+        alert('Ihr Termin wurde erfolgreich vereinbart! Vielen Dank.');
+      }} />
       <main className="relative" style={{ zIndex: 2 }}>
-        <Hero />
+        <Hero onBook={() => setBookOpen(true)} />
         <BannerShowcase />
         <Marquee />
         <Features />
+        <PlatformFeatures />
+        <CTA onBook={() => setBookOpen(true)} />
         <KostenlosBanner />
-        <FahrzeugklassenSection />
+        <FahrzeugklassenSection onBook={() => setBookOpen(true)} />
         <RechteSection />
-        <VerkehrsunfallSection />
+        <VerkehrsunfallSection onBook={() => setBookOpen(true)} />
         <WhyGecitKfz />
         <HowItWorks />
         <Stats />
         <Testimonial />
-        <Pricing />
-        <FooterCTA />
+        <Pricing onBook={() => setBookOpen(true)} />
+        <FooterCTA onBook={() => setBookOpen(true)} />
       </main>
       <Footer />
       <PWAInstallBanner />

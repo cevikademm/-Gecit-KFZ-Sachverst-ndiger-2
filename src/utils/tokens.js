@@ -4,16 +4,18 @@
 export const C = {
   bg: '#FFFFFF',
   surface: '#FFFFFF',
-  surface2: '#F8F8F8',
-  border: 'rgba(0,0,0,0.08)',
-  borderStrong: 'rgba(0,0,0,0.16)',
-  text: '#0A0A0A',
-  textDim: '#6B6B6B',
-  neon: '#E30613',     // primary red — eski mor/violet yerine
-  neon2: '#B0050F',    // koyu kirmizi
-  cyan: '#E30613',     // info/aksesuar — kirmizi varyant
-  magenta: '#7A0309',  // cok koyu kirmizi/uyari
-  glow: 'rgba(227,6,19,0.25)',
+  surface2: '#FFFFFF',
+  border: '#E5E7EB',
+  borderStrong: '#D1D5DB',
+  text: '#000000',
+  textDim: '#4B5563',
+  primary: '#E30613',
+  accent: '#E30613',
+  glow: 'rgba(227, 6, 19, 0.2)',
+  neon: '#E30613', // Aliasing for compatibility with existing code
+  neon2: '#B0050F',
+  cyan: '#E30613',
+  magenta: '#7A0309',
 };
 
 export const easeOut = [0.22, 1, 0.36, 1];
