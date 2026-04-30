@@ -155,24 +155,24 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
         background: bgCss, backdropFilter: blCss, WebkitBackdropFilter: blCss,
         border: `1px solid ${brCss}`, borderRadius: 999 }}>
       <div className="flex items-center justify-between pl-6 pr-5 py-3 gap-3">
-        <a href="#" className="flex items-center gap-6 font-sans flex-shrink min-w-0 tracking-tight"
+        <a href="#" className="flex items-center gap-4 font-sans flex-shrink-0 min-w-0 tracking-tight"
           style={{ lineHeight: 1 }}>
-          <div className="flex flex-col items-start gap-1">
-            <div className="text-2xl md:text-3xl lg:text-4xl font-black italic tracking-tighter" style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="./logo-car-only.png" alt="Logo" className="h-12 md:h-14 w-auto object-contain flex-shrink-0"
+               style={{ filter: 'url(#remove-white) brightness(1.05) contrast(1.05)' }} />
+          <div className="flex flex-col items-start gap-1 min-w-0">
+            <div className="text-2xl md:text-3xl lg:text-4xl font-black italic tracking-tighter" style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
               <span style={{ color: '#E30613' }}>GECIT</span>
-              <span style={{ color: '#FFFFFF', margin: '0 2px' }}>-</span>
-              <span style={{ color: '#FFFFFF' }}>KFZ</span>
+              <span style={{ color: '#0A0A0A', margin: '0 2px' }}>-</span>
+              <span style={{ color: '#0A0A0A' }}>KFZ</span>
             </div>
             <div className="flex items-center gap-2 w-full">
-              <div className="h-[2px] flex-1 bg-[#E30613]" />
-              <span className="text-[10px] md:text-[11px] font-bold tracking-widest text-white uppercase" style={{ whiteSpace: 'nowrap' }}>
+              <div className="h-[2px] w-3 md:w-4 bg-[#E30613] flex-shrink-0" />
+              <span className="text-[11px] md:text-xs font-bold tracking-[0.18em] uppercase" style={{ whiteSpace: 'nowrap', color: '#0A0A0A' }}>
                 Sachverständigenbüro
               </span>
               <div className="h-[2px] flex-1 bg-[#E30613]" />
             </div>
           </div>
-          <img src="./logo-car-only.png" alt="Logo" className="h-14 md:h-16 w-auto object-contain"
-               style={{ filter: 'url(#remove-white) brightness(1.2) contrast(1.1)' }} />
         </a>
 
         {/* SVG Filter to remove white background from logo */}
@@ -546,17 +546,6 @@ function Hero() {
           background: 'radial-gradient(circle, rgba(227,6,19,0.12) 0%, transparent 70%)', filter: 'blur(24px)' }}
         animate={rm ? {} : { scale: [1, 1.15, 1], opacity: [0.5, 0.9, 0.5] }}
         transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }} />
-
-      {/* Hero background logo */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ zIndex: 0 }}>
-        <motion.img src="/logo-gecit.png" alt=""
-          className="absolute right-0 top-1/2 w-[60%] md:w-[55%] lg:w-[50%] max-w-[900px] object-contain"
-          style={{ transform: 'translateY(-50%)', opacity: 0.35, filter: 'grayscale(0%)' }}
-          animate={rm ? {} : { y: ['-50%', '-52%', '-50%'] }}
-          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }} />
-        <div className="absolute inset-0"
-          style={{ background: 'linear-gradient(90deg, #FFFFFFF2 0%, #FFFFFFB0 30%, transparent 60%, transparent 100%)' }} />
-      </div>
 
       <div className="relative mx-auto px-6 w-full" style={{ maxWidth: 1200, zIndex: 2 }}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
