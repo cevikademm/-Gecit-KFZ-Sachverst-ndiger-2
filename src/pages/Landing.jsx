@@ -172,7 +172,6 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
         boxShadow: scrolled ? '0 10px 40px rgba(0, 0, 0, 0.08)' : 'none',
       }}
     >
-      <div className="mx-auto px-6 h-full flex items-center justify-between" style={{ maxWidth: 1200 }}>
         {/* Logo */}
         <a href="#" className="flex items-center h-full gap-3 flex-shrink-0">
           <img src="/logocustom3.png" alt="Gecit Kfz Sachverständiger" 
@@ -409,7 +408,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
     setTimeout(() => {
       const em = email.trim().toLowerCase();
       if (em === 'cevikademm@gmail.com' && password === 'Adem123') {
-        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Gecit' };
+        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Geçit' };
         try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
         onLogin(user);
         setEmail(''); setPassword('');
@@ -445,7 +444,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
     const dbData = dbRaw ? (() => { try { return JSON.parse(dbRaw); } catch(e) { return null; } })() : null;
     let user = null;
     if (role === 'admin') {
-      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Gecit' };
+      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Geçit' };
     } else if (role === 'customer') {
       const c = (dbData?.customers || [])[0];
       user = c
@@ -1375,7 +1374,37 @@ function VerkehrsunfallSection({ onBook }) {
                 backdropFilter: 'blur(4px)' }}>
               <div className="flex-shrink-0 mt-1">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, #E30613, #B    {
+                  style={{ background: 'linear-gradient(135deg, #E30613, #B0050F)',
+                    boxShadow: '0 0 20px rgba(227,6,19,0.25)' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold mb-1" style={{ color: C.text }}>{p.title}</h3>
+                <p className="leading-relaxed" style={{ color: C.textDim }}>{p.desc}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Vehicle classes / Fahrzeugklassen ────────────
+function FahrzeugklassenSection({ onBook }) {
+  const RED = '#E30613';
+  const iconProps = { width: 36, height: 36, viewBox: '0 0 24 24', fill: 'none', stroke: RED, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
+  const items = [
+    {
+      key: 'pkw',
+      icon: (
+        <svg {...iconProps}><path d="M3 13l2-5a3 3 0 0 1 2.8-2h8.4A3 3 0 0 1 19 8l2 5"/><path d="M3 13h18v4a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2H8a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-4z"/><circle cx="7.5" cy="16" r="1.2"/><circle cx="16.5" cy="16" r="1.2"/></svg>
+      ),
+    },
+    {
       key: 'electric',
       icon: (
         <svg {...iconProps}><path d="M11 2L9 12h4l-2 10"/><path d="M18.5 13l2-5a3 3 0 0 0-2.8-2h-1.4"/><path d="M3 13h16v4a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2H8a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-4z"/><circle cx="7.5" cy="16" r="1.2"/><circle cx="16.5" cy="16" r="1.2"/></svg>
@@ -1424,7 +1453,6 @@ function VerkehrsunfallSection({ onBook }) {
       ),
     },
   ];
-
   return (
     <section className="relative py-12 md:py-32" style={{ zIndex: 2 }}>
       <div className="mx-auto px-10" style={{ maxWidth: 1300 }}>
@@ -1539,7 +1567,6 @@ function RechteSection() {
 
 // ─── Why Choose Gecit Kfz Sachverständiger ─────────────────────────────
 function WhyGecitKfz() {
-  const { t } = useLang();
   const benefits = [
     {
       icon: InfinityIcon,
@@ -1584,22 +1611,12 @@ function WhyGecitKfz() {
     {
       icon: FolderCheckIcon,
       title: 'Zentrale Belegverfolgung',
-      desc: 'Belege in 51 Kategorien, Verwaltung over ein einziges Panel. Begutachtung, Versicherung, rechtlicher Prozess – jedes Dokument an seinem Platz.',
+      desc: 'Belege in 51 Kategorien, Verwaltung über ein einziges Panel. Begutachtung, Versicherung, rechtlicher Prozess – jedes Dokument an seinem Platz.',
       accent: '#F59E0B',
       gradient: 'linear-gradient(135deg, rgba(245,158,11,0.09), rgba(217,119,6,0.04))',
       borderColor: 'rgba(245,158,11,0.3)',
       stat: '51',
       statLabel: 'Dokumentenkategorien',
-    },
-    {
-      icon: ShieldIcon,
-      title: t('why_us.certs.title'),
-      desc: t('why_us.certs.desc'),
-      accent: '#6366F1',
-      gradient: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(99,102,241,0.04))',
-      borderColor: 'rgba(99,102,241,0.3)',
-      stat: t('why_us.certs.stat'),
-      statLabel: t('why_us.certs.statLabel'),
     },
   ];
 
@@ -1694,7 +1711,6 @@ function WhyGecitKfz() {
   );
 }
 
-
 function PeaceOfMindSection() {
   return (
     <section className="relative py-24 md:py-32 overflow-hidden" style={{ zIndex: 2 }}>
@@ -1745,7 +1761,7 @@ function PeaceOfMindSection() {
               className="relative"
             >
               <div className="relative z-10 rounded-3xl overflow-hidden shadow-2xl border border-gray-100">
-                <img src="/images/inspection_v2.png" alt="Professionelles KFZ-Gutachter Team" className="w-full h-auto" />
+                <img src="/images/inspection.jpg" alt="Professionelles KFZ-Gutachter Team" className="w-full h-auto" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A]/20 via-transparent to-transparent" />
               </div>
               <motion.div 
