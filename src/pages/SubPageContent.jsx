@@ -141,11 +141,31 @@ export const SubPageContent = ({ type, onBack }) => {
           </Section>
 
           <Section title="Verantwortlich für den Inhalt" icon={Users}>
-            <p className="text-lg font-bold text-gray-900">Rohat Geçit</p>
+            <p className="text-lg font-bold text-gray-900">Rohat Gecit</p>
             <p>
               Am Gutshof 37<br />
               52080 Aachen
             </p>
+          </Section>
+
+          <Section title="Umsatzsteuer-ID" icon={FileText}>
+            <p className="text-xs uppercase tracking-widest text-gray-400 mb-1">USt-IdNr. gemäß § 27 a Umsatzsteuergesetz</p>
+            <p className="text-lg font-bold text-gray-900">DE366304119</p>
+          </Section>
+
+          <Section title="Bankverbindung" icon={ClipboardIcon}>
+            <p className="text-xs uppercase tracking-widest text-gray-400 mb-1">Kontoinhaber: Rohat Gecit</p>
+            <p className="text-lg font-bold text-gray-900 mb-2">Sparkasse Aachen</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-0.5">IBAN</p>
+                <p className="text-sm font-mono font-bold text-gray-900">DE12 3905 0000 1077 3885 83</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-0.5">BIC</p>
+                <p className="text-sm font-mono font-bold text-gray-900">AACSDE33XXX</p>
+              </div>
+            </div>
           </Section>
 
           <Section title="EU-Streitschlichtung" icon={Shield}>
@@ -361,7 +381,11 @@ export const SubPageContent = ({ type, onBack }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
                   <label className="text-xs uppercase tracking-widest text-gray-400 font-bold">Ihr Name</label>
+<<<<<<< HEAD
                   <input type="text" placeholder="Rohat Geçit" className="w-full bg-white border border-gray-200 rounded-2xl px-6 py-4 outline-none focus:border-[#E30613] transition-colors" />
+=======
+                  <input type="text" placeholder="Rohat Gecit" className="w-full bg-white border border-gray-200 rounded-2xl px-6 py-4 outline-none focus:border-[#E30613] transition-colors" />
+>>>>>>> 6b267c6 (son guncellemeler en kararli surum)
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs uppercase tracking-widest text-gray-400 font-bold">E-Mail Adresse</label>

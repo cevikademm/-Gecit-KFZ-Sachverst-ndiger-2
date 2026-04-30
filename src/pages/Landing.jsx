@@ -172,21 +172,31 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
         boxShadow: scrolled ? '0 10px 40px rgba(0, 0, 0, 0.08)' : 'none',
       }}
     >
-      <div className="mx-auto px-10 h-full flex items-center justify-between" style={{ maxWidth: 1400 }}>
-        <div className="flex items-center gap-6 h-full">
-          {/* Logo */}
-          <a href="#" className="flex items-center h-full">
-            <img src="/logocustom3.png" alt="Gecit Kfz Sachverständiger" 
-              className="h-16 md:h-20 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
-          </a>
-          <div className="flex items-center gap-1 md:gap-2 px-1.5 md:px-2.5 py-0.5 md:py-1 rounded-full bg-white/50 border border-gray-100 shadow-sm ml-2 md:ml-4">
-            <span className="text-xs md:text-sm">🇩🇪</span>
-            <span className="text-[6px] md:text-[7.5px] font-bold tracking-[0.2em] text-gray-400 uppercase leading-none">Alle Services in Deutschland</span>
+      <div className="mx-auto px-6 h-full flex items-center justify-between" style={{ maxWidth: 1200 }}>
+        {/* Logo */}
+        <a href="#" className="flex items-center h-full gap-3 flex-shrink-0">
+          <img src="/logocustom3.png" alt="Gecit Kfz Sachverständiger" 
+            className="h-14 sm:h-16 md:h-20 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
+          <div className="hidden xl:flex items-center gap-2 border-l border-gray-100 pl-4 h-8">
+            <span className="text-xs leading-none">🇩🇪</span>
+            <span className="text-[10px] font-bold tracking-[0.1em] text-[#E30613] uppercase leading-none">
+              {t('topbar.service')}
+            </span>
+          </div>
+        </a>
+
+        {/* Mobile Center Service Badge */}
+        <div className="flex md:hidden flex-1 justify-center px-2">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-100">
+            <span className="text-xs leading-none">🇩🇪</span>
+            <span className="text-[8px] font-black tracking-[0.05em] text-[#E30613] uppercase leading-none">
+              {t('topbar.service')}
+            </span>
           </div>
         </div>
 
         {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-14 h-full">
+        <div className="hidden md:flex items-center gap-5 lg:gap-8 h-full">
           {links.map((link, i) => (
             <a
               key={link.key}
@@ -212,10 +222,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-8 md:gap-10">
-          <div className="hidden sm:block">
-            <LanguageSelector />
-          </div>
+        <div className="flex items-center gap-3 md:gap-4 ml-auto pl-8 lg:pl-12">
           {user ? (
             <div className="relative">
               <button
@@ -265,6 +272,10 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
             {t('nav.book')}
           </button>
           
+          <div className="hidden sm:block">
+            <LanguageSelector />
+          </div>
+          
           {/* Mobile Toggle */}
           <button 
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -299,14 +310,22 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="fixed top-[26px] right-0 bottom-0 w-[85%] max-w-sm z-50 bg-white shadow-2xl flex flex-col md:hidden"
             >
-              <div className="p-6 flex items-center justify-between border-b border-gray-100">
-                <img src="/logocustom3.png" alt="Logo" className="h-10 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
-                <button 
-                  onClick={() => setMobileOpen(false)}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-500"
-                >
-                  <XClose size={20} />
-                </button>
+              <div className="p-6 flex flex-col gap-4 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <img src="/logocustom3.png" alt="Logo" className="h-10 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
+                  <button 
+                    onClick={() => setMobileOpen(false)}
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-500"
+                  >
+                    <XClose size={20} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100 self-start">
+                  <span className="text-xs">🇩🇪</span>
+                  <span className="text-[10px] font-black tracking-widest text-[#E30613] uppercase leading-none">
+                    {t('topbar.service')}
+                  </span>
+                </div>
               </div>
               
               <div className="flex-1 overflow-y-auto py-8 px-6 flex flex-col gap-6">
@@ -390,7 +409,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
     setTimeout(() => {
       const em = email.trim().toLowerCase();
       if (em === 'cevikademm@gmail.com' && password === 'Adem123') {
-        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Geçit' };
+        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Gecit' };
         try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
         onLogin(user);
         setEmail(''); setPassword('');
@@ -426,7 +445,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
     const dbData = dbRaw ? (() => { try { return JSON.parse(dbRaw); } catch(e) { return null; } })() : null;
     let user = null;
     if (role === 'admin') {
-      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Geçit' };
+      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Gecit' };
     } else if (role === 'customer') {
       const c = (dbData?.customers || [])[0];
       user = c
@@ -1356,81 +1375,56 @@ function VerkehrsunfallSection({ onBook }) {
                 backdropFilter: 'blur(4px)' }}>
               <div className="flex-shrink-0 mt-1">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, #E30613, #B0050F)',
-                    boxShadow: '0 0 20px rgba(227,6,19,0.25)' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-lg font-bold mb-1" style={{ color: C.text }}>{p.title}</h3>
-                <p className="leading-relaxed" style={{ color: C.textDim }}>{p.desc}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Vehicle classes / Fahrzeugklassen ────────────
-function FahrzeugklassenSection({ onBook }) {
-  const RED = '#E30613';
-  const iconProps = { width: 36, height: 36, viewBox: '0 0 24 24', fill: 'none', stroke: RED, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
-  const items = [
-    {
-      title: 'PKW',
-      desc: 'Präzise Gutachten für alle Pkw-Typen, unabhängig von Marke und Modell.',
+                  style={{ background: 'linear-gradient(135deg, #E30613, #B    {
+      key: 'electric',
       icon: (
-        <svg {...iconProps}><path d="M3 13l2-5a3 3 0 0 1 2.8-2h8.4A3 3 0 0 1 19 8l2 5"/><path d="M3 13h18v4a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2H8a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-4z"/><circle cx="7.5" cy="16" r="1.2"/><circle cx="16.5" cy="16" r="1.2"/></svg>
+        <svg {...iconProps}><path d="M11 2L9 12h4l-2 10"/><path d="M18.5 13l2-5a3 3 0 0 0-2.8-2h-1.4"/><path d="M3 13h16v4a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2H8a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-4z"/><circle cx="7.5" cy="16" r="1.2"/><circle cx="16.5" cy="16" r="1.2"/></svg>
       ),
     },
     {
-      title: 'Elektro & Hybrid',
-      desc: 'Zertifizierte Gutachten für Elektro- und Hybridfahrzeuge unter Berücksichtigung von Hochvolt-Systemen.',
+      key: 'hybrid',
       icon: (
         <svg {...iconProps}><path d="M3 13l2-5a3 3 0 0 1 2.8-2h6.4A3 3 0 0 1 17 8l2 5"/><path d="M3 13h16v4a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2H8a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-4z"/><path d="M21 9v6"/><path d="M11 9l-2 3h3l-2 3"/></svg>
       ),
     },
     {
-      title: 'LKW & TIR',
-      desc: 'Vom leichten Nutzfahrzeug bis zum schweren Lkw und Sattelzügen, zertifiziert für Logistik-Einheiten.',
+      key: 'construction',
       icon: (
-        <svg {...iconProps}><path d="M2 17V7a1 1 0 0 1 1-1h11v11"/><path d="M14 10h4l3 4v3h-7"/><circle cx="6.5" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/></svg>
+        <svg {...iconProps}><path d="M2 17V7a1 1 0 0 1 1-1h11v11"/><path d="M14 10h4l3 4v3h-7"/><circle cx="6.5" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/><path d="M10 6v-4h4v4"/></svg>
       ),
     },
     {
-      title: 'Baumaschinen',
-      desc: 'Zertifizierte Experten für Bagger, Kräne und spezialisierte Baumaschinen-Gutachten.',
-      icon: (
-        <svg {...iconProps}><path d="M2 17V7a1 1 0 0 1 1-1h11v11"/><path d="M14 10h4l3 4v3h-7"/><circle cx="6.5" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/></svg>
-      ),
-    },
-    {
-      title: 'Spezial-Anhänger & Dorsen',
-      desc: 'Umfassende Gutachten für Last- und Spezialanhänger (Dorsen) sowie Schwerlast-Einheiten.',
+      key: 'trailers',
       icon: (
         <svg {...iconProps}><rect x="3" y="7" width="14" height="9" rx="1"/><path d="M17 14h4"/><circle cx="21.5" cy="14.5" r="1"/><circle cx="8" cy="18" r="1.5"/><circle cx="13" cy="18" r="1.5"/></svg>
       ),
     },
     {
-      title: 'Zweiräder',
-      desc: 'Sorgfältige Schadens- und Wertgutachten für Motorräder, E-Bikes und Roller.',
+      key: 'trucks',
+      icon: (
+        <svg {...iconProps}><path d="M2 17V7a1 1 0 0 1 1-1h11v11"/><path d="M14 10h4l3 4v3h-7"/><circle cx="6.5" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/></svg>
+      ),
+    },
+    {
+      key: 'training',
+      icon: (
+        <svg {...iconProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      ),
+    },
+    {
+      key: 'moto',
       icon: (
         <svg {...iconProps}><circle cx="5.5" cy="16" r="3"/><circle cx="18.5" cy="16" r="3"/><path d="M5.5 16l4-6h5l3 6"/><path d="M14 7h3v3"/></svg>
       ),
     },
     {
-      title: 'TIR-Schulungen',
-      desc: 'Zertifizierte Fachtrainings für TIR-Logistik, Ladungssicherung und Expertenschulungen.',
+      key: 'certs',
       icon: (
-        <svg {...iconProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        <svg {...iconProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M8 11l3 3 5-5"/></svg>
       ),
     },
-
   ];
+
   return (
     <section className="relative py-12 md:py-32" style={{ zIndex: 2 }}>
       <div className="mx-auto px-10" style={{ maxWidth: 1300 }}>
@@ -1439,11 +1433,11 @@ function FahrzeugklassenSection({ onBook }) {
           transition={{ duration: 0.7, ease: easeOut }}
           className="text-center mb-14">
           <div className="text-sm md:text-base font-semibold mb-3" style={{ color: RED, letterSpacing: '0.02em' }}>
-            Ihr Partner für umfassende Bewertungen
+            {t('vehicle_classes.subheading')}
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold"
             style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-            Gutachten für alle <span style={{ color: RED }}>Fahrzeugklassen</span>
+            {t('vehicle_classes.heading')} <span style={{ color: RED }}>{t('vehicle_classes.heading_red')}</span>
           </h2>
         </motion.div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1453,17 +1447,24 @@ function FahrzeugklassenSection({ onBook }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-40px' }}
               transition={{ duration: 0.6, ease: easeOut, delay: i * 0.08 }}
-              className="rounded-2xl p-6 md:p-7"
-              style={{ background: '#FAFAFA', border: `1px solid ${C.border}`,
-                backdropFilter: 'blur(4px)' }}>
+              className="rounded-2xl p-6 md:p-7 flex flex-col h-full"
+              style={{ 
+                background: item.key === 'certs' ? 'rgba(227,6,19,0.02)' : '#FAFAFA', 
+                border: item.key === 'certs' ? `1px solid rgba(227,6,19,0.2)` : `1px solid ${C.border}`,
+                backdropFilter: 'blur(4px)' 
+              }}>
               <div className="flex items-center gap-4 mb-3">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
                   style={{ background: 'rgba(227,6,19,0.08)', border: '1px solid rgba(227,6,19,0.25)' }}>
                   {item.icon}
                 </div>
-                <h3 className="text-xl font-bold" style={{ color: RED }}>{item.title}</h3>
+                <h3 className="text-xl font-bold" style={{ color: RED }}>
+                  {t(`vehicle_classes.${item.key}.title`)}
+                </h3>
               </div>
-              <p className="leading-relaxed" style={{ color: C.textDim }}>{item.desc}</p>
+              <p className="leading-relaxed text-sm flex-1" style={{ color: C.textDim }}>
+                {t(`vehicle_classes.${item.key}.desc`)}
+              </p>
             </motion.div>
           ))}
         </div>
@@ -1538,6 +1539,7 @@ function RechteSection() {
 
 // ─── Why Choose Gecit Kfz Sachverständiger ─────────────────────────────
 function WhyGecitKfz() {
+  const { t } = useLang();
   const benefits = [
     {
       icon: InfinityIcon,
@@ -1582,12 +1584,22 @@ function WhyGecitKfz() {
     {
       icon: FolderCheckIcon,
       title: 'Zentrale Belegverfolgung',
-      desc: 'Belege in 51 Kategorien, Verwaltung über ein einziges Panel. Begutachtung, Versicherung, rechtlicher Prozess – jedes Dokument an seinem Platz.',
+      desc: 'Belege in 51 Kategorien, Verwaltung over ein einziges Panel. Begutachtung, Versicherung, rechtlicher Prozess – jedes Dokument an seinem Platz.',
       accent: '#F59E0B',
       gradient: 'linear-gradient(135deg, rgba(245,158,11,0.09), rgba(217,119,6,0.04))',
       borderColor: 'rgba(245,158,11,0.3)',
       stat: '51',
       statLabel: 'Dokumentenkategorien',
+    },
+    {
+      icon: ShieldIcon,
+      title: t('why_us.certs.title'),
+      desc: t('why_us.certs.desc'),
+      accent: '#6366F1',
+      gradient: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(99,102,241,0.04))',
+      borderColor: 'rgba(99,102,241,0.3)',
+      stat: t('why_us.certs.stat'),
+      statLabel: t('why_us.certs.statLabel'),
     },
   ];
 
@@ -1682,6 +1694,7 @@ function WhyGecitKfz() {
   );
 }
 
+
 function PeaceOfMindSection() {
   return (
     <section className="relative py-24 md:py-32 overflow-hidden" style={{ zIndex: 2 }}>
@@ -1732,7 +1745,7 @@ function PeaceOfMindSection() {
               className="relative"
             >
               <div className="relative z-10 rounded-3xl overflow-hidden shadow-2xl border border-gray-100">
-                <img src="/images/inspection.jpg" alt="Professionelles KFZ-Gutachter Team" className="w-full h-auto" />
+                <img src="/images/inspection_v2.png" alt="Professionelles KFZ-Gutachter Team" className="w-full h-auto" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A]/20 via-transparent to-transparent" />
               </div>
               <motion.div 
