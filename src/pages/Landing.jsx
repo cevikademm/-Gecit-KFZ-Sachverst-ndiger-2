@@ -164,12 +164,12 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
       animate={{ y: 0 }}
       className="fixed top-[26px] left-0 right-0 z-50 transition-all duration-300"
       style={{
-        background: scrolled ? 'rgba(255, 255, 255, 0.8)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(12px) saturate(180%)' : 'none',
-        WebkitBackdropFilter: scrolled ? 'blur(12px) saturate(180%)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.05)' : 'none',
-        height: scrolled ? '72px' : '96px',
-        boxShadow: scrolled ? '0 4px 30px rgba(0, 0, 0, 0.03)' : 'none',
+        background: scrolled ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.05)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.1)',
+        height: scrolled ? '96px' : '130px',
+        boxShadow: scrolled ? '0 10px 40px rgba(0, 0, 0, 0.08)' : 'none',
       }}
     >
       <div className="mx-auto px-10 h-full flex items-center justify-between" style={{ maxWidth: 1400 }}>
@@ -197,14 +197,14 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
                   setActiveSubPage('kontakt');
                 }
               }}
-              className="relative text-sm font-bold tracking-widest transition-colors hover:text-[#E30613]"
+              className="relative text-xs lg:text-sm font-black tracking-[0.25em] transition-all hover:text-[#E30613] hover:scale-110"
               style={{ color: i === 0 ? '#E30613' : '#0A0A0A' }}
             >
               {link.label}
               {i === 0 && (
                 <motion.div
                   layoutId="nav-underline"
-                  className="absolute -bottom-2 left-0 right-0 h-0.5 bg-[#E30613]"
+                  className="absolute -bottom-2 left-0 right-0 h-1 bg-[#E30613] rounded-full"
                 />
               )}
             </a>
@@ -629,57 +629,99 @@ function RevealHeading({ text, className = '', style = {}, delay = 0 }) {
 
 // ─── Hero ───────────────────────────────────────
 function Hero({ onBook }) {
-  const rm = useReducedMotion();
   const { t } = useLang();
+  const rm = useReducedMotion();
+  
   return (
-    <section id="home" className="relative min-h-[85vh] flex items-center overflow-hidden bg-white pt-32 pb-16">
-      <div className="mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center" style={{ maxWidth: 1200 }}>
-        {/* Left Side: Content */}
-        <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10"
-        >
-          <h1 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter text-[#0A0A0A] leading-[0.9] mb-4">
-            {t('hero.title')}
-          </h1>
-          <h2 className="text-xl sm:text-3xl md:text-4xl font-bold tracking-tight text-[#E30613] mb-8 flex items-center gap-3">
-            <span className="w-12 h-1 bg-[#E30613]" />
-            {t('hero.subtitle')}
-          </h2>
-          <div className="w-20 h-1.5 bg-[#E30613] mb-8" />
-          <p className="text-lg md:text-xl text-[#4B5563] leading-relaxed max-w-lg mb-10">
-            {t('hero.description')}
-          </p>
-          <button
-            onClick={onBook}
-            className="group flex items-center gap-3 px-8 py-4 bg-[#E30613] text-white font-bold rounded-md hover:bg-[#B0050F] transition-all transform hover:scale-105 shadow-xl shadow-red-500/30 keep-white"
-          >
-            <PhoneIcon size={20} className="group-hover:animate-bounce" />
-            {t('hero.cta')}
-          </button>
-        </motion.div>
+    <section id="home" className="relative min-h-screen flex items-center overflow-hidden bg-white pt-20">
+      <div className="absolute inset-0 z-0 opacity-40">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#E30613] rounded-full blur-[160px] animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gray-200 rounded-full blur-[160px]" />
+      </div>
 
-        {/* Right Side: Image */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9, x: 50 }}
-          animate={{ opacity: 1, scale: 1, x: 0 }}
-          transition={{ duration: 1, ease: easeOut }}
-          className="relative"
-        >
-          <div className="relative rounded-2xl overflow-hidden shadow-2xl">
-            <img
-              src="/hero-car.png"
-              alt="KFZ Gutachter Schadenfall"
-              className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700"
-            />
-            {/* Overlay Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
+      <div className="mx-auto px-6 md:px-12 w-full relative z-10" style={{ maxWidth: 1500 }}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+          {/* Content */}
+          <div className="max-w-3xl">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: easeOut }}
+            >
+              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-red-50 border border-red-100 mb-8">
+                <Sparkles size={16} className="text-[#E30613]" />
+                <span className="text-[10px] font-black tracking-[0.2em] text-[#E30613] uppercase">{t('hero.eyebrow')}</span>
+              </div>
+              
+              <h1 className="text-5xl md:text-7xl lg:text-[100px] font-black tracking-tighter text-[#0A0A0A] leading-[0.9] mb-8 uppercase">
+                {t('hero.title_part1')} <br />
+                <span className="text-[#E30613]">{t('hero.title_part2')}</span>
+              </h1>
+              
+              <p className="text-lg md:text-xl text-gray-500 max-w-xl leading-relaxed mb-12">
+                {t('hero.description')}
+              </p>
+              
+              <div className="flex flex-wrap gap-6">
+                <button
+                  onClick={onBook}
+                  className="px-10 py-5 bg-[#E30613] text-white font-bold rounded-xl hover:bg-[#B0050F] transition-all transform hover:scale-105 shadow-2xl shadow-red-500/40 flex items-center gap-3 keep-white"
+                >
+                  {t('hero.cta')}
+                  <ArrowRight size={20} />
+                </button>
+                <button className="px-10 py-5 bg-white text-[#0A0A0A] font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-all flex items-center gap-3">
+                  <Play size={20} fill="currentColor" />
+                  {t('hero.watch_demo')}
+                </button>
+              </div>
+            </motion.div>
           </div>
-          {/* Decorative Elements */}
-          {/* Dekoratif blob'lar kaldırıldı */}
-        </motion.div>
+
+          {/* Interactive AI Sphere */}
+          <div className="relative hidden lg:block h-[700px]">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 1.5, ease: easeOut }}
+                className="relative"
+              >
+                {/* AI Sphere Outer Rings */}
+                <div className="w-[500px] h-[500px] rounded-full border border-gray-100 flex items-center justify-center relative">
+                  <div className="absolute inset-0 rounded-full border border-red-100 animate-spin-slow opacity-20" />
+                  <div className="w-[400px] h-[400px] rounded-full border border-gray-200 flex items-center justify-center">
+                    <div className="w-[300px] h-[300px] rounded-full bg-gradient-to-tr from-[#E30613] to-[#B0050F] flex items-center justify-center shadow-[0_0_100px_rgba(227,6,19,0.3)]">
+                      <Cpu size={120} className="text-white animate-pulse" strokeWidth={1} />
+                    </div>
+                  </div>
+                  
+                  {/* Floating Tech Chips */}
+                  {[
+                    { icon: Brain, x: -50, y: -200, label: 'Neural Core' },
+                    { icon: Database, x: 220, y: -120, label: 'Data Bank' },
+                    { icon: Shield, x: 200, y: 180, label: 'Secure' },
+                    { icon: Target, x: -180, y: 150, label: 'Precision' },
+                  ].map((chip, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1 + i * 0.2 }}
+                      className="absolute p-4 rounded-2xl bg-white shadow-2xl border border-gray-100 flex items-center gap-3"
+                      style={{ left: `calc(50% + ${chip.x}px)`, top: `calc(50% + ${chip.y}px)` }}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-[#E30613]">
+                        <chip.icon size={20} />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#0A0A0A]">{chip.label}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );

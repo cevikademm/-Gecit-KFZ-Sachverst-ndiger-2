@@ -28,10 +28,14 @@ export const translations = {
       emergency: '24/7 NOTFALL-SERVICE',
     },
     hero: {
+      eyebrow: 'ZUKUNFT DER KFZ-EXPERTISE',
+      title_part1: 'KI-GESTÜTZTE',
+      title_part2: 'BEGUTACHTUNG',
       title: 'KFZ-GUTACHTER',
       subtitle: 'IHR PARTNER IM SCHADENFALL',
-      description: 'Als unabhängiger Kfz-Gutachter stehe ich Ihnen mit fachkompetenter und persönlicher Beratung zur Seite. Ich erstelle schnelle, zuverlässige und rechtssichere Gutachten.',
+      description: 'Erleben Sie die nächste Generation der Kfz-Expertise. Mit 120-Punkt AI-Analyse, automatischer Kennzeichenerkennung und Echtzeit-Historien-Check für maximale Präzision.',
       cta: 'JETZT TERMIN VEREINBAREN',
+      watch_demo: 'DEMO ANSEHEN',
     },
     cta: {
       tagline: 'SCHNELL • UNABHÄNGIG • ZUVERLÄSSIG',
@@ -109,10 +113,14 @@ export const translations = {
       emergency: '7/24 ACİL DESTEK',
     },
     hero: {
+      eyebrow: 'ARAÇ EKSPERTİZİNİN GELECEĞİ',
+      title_part1: 'YAPAY ZEKA DESTEKLİ',
+      title_part2: 'EKSPERTİZ',
       title: 'ARAÇ EKSPERİ',
       subtitle: 'KAZA SONRASI YANINIZDAYIZ',
-      description: 'Bağımsız bir araç eksperi olarak uzman ve kişisel danışmanlıkla yanınızdayım. Hızlı, güvenilir ve hukuken sağlam ekspertiz raporları hazırlıyorum.',
+      description: 'Yeni nesil araç ekspertizini deneyimleyin. 120 noktalı yapay zeka analizi, otomatik plaka tanıma ve gerçek zamanlı geçmiş kontrolü ile maksimum hassasiyet.',
       cta: 'HEMEN RANDEVU AL',
+      watch_demo: 'DEMOYU İZLE',
     },
     cta: {
       tagline: 'HIZLI • BAĞIMSIZ • GÜVENİLİR',
