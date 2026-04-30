@@ -527,59 +527,72 @@ function Hero() {
   const sphY = useTransform(scrollY, [0, 800], [0, -240]);
   const sphS = useTransform(scrollY, [0, 800], [1, 0.85]);
   return (
-    <section className="relative flex items-center overflow-hidden" style={{ minHeight: '100vh', paddingTop: 'calc(env(safe-area-inset-top) + 120px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}>
-      <motion.div className="absolute left-1/2 top-1/2 pointer-events-none"
-        style={{ y: sphY, scale: sphS, translateX: '-50%', translateY: '-50%', zIndex: 1 }}>
-        <div className="relative" style={{ width: 600, height: 600 }}>
-          <motion.div className="absolute inset-0 rounded-full"
-            style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.2) 0%, transparent 65%)', border: `1px solid ${C.border}` }}
-            animate={rm ? {} : { rotate: 360 }}
-            transition={{ duration: 60, repeat: Infinity, ease: 'linear' }} />
-          <motion.div className="absolute rounded-full"
-            style={{ inset: 80, background: 'radial-gradient(circle, rgba(124,58,237,0.35) 0%, transparent 60%)', border: `1px dashed ${C.borderStrong}` }}
-            animate={rm ? {} : { rotate: -360 }}
-            transition={{ duration: 40, repeat: Infinity, ease: 'linear' }} />
-          <div className="absolute rounded-full"
-            style={{ inset: 180, background: `radial-gradient(circle, ${C.neon} 0%, ${C.neon2} 45%, transparent 80%)`,
-              boxShadow: `0 0 140px ${C.neon}, inset 0 0 80px ${C.magenta}`, filter: 'blur(2px)' }} />
-          {!rm && [...Array(6)].map((_, i) => {
-            const a = (i / 6) * Math.PI * 2;
-            return (
-              <motion.div key={i} className="absolute rounded-full"
-                style={{ left: '50%', top: '50%', width: 8, height: 8,
-                  background: i % 2 === 0 ? C.cyan : C.magenta,
-                  boxShadow: `0 0 14px ${i % 2 === 0 ? C.cyan : C.magenta}` }}
-                animate={{
-                  x: [Math.cos(a) * 260, Math.cos(a + Math.PI * 2) * 260],
-                  y: [Math.sin(a) * 260, Math.sin(a + Math.PI * 2) * 260],
-                }}
-                transition={{ duration: 14 + i * 2, repeat: Infinity, ease: 'linear' }} />
-            );
-          })}
-        </div>
-      </motion.div>
+    <section className="relative flex items-center overflow-hidden" style={{ minHeight: 'auto', paddingTop: 'calc(env(safe-area-inset-top) + 120px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)', background: '#FFFFFF' }}>
+      {/* Decorative grid pattern */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ zIndex: 0,
+        backgroundImage: 'linear-gradient(rgba(227,6,19,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(227,6,19,0.04) 1px, transparent 1px)',
+        backgroundSize: '56px 56px',
+        maskImage: 'radial-gradient(ellipse 80% 60% at 30% 50%, #000 30%, transparent 75%)',
+        WebkitMaskImage: 'radial-gradient(ellipse 80% 60% at 30% 50%, #000 30%, transparent 75%)' }} />
+
+      {/* Soft red ambient glows */}
+      <motion.div className="absolute pointer-events-none rounded-full" aria-hidden="true"
+        style={{ width: 480, height: 480, top: '-120px', left: '-120px', zIndex: 0,
+          background: 'radial-gradient(circle, rgba(227,6,19,0.18) 0%, transparent 65%)', filter: 'blur(20px)' }}
+        animate={rm ? {} : { scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }}
+        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }} />
+      <motion.div className="absolute pointer-events-none rounded-full" aria-hidden="true"
+        style={{ width: 380, height: 380, bottom: '-80px', left: '35%', zIndex: 0,
+          background: 'radial-gradient(circle, rgba(227,6,19,0.12) 0%, transparent 70%)', filter: 'blur(24px)' }}
+        animate={rm ? {} : { scale: [1, 1.15, 1], opacity: [0.5, 0.9, 0.5] }}
+        transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }} />
+
+      {/* Hero background logo */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ zIndex: 0 }}>
+        <motion.img src="/logo-gecit.png" alt=""
+          className="absolute right-0 top-1/2 w-[60%] md:w-[55%] lg:w-[50%] max-w-[900px] object-contain"
+          style={{ transform: 'translateY(-50%)', opacity: 0.35, filter: 'grayscale(0%)' }}
+          animate={rm ? {} : { y: ['-50%', '-52%', '-50%'] }}
+          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }} />
+        <div className="absolute inset-0"
+          style={{ background: 'linear-gradient(90deg, #FFFFFFF2 0%, #FFFFFFB0 30%, transparent 60%, transparent 100%)' }} />
+      </div>
 
       <div className="relative mx-auto px-6 w-full" style={{ maxWidth: 1200, zIndex: 2 }}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: easeOut }}
           className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-8 text-xs uppercase"
-          style={{ background: 'rgba(227,6,19,0.08)', border: '1px solid #E30613',
-            color: '#FFFFF0', letterSpacing: '0.2em', backdropFilter: 'blur(8px)' }}>
-          <Sparkles size={12} style={{ color: '#000000' }} /> Yapay Zeka Destekli Oto Ekspertiz
+          style={{ background: 'linear-gradient(135deg, rgba(227,6,19,0.08), rgba(227,6,19,0.02))', border: '1px solid #E30613',
+            color: '#7A0309', letterSpacing: '0.2em', backdropFilter: 'blur(8px)',
+            boxShadow: '0 4px 24px rgba(227,6,19,0.15), inset 0 1px 0 rgba(255,255,255,0.6)' }}>
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: '#E30613' }} />
+            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: '#E30613' }} />
+          </span>
+          <Sparkles size={12} style={{ color: '#E30613' }} /> Yapay Zeka Destekli Oto Ekspertiz
         </motion.div>
-        <RevealHeading text="Aracının Gerçek Durumunu"
-          className="text-5xl md:text-7xl lg:text-8xl font-semibold"
-          style={{ color: C.text, letterSpacing: '-0.04em', lineHeight: 0.92 }} />
-        <RevealHeading text="Saniyeler İçinde Öğren."
-          className="text-5xl md:text-7xl lg:text-8xl font-semibold mt-2"
-          style={{ background: `linear-gradient(135deg, ${C.neon} 0%, ${C.magenta} 50%, ${C.cyan} 100%)`,
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-            letterSpacing: '-0.04em', lineHeight: 0.92 }} delay={0.3} />
+        <div className="relative">
+          {/* Red accent bar */}
+          <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }}
+            transition={{ duration: 0.8, ease: easeOut, delay: 0.4 }}
+            className="absolute -left-4 md:-left-6 top-1 bottom-1 w-1 rounded-full hidden md:block"
+            style={{ background: 'linear-gradient(180deg, #E30613, #7A0309)', transformOrigin: 'top',
+              boxShadow: '0 0 20px rgba(227,6,19,0.4)' }} aria-hidden="true" />
+          <RevealHeading text="Aracının Gerçek Durumunu"
+            className="text-5xl md:text-7xl lg:text-8xl font-semibold"
+            style={{ color: '#0A0A0A', letterSpacing: '-0.04em', lineHeight: 0.92, textShadow: '0 2px 24px #FFFFFF' }} />
+          <RevealHeading text="Saniyeler İçinde Öğren."
+            className="text-5xl md:text-7xl lg:text-8xl font-semibold mt-2"
+            style={{ background: 'linear-gradient(135deg, #E30613 0%, #B0050F 50%, #7A0309 100%)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+              letterSpacing: '-0.04em', lineHeight: 0.92, filter: 'drop-shadow(0 2px 16px #FFFFFF) drop-shadow(0 4px 20px rgba(227,6,19,0.25))' }} delay={0.3} />
+        </div>
         <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: easeOut, delay: 1.1 }}
-          className="mt-8 text-base md:text-xl max-w-2xl leading-relaxed" style={{ color: C.textDim }}>
+          className="mt-8 text-base md:text-xl max-w-2xl leading-relaxed"
+          style={{ color: '#1F1F1F', textShadow: '0 1px 12px #FFFFFF' }}>
           Gecit Kfz Sachverständiger, ruhsat fotoğrafından aracın tüm künyesini saniyeler içinde okur. Tramer geçmişi, değişen parça kayıtları ve 120 noktalık ekspertiz sürecini
-          <span style={{ color: C.text, fontWeight: 500 }}> tek platformda</span> birleştirir.
+          <span style={{ color: '#000000', fontWeight: 600 }}> tek platformda</span> birleştirir.
         </motion.p>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: easeOut, delay: 1.3 }}
@@ -592,9 +605,8 @@ function Hero() {
             <Play size={14} /> 60 saniyede süreci gör
           </MagneticButton>
         </motion.div>
+
       </div>
-      <div className="absolute bottom-0 left-0 right-0 pointer-events-none"
-        style={{ height: 200, background: `linear-gradient(180deg, transparent 0%, ${C.bg} 100%)`, zIndex: 2 }} />
     </section>
   );
 }
@@ -748,13 +760,13 @@ function SpotlightCard({ children, className = '', size = 'md' }) {
         minHeight: size === 'lg' ? 360 : 260 }}>
       <div className="absolute inset-0 pointer-events-none transition-opacity duration-500"
         style={{ opacity: active ? 1 : 0,
-          background: `radial-gradient(600px circle at ${pos.x}px ${pos.y}px, rgba(167,139,250,0.18), transparent 40%)` }} />
+          background: `radial-gradient(600px circle at ${pos.x}px ${pos.y}px, rgba(225,6,0,0.14), transparent 40%)` }} />
       <div className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(400px circle at ${pos.x}px ${pos.y}px, rgba(167,139,250,0.4), transparent 40%)`,
+        style={{ background: `radial-gradient(400px circle at ${pos.x}px ${pos.y}px, rgba(225,6,0,0.35), transparent 40%)`,
           WebkitMask: `radial-gradient(400px circle at ${pos.x}px ${pos.y}px, black, transparent 40%)`,
           mask: `radial-gradient(400px circle at ${pos.x}px ${pos.y}px, black, transparent 40%)`,
           opacity: active ? 0.5 : 0, transition: 'opacity 500ms',
-          padding: 1, borderRadius: 24, border: `1px solid ${C.neon}` }} />
+          padding: 1, borderRadius: 24, border: `1px solid #e10600` }} />
       <div className="relative z-10 h-full">{children}</div>
     </motion.div>
   );
@@ -773,14 +785,22 @@ function Features() {
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
-          transition={{ duration: 0.8, ease: easeOut }} className="mb-16 md:mb-24">
-          <p className="text-xs uppercase mb-5" style={{ color: C.neon, letterSpacing: '0.25em' }}>Özellikler</p>
-          <h2 className="text-4xl md:text-6xl font-semibold max-w-3xl" style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.05 }}>
-            Oto Ekspertizin <span style={{ color: C.neon }}>Dijital Standardı</span>.
-          </h2>
-          <p className="mt-6 text-lg max-w-2xl" style={{ color: C.textDim }}>
-            Ruhsat tarama, tramer geçmişi, termin yönetimi, canlı ekspertiz takibi ve müşteri portalı — hepsi tek çatı altında.
-          </p>
+          transition={{ duration: 0.8, ease: easeOut }} className="mb-16 md:mb-24 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-10 items-center">
+          <div>
+            <p className="text-xs uppercase mb-5" style={{ color: C.neon, letterSpacing: '0.25em' }}>Özellikler</p>
+            <h2 className="text-4xl md:text-6xl font-semibold max-w-3xl" style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.05 }}>
+              Oto Ekspertizin <span style={{ color: C.neon }}>Dijital Standardı</span>.
+            </h2>
+            <p className="mt-6 text-lg max-w-2xl" style={{ color: C.textDim }}>
+              Ruhsat tarama, tramer geçmişi, termin yönetimi, canlı ekspertiz takibi ve müşteri portalı — hepsi tek çatı altında.
+            </p>
+          </div>
+          <div className="relative rounded-3xl overflow-hidden w-full md:w-80 h-56 md:h-64"
+            style={{ border: `1px solid ${C.border}`, boxShadow: `0 0 40px ${C.glow}` }}>
+            <img src="/images/keys.jpg" alt="Schlüsselübergabe" loading="lazy"
+              className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${C.neon}22, transparent 60%)` }} />
+          </div>
         </motion.div>
         <div className="grid grid-cols-12 gap-4">
           {features.map((f, i) => (
@@ -833,18 +853,23 @@ function KostenlosBanner() {
 
           <div className="relative p-10 md:p-16">
             <div className="flex flex-col md:flex-row items-center gap-10">
-              {/* Left: Icon */}
+              {/* Left: Photo */}
               <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
+                initial={{ scale: 0.9, opacity: 0 }}
                 whileInView={{ scale: 1, opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: 0.2 }}
                 className="flex-shrink-0">
-                <div className="w-24 h-24 md:w-28 md:h-28 rounded-3xl flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))',
-                    border: '1px solid rgba(239,68,68,0.25)',
-                    boxShadow: '0 0 40px rgba(239,68,68,0.1)' }}>
-                  <ScaleIcon size={44} style={{ color: '#EF4444' }} />
+                <div className="relative w-full md:w-80 h-56 md:h-64 rounded-3xl overflow-hidden"
+                  style={{ border: '1px solid rgba(239,68,68,0.25)',
+                    boxShadow: '0 0 40px rgba(239,68,68,0.12)' }}>
+                  <img src="/images/inspection.jpg" alt="Unfallgutachten Inspektion" loading="lazy"
+                    className="absolute inset-0 w-full h-full object-cover" />
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.18), transparent 60%)' }} />
+                  <div className="absolute top-3 left-3 w-12 h-12 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'rgba(239,68,68,0.92)', backdropFilter: 'blur(6px)' }}>
+                    <ScaleIcon size={22} style={{ color: '#fff' }} />
+                  </div>
                 </div>
               </motion.div>
 
@@ -896,19 +921,31 @@ function RechteSection() {
   ];
   return (
     <section className="relative py-24 md:py-32" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 800 }}>
-        <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 0.8, ease: easeOut }}
-          className="text-center mb-14">
-          <h2 className="text-3xl md:text-5xl font-bold mb-4"
-            style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-            Ihre Rechte nach einem <span style={{ color: '#E30613' }}>Unfall</span>
-          </h2>
-          <p className="text-lg" style={{ color: C.textDim }}>
-            Als Geschädigter stehen Ihnen viele Rechte zu. Wir setzen diese für Sie durch.
-          </p>
-        </motion.div>
+      <div className="mx-auto px-6" style={{ maxWidth: 1100 }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-14 items-center mb-14">
+          <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.8, ease: easeOut }}
+            className="relative rounded-3xl overflow-hidden"
+            style={{ border: '1px solid rgba(227,6,19,0.25)', boxShadow: '0 0 50px rgba(227,6,19,0.12)' }}>
+            <img src="/images/accident.jpg" alt="Unfall mit Warndreieck" loading="lazy"
+              className="w-full h-64 md:h-80 object-cover" />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.35) 100%)' }} />
+          </motion.div>
+          <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ duration: 0.8, ease: easeOut }}
+            className="text-center md:text-left">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4"
+              style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+              Ihre Rechte nach einem <span style={{ color: '#E30613' }}>Unfall</span>
+            </h2>
+            <p className="text-lg" style={{ color: C.textDim }}>
+              Als Geschädigter stehen Ihnen viele Rechte zu. Wir setzen diese für Sie durch.
+            </p>
+          </motion.div>
+        </div>
+        <div className="mx-auto" style={{ maxWidth: 800 }}>
         <div className="space-y-4">
           {items.map((item, i) => (
             <motion.div key={i}
@@ -934,6 +971,7 @@ function RechteSection() {
               </div>
             </motion.div>
           ))}
+        </div>
         </div>
       </div>
     </section>
@@ -1009,8 +1047,8 @@ function WhyGecitKfz() {
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.8, ease: easeOut }} className="text-center mb-20">
           <p className="text-xs uppercase mb-5 font-semibold" style={{ color: C.cyan, letterSpacing: '0.25em' }}>Warum Gecit Kfz Sachverständiger?</p>
-          <h2 className="text-4xl md:text-6xl font-semibold max-w-4xl mx-auto" style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.05 }}>
-            Neden <span style={{ background: `linear-gradient(135deg, ${C.neon}, ${C.cyan})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Gecit Kfz Sachverständiger</span>'u Tercih Etmelisiniz?
+          <h2 className="text-4xl md:text-6xl font-semibold max-w-4xl mx-auto" style={{ color: '#000', letterSpacing: '-0.03em', lineHeight: 1.05 }}>
+            Neden <span style={{ color: '#e10600' }}>Gecit</span> Kfz Sachverständiger'u Tercih Etmelisiniz?
           </h2>
           <p className="mt-6 text-lg max-w-2xl mx-auto" style={{ color: C.textDim }}>
             Belgeleriniz güvende, süreçleriniz şeffaf, herkes aynı sayfada.
@@ -1363,6 +1401,21 @@ function Footer() {
             <p className="mt-4 text-sm" style={{ color: C.textDim }}>
               Oto ekspertizin dijital standardı.
             </p>
+            <div className="mt-5 text-sm leading-relaxed" style={{ color: C.textDim }}>
+              <p style={{ color: C.text, fontWeight: 600, marginBottom: 4 }}>Adresse</p>
+              <p>Am Gutshof 37</p>
+              <p>52080 Aachen</p>
+              <p>Deutschland</p>
+              <a
+                href="https://www.google.com/maps/search/?api=1&query=Am+Gutshof+37,+52080+Aachen,+Deutschland"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 text-xs underline"
+                style={{ color: C.neon }}
+              >
+                Google Maps'te aç →
+              </a>
+            </div>
           </div>
           {cols.map((col, i) => (
             <div key={i}>
@@ -1374,6 +1427,18 @@ function Footer() {
               </ul>
             </div>
           ))}
+        </div>
+        <div className="mb-10 rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+          <iframe
+            title="Gecit Kfz Sachverständiger - Standort"
+            src="https://www.google.com/maps?q=Am+Gutshof+37,+52080+Aachen,+Deutschland&output=embed"
+            width="100%"
+            height="320"
+            style={{ border: 0, display: 'block' }}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            allowFullScreen
+          />
         </div>
         <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm"
           style={{ borderTop: `1px solid ${C.border}`, color: C.textDim }}>
@@ -1611,8 +1676,138 @@ export default function Landing({ user, onLogin, onLogout, onEnterApp }) {
   }, []);
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden"
-      style={{ background: C.bg, color: C.text }}>
+    <div className="landing-light relative min-h-screen overflow-x-hidden"
+      style={{ background: '#ffffff', color: '#000000' }}>
+      <style>{`
+        /* Not: Tarayici inline style'i rgb()'ye normalize ediyor.
+           Bu yuzden hex degil rgb formatinda hedef aliyoruz. */
+
+        /* 1) Beyaz / gri / acik renk yazilar -> SIYAH */
+        /* #EDE9FE = rgb(237,233,254) | #8B85A8 = rgb(139,133,168) | beyaz = rgb(255,255,255) | #FFFFF0 = rgb(255,255,240) */
+        .landing-light [style*="color: rgb(237, 233, 254)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(237,233,254)"]:not(footer):not(footer *),
+        .landing-light [style*="color: rgb(139, 133, 168)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(139,133,168)"]:not(footer):not(footer *),
+        .landing-light [style*="color: rgb(255, 255, 255)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(255,255,255)"]:not(footer):not(footer *),
+        .landing-light [style*="color: rgb(255, 255, 240)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(255,255,240)"]:not(footer):not(footer *),
+        .landing-light [style*="color: white"]:not(footer):not(footer *),
+        .landing-light [style*="color:white"]:not(footer):not(footer *) {
+          color: #000000 !important;
+        }
+
+        /* 2) Mor / mavi / pembe vurgular -> KIRMIZI */
+        /* #A78BFA = rgb(167,139,250) | #7C3AED = rgb(124,58,237) | #22D3EE = rgb(34,211,238) | #F472B6 = rgb(244,114,182) */
+        .landing-light [style*="color: rgb(167, 139, 250)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(167,139,250)"]:not(footer):not(footer *),
+        .landing-light [style*="color: rgb(124, 58, 237)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(124,58,237)"]:not(footer):not(footer *),
+        .landing-light [style*="color: rgb(34, 211, 238)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(34,211,238)"]:not(footer):not(footer *),
+        .landing-light [style*="color: rgb(244, 114, 182)"]:not(footer):not(footer *),
+        .landing-light [style*="color:rgb(244,114,182)"]:not(footer):not(footer *) {
+          color: #e10600 !important;
+        }
+
+        /* 2b) Koyu yuzey arka planlarini acik gri yap (kart icleri okunabilir olsun) */
+        /* C.surface = #0E0B18 = rgb(14,11,24) | C.surface2 = #141027 = rgb(20,16,39) | C.bg = #07060B = rgb(7,6,11) */
+        .landing-light [style*="background: rgb(14, 11, 24)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(14,11,24)"]:not(footer):not(footer *),
+        .landing-light [style*="background-color: rgb(14, 11, 24)"]:not(footer):not(footer *),
+        .landing-light [style*="background-color:rgb(14,11,24)"]:not(footer):not(footer *),
+        .landing-light [style*="background: rgb(20, 16, 39)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(20,16,39)"]:not(footer):not(footer *),
+        .landing-light [style*="background-color: rgb(20, 16, 39)"]:not(footer):not(footer *),
+        .landing-light [style*="background-color:rgb(20,16,39)"]:not(footer):not(footer *),
+        .landing-light [style*="background: rgb(7, 6, 11)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(7,6,11)"]:not(footer):not(footer *) {
+          background: #f5f5f7 !important;
+          background-color: #f5f5f7 !important;
+          border-color: rgba(0,0,0,0.08) !important;
+        }
+
+        /* 2d) MeshBackground'taki mor/cyan/pembe blob'lari hafifletip kirmiziya cevir */
+        .landing-light [style*="background: rgb(124, 58, 237)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(124,58,237)"]:not(footer):not(footer *) {
+          background: #e10600 !important;
+          opacity: 0.06 !important;
+        }
+        .landing-light [style*="background: rgb(34, 211, 238)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(34,211,238)"]:not(footer):not(footer *) {
+          background: #fca5a5 !important;
+          opacity: 0.05 !important;
+        }
+        .landing-light [style*="background: rgb(244, 114, 182)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(244,114,182)"]:not(footer):not(footer *) {
+          background: #fecaca !important;
+          opacity: 0.05 !important;
+        }
+        .landing-light [style*="background: rgb(167, 139, 250)"]:not(footer):not(footer *),
+        .landing-light [style*="background:rgb(167,139,250)"]:not(footer):not(footer *) {
+          background: #e10600 !important;
+          opacity: 0.05 !important;
+        }
+
+        /* 2e) Mor glow (rgba(167,139,250,...)) iceren box-shadow ve textShadow'lari notrlestir */
+        .landing-light [style*="rgba(167, 139, 250"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(167,139,250"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(124, 58, 237"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(124,58,237"]:not(footer):not(footer *) {
+          box-shadow: 0 4px 16px rgba(225, 6, 0, 0.08) !important;
+          text-shadow: none !important;
+        }
+
+        /* 2f) Beyaz textShadow'lari kaldir (siyah yazi uzerinde anlamsiz) */
+        .landing-light [style*="text-shadow: rgb(255, 255, 255)"]:not(footer):not(footer *),
+        .landing-light [style*="text-shadow:rgb(255,255,255)"]:not(footer):not(footer *),
+        .landing-light [style*="text-shadow: rgb(255, 255, 240)"]:not(footer):not(footer *) {
+          text-shadow: none !important;
+        }
+
+        /* 2g) Beyaz/seffaf borderlari acik griye ceviri */
+        .landing-light [style*="rgba(255, 255, 255, 0.08)"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(255,255,255,0.08)"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(255, 255, 255, 0.16)"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(255,255,255,0.16)"]:not(footer):not(footer *) {
+          border-color: rgba(0, 0, 0, 0.12) !important;
+        }
+
+        /* 2h) Tailwind hover:text-white -> beyaz arkaplanda gorunmez; siyah yap */
+        .landing-light .hover\\:text-white:hover {
+          color: #000000 !important;
+        }
+
+        /* 2i) Footer'daki .hover:text-white DOKUNULMASIN — footer hala koyu zeminli */
+        .landing-light footer .hover\\:text-white:hover {
+          color: #ffffff !important;
+        }
+
+        /* 2j) NoiseOverlay opacity'i daha da dusur (beyazda dikkat dagitiyor) */
+        .landing-light [style*="mix-blend-mode: overlay"]:not(footer):not(footer *) {
+          opacity: 0.02 !important;
+        }
+
+        /* 4) Hero/sayfa arkaplanindaki dekoratif blob'lari tamamen kapat (minimalist) */
+        .landing-light .fixed.inset-0.overflow-hidden[aria-hidden="true"] {
+          display: none !important;
+        }
+
+        /* 5) Kart hover spotlight kenari mor yerine KIRMIZI olsun */
+        .landing-light [style*="rgba(167, 139, 250, 0.4)"]:not(footer):not(footer *),
+        .landing-light [style*="rgba(167,139,250,0.4)"]:not(footer):not(footer *) {
+          border-color: #e10600 !important;
+        }
+
+        /* 3) Gradient text-fill (WebkitBackgroundClip + TextFillColor transparent) -> KIRMIZI dolgu */
+        .landing-light [style*="-webkit-text-fill-color"]:not(footer):not(footer *) {
+          -webkit-text-fill-color: #e10600 !important;
+          color: #e10600 !important;
+          background: none !important;
+          background-image: none !important;
+          background-color: transparent !important;
+        }
+      `}</style>
       <MeshBackground />
       <NoiseOverlay />
       <ScrollProgress />
