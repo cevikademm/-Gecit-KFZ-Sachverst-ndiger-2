@@ -11950,7 +11950,7 @@ function GlobalServiceInfo() {
         <div className="hidden md:flex items-center gap-8 text-[9px] font-bold tracking-[0.15em] text-gray-400 uppercase">
           <div className="flex items-center gap-1.5">
             <span className="text-xs">🇩🇪</span>
-            <span>Bundesweiter Service</span>
+            <span>Alle Services in Deutschland</span>
           </div>
           <div className="w-1 h-1 rounded-full bg-gray-200" />
           <div className="flex items-center gap-1.5">
@@ -11975,7 +11975,7 @@ function GlobalServiceInfo() {
               <div key={i} className="flex items-center gap-10 text-[8px] font-bold tracking-widest text-gray-400 uppercase">
                 <div className="flex items-center gap-1.5">
                   <span>🇩🇪</span>
-                  <span>Bundesweiter Service</span>
+                  <span>Alle Services in Deutschland</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Shield size={9} />

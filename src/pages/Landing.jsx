@@ -10,7 +10,7 @@
 //  - Decoratif: NoiseOverlay, ScrollProgress, MeshBackground, MagneticButton
 //  - Layout: Navbar, Footer
 //  - Icerik bolumleri: Hero, BannerShowcase, Marquee, Features, KostenlosBanner,
-//    RechteSection, WhyGecitKfz, HowItWorks, Stats, Testimonial, Pricing, FooterCTA
+//    RechteSection, WhyGecitKfz, HowItWorks, Stats, Testimonial, Pricing
 //  - Modaller: LoginDrawer, AppointmentBookingModal, PWAInstallBanner
 //  - Default export: Landing (props: user, onLogin, onLogout, onEnterApp)
 // ═══════════════════════════════════════════════════════════════════
@@ -1064,7 +1064,7 @@ function MarqueeGermany() {
               </div>
               <div className="flex items-center gap-3">
                 <span style={{ fontSize: '1.5rem' }}>🇩🇪</span>
-                <span className="text-2xl font-black italic tracking-tighter uppercase">BUNDESWEITER SERVICE</span>
+                <span className="text-2xl font-black italic tracking-tighter uppercase">ALLE STANDORTE IN DEUTSCHLAND</span>
               </div>
               <div className="flex items-center gap-3">
                 <Shield size={24} strokeWidth={2.5} />
@@ -1659,7 +1659,7 @@ function PeaceOfMindSection() {
               className="relative"
             >
               <div className="relative z-10 rounded-3xl overflow-hidden shadow-2xl border border-gray-100">
-                <img src="/images/inspection.jpg" alt="Professionelles KFZ-Gutachter Team" className="w-full h-auto" />
+                <img src="/images/inspection_v2.png" alt="Professionelles KFZ-Gutachter Team" className="w-full h-auto" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A]/20 via-transparent to-transparent" />
               </div>
               <motion.div 
@@ -2005,33 +2005,7 @@ function TextInput({ value, onChange, placeholder, type = 'text', required }) {
   );
 }
 
-function FooterCTA({ onBook }) {
-  const rm = useReducedMotion();
-  return (
-    <section className="relative flex items-center justify-center overflow-hidden"
-      style={{ minHeight: '100vh', zIndex: 2 }}>
-      {/* Dekoratif blob'lar kaldırıldı */}
-      <div className="relative text-center px-6" style={{ maxWidth: 900 }}>
-        <RevealHeading text="Entdecken Sie die wahre Geschichte Ihres Fahrzeugs."
-          className="text-5xl md:text-7xl lg:text-8xl font-semibold"
-          style={{ color: C.text, letterSpacing: '-0.04em', lineHeight: 0.95 }} />
-        <motion.p initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.8, ease: easeOut, delay: 0.6 }}
-          className="mt-8 text-lg md:text-xl" style={{ color: C.textDim }}>
-          15% Rabatt auf Ihr erstes Gutachten. Termin in 5 Minuten.
-        </motion.p>
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.8, ease: easeOut, delay: 0.8 }}
-          className="mt-10 flex justify-center">
-          <MagneticButton variant="primary" ariaLabel="Online termin al" className="text-base"
-            onClick={() => window.dispatchEvent(new CustomEvent('gecit-kfz:book'))}>
-            Online Termin vereinbaren <ArrowRight size={18} />
-          </MagneticButton>
-        </motion.div>
-      </div>
-    </section>
-  );
-}
+
 
 
 function AppointmentBookingModal({ open, onClose, onBook }) {
@@ -2382,7 +2356,7 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
         <VerkehrsunfallSection onBook={() => setBookOpen(true)} />
         <RechteSection />
         <PeaceOfMindSection />
-        <FooterCTA onBook={() => setBookOpen(true)} />
+
         <BannerShowcase setLightbox={setLightbox} />
         <DownloadCenter />
       </main>
