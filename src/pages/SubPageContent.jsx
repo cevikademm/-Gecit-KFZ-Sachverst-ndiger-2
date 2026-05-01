@@ -381,11 +381,7 @@ export const SubPageContent = ({ type, onBack }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
                   <label className="text-xs uppercase tracking-widest text-gray-400 font-bold">Ihr Name</label>
-<<<<<<< HEAD
                   <input type="text" placeholder="Rohat Geçit" className="w-full bg-white border border-gray-200 rounded-2xl px-6 py-4 outline-none focus:border-[#E30613] transition-colors" />
-=======
-                  <input type="text" placeholder="Rohat Gecit" className="w-full bg-white border border-gray-200 rounded-2xl px-6 py-4 outline-none focus:border-[#E30613] transition-colors" />
->>>>>>> 6b267c6 (son guncellemeler en kararli surum)
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs uppercase tracking-widest text-gray-400 font-bold">E-Mail Adresse</label>

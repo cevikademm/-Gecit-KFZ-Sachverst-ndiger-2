@@ -238,69 +238,44 @@ function LoginDrawer({ open, onClose, onLogin }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setTimeout(() => {
+    try {
       const em = email.trim().toLowerCase();
-      if (em === 'cevikademm@gmail.com' && password === 'Adem123') {
-        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Gecit' };
-        try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
-        onLogin(user);
-        setEmail(''); setPassword('');
-        onClose();
-      } else {
-        // Check lawyer login
-        const dbRaw = localStorage.getItem('gecit_kfz_db_v6');
-        const dbData = dbRaw ? JSON.parse(dbRaw) : null;
-        const lawyer = (dbData?.lawyers || []).find(l => l.email.toLowerCase() === em && l.password === password && l.active);
-        if (lawyer) {
-          const user = { email: lawyer.email, role: 'lawyer', name: lawyer.name, lawyer_id: lawyer.id };
-          try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
-          onLogin(user);
-          setEmail(''); setPassword('');
-          onClose();
-        } else if (em && password.length >= 4) {
-          const name = em.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          const user = { email: em, role: 'customer', name };
-          try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
-          onLogin(user);
-          setEmail(''); setPassword('');
-          onClose();
-        } else {
-          setError('E-Mail oder Passwort falsch. Das Passwort muss mindestens 4 Zeichen lang sein.');
-        }
+      const { user, error: signErr } = await SupabaseAuth.signIn(em, password);
+      if (signErr || !user) {
+        setError('E-Mail veya şifre hatalı.');
+        return;
       }
+      if (!user.role) {
+        // Auth başarılı ama user_profiles satırı yok — yetkisiz hesap
+        await SupabaseAuth.signOut();
+        setError('Hesabınız henüz yetkilendirilmemiş. Yöneticiyle iletişime geçin.');
+        return;
+      }
+      if (user.active === false) {
+        await SupabaseAuth.signOut();
+        setError('Hesabınız devre dışı bırakılmış.');
+        return;
+      }
+      const sessionUser = {
+        email: user.email,
+        role: user.role,
+        name: user.full_name || user.email,
+        lawyer_id: user.role === 'lawyer' ? user.linked_id : undefined,
+        insurer_id: user.role === 'insurance' ? user.linked_id : undefined,
+      };
+      onLogin(sessionUser);
+      setEmail(''); setPassword('');
+      onClose();
+    } catch (err) {
+      setError('Bağlantı hatası: ' + (err?.message || 'Bilinmeyen'));
+    } finally {
       setLoading(false);
-    }, 350);
-  };
-
-  const quickLogin = (role) => {
-    const dbRaw = localStorage.getItem('gecit_kfz_db_v6');
-    const dbData = dbRaw ? (() => { try { return JSON.parse(dbRaw); } catch(e) { return null; } })() : null;
-    let user = null;
-    if (role === 'admin') {
-      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Gecit' };
-    } else if (role === 'customer') {
-      const c = (dbData?.customers || [])[0];
-      user = c
-        ? { email: c.email, role: 'customer', name: c.full_name || c.company || c.email }
-        : { email: 'demo.musteri@gmail.com', role: 'customer', name: 'Demo Müşteri' };
-    } else if (role === 'lawyer') {
-      const l = (dbData?.lawyers || []).find(x => x.active) || (dbData?.lawyers || [])[0];
-      user = l
-        ? { email: l.email, role: 'lawyer', name: l.name, lawyer_id: l.id }
-        : { email: 'demo.avukat@hukuk.com', role: 'lawyer', name: 'Demo Avukat', lawyer_id: 'demo' };
     }
-    if (!user) return;
-    try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
-    onLogin(user);
-    setEmail(''); setPassword('');
-    onClose();
   };
-
-  const googleLogin = () => quickLogin('customer');
 
   return (
     <AnimatePresence>
@@ -410,44 +385,8 @@ function LoginDrawer({ open, onClose, onLogin }) {
                 </motion.button>
               </form>
 
-              <div className="my-8 flex items-center gap-3 text-xs" style={{ color: C.textDim }}>
-                <div className="flex-1 h-px" style={{ background: C.border }} />
-                SCHNELLANMELDUNG (DEMO)
-                <div className="flex-1 h-px" style={{ background: C.border }} />
-              </div>
-
-              <p className="text-xs mb-3 text-center" style={{ color: C.textDim }}>
-                Mit einem Klick einloggen — Passwörter sind noch deaktiviert
-              </p>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                {[
-                  { role: 'admin',     label: 'Admin',     desc: 'Yönetim Paneli',  color: '#E30613', bg: 'rgba(227,6,19,0.06)',  border: 'rgba(227,6,19,0.20)',  icon: <Svg size={14}><path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></Svg> },
-                  { role: 'customer',  label: 'Müşteri',   desc: 'Müşteri Portalı', color: '#0A0A0A', bg: 'rgba(0,0,0,0.04)',      border: 'rgba(0,0,0,0.12)',     icon: <Svg size={14}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></Svg> },
-                  { role: 'lawyer',    label: 'Avukat',    desc: 'Avukat Portalı',  color: '#B0050F', bg: 'rgba(176,5,15,0.06)',  border: 'rgba(176,5,15,0.20)',  icon: <Svg size={14}><path d="M12 3v18"/><path d="M5 8h14"/><path d="M5 8l-2 6a4 4 0 0 0 8 0L9 8"/><path d="M19 8l-2 6a4 4 0 0 0 8 0l-2-6"/></Svg> },
-                ].map(b => (
-                  <motion.button
-                    key={b.role}
-                    type="button"
-                    onClick={() => quickLogin(b.role)}
-                    whileTap={{ scale: 0.97 }}
-                    whileHover={{ y: -2 }}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors"
-                    style={{ background: b.bg, border: `1px solid ${b.border}` }}>
-                    <span className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ background: `${b.color}22`, color: b.color, border: `1px solid ${b.color}55` }}>
-                      {b.icon}
-                    </span>
-                    <span>
-                      <span className="block text-sm font-medium" style={{ color: C.text }}>{b.label}</span>
-                      <span className="block text-[10px]" style={{ color: C.textDim }}>{b.desc}</span>
-                    </span>
-                  </motion.button>
-                ))}
-              </div>
-
-              <p className="text-center text-[11px] mt-5" style={{ color: C.textDim }}>
-                Nutzen Sie das Formular oben für den Login mit Passwort · Der Schnell-Login dient nur Demo-Zwecken
+              <p className="text-center text-[11px] mt-8" style={{ color: C.textDim }}>
+                Nur autorisierte Konten haben Zugriff. Bei Problemen wenden Sie sich an den Administrator.
               </p>
             </div>
 
@@ -12002,14 +11941,47 @@ function App() {
   const [view, setView] = useState('landing');
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('gecit_kfz_user');
-      if (stored) {
-        const u = JSON.parse(stored);
-        setUser(u);
+    let mounted = true;
+
+    // Eski (güvensiz) localStorage session'larını temizle.
+    try { localStorage.removeItem('gecit_kfz_user'); } catch (e) {}
+
+    // Mevcut Supabase session'ı varsa profili yükle.
+    (async () => {
+      try {
+        const session = await SupabaseAuth.getSession();
+        if (!mounted || !session) return;
+        const sb = getSupabase();
+        if (!sb) return;
+        const { data: profile, error } = await sb.from('user_profiles')
+          .select('*').eq('id', session.user.id).single();
+        if (!mounted) return;
+        if (error || !profile || profile.active === false || !profile.role) {
+          await SupabaseAuth.signOut();
+          return;
+        }
+        setUser({
+          email: session.user.email,
+          role: profile.role,
+          name: profile.full_name || session.user.email,
+          lawyer_id: profile.role === 'lawyer' ? profile.linked_id : undefined,
+          insurer_id: profile.role === 'insurance' ? profile.linked_id : undefined,
+        });
         setView('app');
+      } catch (e) {
+        console.warn('[Gecit-KFZ] Session restore failed:', e?.message);
       }
-    } catch (e) {}
+    })();
+
+    // Auth değişimlerinde otomatik logout (token refresh fail, başka sekmede çıkış vb.)
+    const unsubscribe = SupabaseAuth.onAuthChange((session) => {
+      if (!session && mounted) {
+        setUser(null);
+        setView('landing');
+      }
+    });
+
+    return () => { mounted = false; unsubscribe(); };
   }, []);
 
   const handleLogin = (u) => {
@@ -12017,7 +11989,8 @@ function App() {
     setView('app');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await SupabaseAuth.signOut(); } catch (e) {}
     try { localStorage.removeItem('gecit_kfz_user'); } catch (e) {}
     setUser(null);
     setView('landing');

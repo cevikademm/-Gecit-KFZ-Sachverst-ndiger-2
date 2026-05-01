@@ -21,6 +21,7 @@ import {
 } from 'framer-motion';
 import { C, easeOut, spring } from '../utils/tokens.js';
 import { useReducedMotion, useTouchDevice, useMousePosition } from '../utils/hooks.js';
+import { signIn as supabaseSignIn, signOut as supabaseSignOut, buildSessionUser } from '../utils/supabaseAuth.js';
 import {
   Svg, ArrowRight, Play, Check, ChevronRight, Sparkles, Brain, Zap, Target,
   TrendingUp, Rocket, Shield, BarChart3, Globe, Layers, Cpu, Database, Code, Quote,
@@ -295,7 +296,6 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
             </Svg>
           </button>
         </div>
-      </div>
 
       {/* Mobile menu */}
       <AnimatePresence>
@@ -423,69 +423,36 @@ function LoginDrawer({ open, onClose, onLogin }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setTimeout(() => {
+    try {
       const em = email.trim().toLowerCase();
-      if (em === 'cevikademm@gmail.com' && password === 'Adem123') {
-        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Geçit' };
-        try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
-        onLogin(user);
-        setEmail(''); setPassword('');
-        onClose();
-      } else {
-        // Check lawyer login
-        const dbRaw = localStorage.getItem('gecit_kfz_db_v6');
-        const dbData = dbRaw ? JSON.parse(dbRaw) : null;
-        const lawyer = (dbData?.lawyers || []).find(l => l.email.toLowerCase() === em && l.password === password && l.active);
-        if (lawyer) {
-          const user = { email: lawyer.email, role: 'lawyer', name: lawyer.name, lawyer_id: lawyer.id };
-          try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
-          onLogin(user);
-          setEmail(''); setPassword('');
-          onClose();
-        } else if (em && password.length >= 4) {
-          const name = em.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          const user = { email: em, role: 'customer', name };
-          try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
-          onLogin(user);
-          setEmail(''); setPassword('');
-          onClose();
-        } else {
-          setError('E-Mail oder Passwort falsch. Das Passwort muss mindestens 4 Zeichen lang sein.');
-        }
+      const { user, error: signErr } = await supabaseSignIn(em, password);
+      if (signErr || !user) {
+        setError('E-Mail veya şifre hatalı.');
+        return;
       }
+      if (!user.role) {
+        await supabaseSignOut();
+        setError('Hesabınız henüz yetkilendirilmemiş. Yöneticiyle iletişime geçin.');
+        return;
+      }
+      if (user.active === false) {
+        await supabaseSignOut();
+        setError('Hesabınız devre dışı bırakılmış.');
+        return;
+      }
+      onLogin(buildSessionUser(user, user));
+      setEmail(''); setPassword('');
+      onClose();
+    } catch (err) {
+      setError('Bağlantı hatası: ' + (err?.message || 'Bilinmeyen'));
+    } finally {
       setLoading(false);
-    }, 350);
-  };
-
-  const quickLogin = (role) => {
-    const dbRaw = localStorage.getItem('gecit_kfz_db_v6');
-    const dbData = dbRaw ? (() => { try { return JSON.parse(dbRaw); } catch(e) { return null; } })() : null;
-    let user = null;
-    if (role === 'admin') {
-      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Geçit' };
-    } else if (role === 'customer') {
-      const c = (dbData?.customers || [])[0];
-      user = c
-        ? { email: c.email, role: 'customer', name: c.full_name || c.company || c.email }
-        : { email: 'demo.musteri@gmail.com', role: 'customer', name: 'Demo Kunde' };
-    } else if (role === 'lawyer') {
-      const l = (dbData?.lawyers || []).find(x => x.active) || (dbData?.lawyers || [])[0];
-      user = l
-        ? { email: l.email, role: 'lawyer', name: l.name, lawyer_id: l.id }
-        : { email: 'demo.avukat@hukuk.com', role: 'lawyer', name: 'Demo Anwalt', lawyer_id: 'demo' };
     }
-    if (!user) return;
-    try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
-    onLogin(user);
-    setEmail(''); setPassword('');
-    onClose();
   };
-
-  const googleLogin = () => quickLogin('customer');
 
   return (
     <AnimatePresence>
@@ -596,44 +563,8 @@ function LoginDrawer({ open, onClose, onLogin }) {
                 </motion.button>
               </form>
 
-              <div className="my-8 flex items-center gap-3 text-xs" style={{ color: C.textDim }}>
-                <div className="flex-1 h-px" style={{ background: C.border }} />
-                SCHNELLANMELDUNG (DEMO)
-                <div className="flex-1 h-px" style={{ background: C.border }} />
-              </div>
-
-              <p className="text-xs mb-3 text-center" style={{ color: C.textDim }}>
-                Mit einem Klick einloggen — Passwörter sind noch deaktiviert
-              </p>
-
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { role: 'admin',     label: 'Admin',     desc: 'Verwaltungs-Dashboard', color: C.neon,   bg: 'rgba(227,6,19,0.10)', border: 'rgba(227,6,19,0.35)', icon: <Svg size={14}><path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/></Svg> },
-                  { role: 'customer',  label: 'Kunde',   desc: 'Kundenportal', color: '#22D3EE', bg: 'rgba(34,211,238,0.10)',  border: 'rgba(34,211,238,0.35)',  icon: <Svg size={14}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></Svg> },
-                  { role: 'lawyer',    label: 'Anwalt',    desc: 'Anwaltsportal',  color: '#F59E0B', bg: 'rgba(245,158,11,0.10)',  border: 'rgba(245,158,11,0.35)',  icon: <Svg size={14}><path d="M12 3v18"/><path d="M5 8h14"/><path d="M5 8l-2 6a4 4 0 0 0 8 0L9 8"/><path d="M19 8l-2 6a4 4 0 0 0 8 0l-2-6"/></Svg> },
-                ].map(b => (
-                  <motion.button
-                    key={b.role}
-                    type="button"
-                    onClick={() => quickLogin(b.role)}
-                    whileTap={{ scale: 0.97 }}
-                    whileHover={{ y: -2 }}
-                    className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl text-center transition-colors"
-                    style={{ background: b.bg, border: `1px solid ${b.border}` }}>
-                    <span className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ background: `${b.color}18`, color: b.color }}>
-                      {b.icon}
-                    </span>
-                    <span>
-                      <span className="block text-xs font-semibold" style={{ color: '#0A0A0A' }}>{b.label}</span>
-                      <span className="block text-[10px]" style={{ color: '#6B6B6B' }}>{b.desc}</span>
-                    </span>
-                  </motion.button>
-                ))}
-              </div>
-
-              <p className="text-center text-[11px] mt-5" style={{ color: C.textDim }}>
-                Nutzen Sie das Formular oben für den Login mit Passwort · Der Schnell-Login dient nur Demo-Zwecken
+              <p className="text-center text-[11px] mt-8" style={{ color: C.textDim }}>
+                Nur autorisierte Konten haben Zugriff. Bei Problemen wenden Sie sich an den Administrator.
               </p>
             </div>
 
