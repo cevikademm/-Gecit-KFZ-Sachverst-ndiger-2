@@ -14,9 +14,16 @@ function readLocalStorage(key) {
   try { return localStorage.getItem(key); } catch (e) { return null; }
 }
 
-// localStorage'da bozuk değer varsa yoksay, default'a düş.
-const isValidUrl = (v) => typeof v === 'string' && v.startsWith('https://') && !v.includes('YOUR_PROJECT');
-const isValidKey = (v) => typeof v === 'string' && v.length > 20;
+// localStorage/env'de bozuk veya placeholder değer varsa yoksay, default'a düş.
+// Case-insensitive: 'YOUR_PROJECT', 'your-project', 'your_project' vb. hepsi yakalanır.
+const isValidUrl = (v) => typeof v === 'string'
+  && v.startsWith('https://')
+  && !/your[-_]?project/i.test(v)
+  && v.includes('.supabase.co');
+const isValidKey = (v) => typeof v === 'string'
+  && v.length > 30
+  && !v.includes('...')
+  && !/eyJhbGc\.\.\./i.test(v);
 
 const _lsUrl = readLocalStorage('gecit_kfz_supabase_url');
 const _lsKey = readLocalStorage('gecit_kfz_supabase_key');
