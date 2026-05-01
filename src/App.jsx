@@ -8388,25 +8388,70 @@ function LawyerApp({ user, onLogout, onHome }) {
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 90px)' }}>
         {section === 'home' && (
           <>
-            <AdminTopbar title={`Hoş geldiniz, ${lawyer?.name || user.name}`} subtitle="Avukat Portalı — Atanmış dosyalarınız" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {/* Premium hero banner */}
+            <motion.div
+              initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="mb-6 rounded-2xl overflow-hidden relative"
+              style={{
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(176,5,15,0.08), rgba(0,0,0,0.02))',
+                border: `1px solid ${C.border}`,
+              }}>
+              <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full"
+                style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.18), transparent 70%)', filter: 'blur(40px)' }} />
+              <div className="relative p-6 md:p-8 flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-xs uppercase font-semibold" style={{ color: '#F59E0B', letterSpacing: '0.25em' }}>Anwaltsportal</p>
+                    <ScaleIcon size={14} style={{ color: '#F59E0B' }} />
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-bold mb-1" style={{ color: C.text, letterSpacing: '-0.02em' }}>
+                    Hoş geldiniz, {lawyer?.name || user.name}
+                  </h2>
+                  <p className="text-sm" style={{ color: C.textDim }}>
+                    {myCases.filter(c => c.status === 'aktif').length} aktif dava · {myCustomers.length} müşteri · {myTasks.filter(t => !t.done).length} bekleyen görev
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] uppercase mb-1" style={{ color: C.textDim, letterSpacing: '0.15em' }}>Bugün</p>
+                  <p className="text-xl font-bold" style={{ color: C.text }}>{new Date().toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}</p>
+                  <p className="text-[11px] mt-1 inline-flex items-center gap-1" style={{ color: '#F59E0B' }}>
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#F59E0B', boxShadow: '0 0 6px #F59E0B' }} /> Aktif
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Premium stat cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               {[
-                { label: 'Atanmış Müşteri', value: myCustomers.length, color: '#F59E0B', icon: UsersIcon },
-                { label: 'Toplam Belge', value: myCustomerIds.reduce((sum, id) => sum + getCustomerDocs(id).length, 0), color: '#B0050F', icon: FolderIcon },
-                { label: 'Toplam Araç', value: myCustomerIds.reduce((sum, id) => sum + getCustomerVehicles(id).length, 0), color: '#34D399', icon: CarIcon },
+                { label: 'Atanmış Müşteri', value: myCustomers.length, color: '#F59E0B', icon: UsersIcon, gradient: ['#F59E0B', '#D97706'] },
+                { label: 'Toplam Belge', value: myCustomerIds.reduce((sum, id) => sum + getCustomerDocs(id).length, 0), color: '#B0050F', icon: FolderIcon, gradient: ['#B0050F', '#7A0309'] },
+                { label: 'Toplam Araç', value: myCustomerIds.reduce((sum, id) => sum + getCustomerVehicles(id).length, 0), color: '#34D399', icon: CarIcon, gradient: ['#34D399', '#10B981'] },
               ].map((s, i) => (
-                <GlassCard key={i}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs" style={{ color: C.textDim }}>{s.label}</span>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${s.color}15` }}>
-                      <s.icon size={16} style={{ color: s.color }} />
+                <motion.div key={i}
+                  initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.08, duration: 0.4, ease: 'easeOut' }}
+                  whileHover={{ y: -4 }}
+                  className="relative rounded-2xl p-5 overflow-hidden"
+                  style={{ background: '#FFFFFF', border: `1px solid ${C.border}`, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+                  <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full"
+                    style={{ background: `radial-gradient(circle, ${s.color}25, transparent 70%)`, filter: 'blur(30px)' }} />
+                  <div className="relative flex items-start justify-between mb-3">
+                    <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: C.textDim, letterSpacing: '0.2em' }}>{s.label}</p>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ background: `linear-gradient(135deg, ${s.gradient[0]}, ${s.gradient[1]})`, boxShadow: `0 4px 12px ${s.color}33` }}>
+                      <s.icon size={18} style={{ color: '#FFFFFF' }} />
                     </div>
                   </div>
-                  <p className="text-3xl font-bold font-mono" style={{ color: s.color }}>{s.value}</p>
-                </GlassCard>
+                  <p className="relative text-4xl font-bold font-mono" style={{ color: C.text, letterSpacing: '-0.02em' }}>{s.value}</p>
+                </motion.div>
               ))}
             </div>
-            <h3 className="text-sm font-semibold mb-3" style={{ color: C.text }}>Müşterilerim</h3>
+
+            <h3 className="text-base font-bold mb-4 flex items-center gap-2" style={{ color: C.text }}>
+              <UsersIcon size={16} style={{ color: '#F59E0B' }} /> Müşterilerim
+            </h3>
             <div className="space-y-2">
               {myCustomers.map(c => (
                 <div key={c.id} onClick={() => { setSelectedCustomer(c); setSection('customers'); }}
