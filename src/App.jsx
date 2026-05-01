@@ -1499,8 +1499,8 @@ const RealtimeService = {
 
   subscribeAll(onUpdate) {
     const unsubs = [];
-    const criticalTables = ['messages', 'notifications', 'insurance_claims', 'insurance_offers', 'appraisals', 'appointments'];
-    criticalTables.forEach(table => {
+    // Tüm bilinen tablolar için realtime aboneliği
+    Object.keys(TABLE_MAP).forEach(table => {
       unsubs.push(this.subscribe(table, (payload) => {
         onUpdate(table, payload);
       }));
@@ -1883,6 +1883,57 @@ function useIsMobile() {
   return m;
 }
 
+// ─── Otomatik Supabase senkronizasyon yardımcıları ──────────────
+// useDB.update() çağrıldığında localStorage'a yazmanın yanı sıra
+// Supabase'e de UPSERT/DELETE göndererek kayıtların gerçekten DB'ye
+// gitmesini sağlar. Realtime aboneliği zaten diğer client'ların state'ini
+// günceller — burada SADECE bizim yazımızı Supabase'e iletiyoruz.
+
+function diffTablesForSync(prev, next) {
+  const ops = [];
+  for (const table of Object.keys(TABLE_MAP)) {
+    const prevArr = Array.isArray(prev?.[table]) ? prev[table] : [];
+    const nextArr = Array.isArray(next?.[table]) ? next[table] : [];
+    if (prevArr === nextArr) continue; // referans eşitliği — değişmemiş
+
+    const prevById = new Map();
+    for (const r of prevArr) if (r?.id) prevById.set(r.id, r);
+    const nextById = new Map();
+    for (const r of nextArr) if (r?.id) nextById.set(r.id, r);
+
+    // INSERT veya UPDATE → UPSERT (idempotent)
+    for (const [id, rec] of nextById) {
+      const prevRec = prevById.get(id);
+      // JSON.stringify hızlı bir derinlik karşılaştırması
+      if (!prevRec || JSON.stringify(prevRec) !== JSON.stringify(rec)) {
+        ops.push({ table, op: 'upsert', record: rec });
+      }
+    }
+    // DELETE — prev'de var, next'te yok
+    for (const [id] of prevById) {
+      if (!nextById.has(id)) {
+        ops.push({ table, op: 'delete', id });
+      }
+    }
+  }
+  return ops;
+}
+
+async function syncToSupabase(ops) {
+  if (!ops || ops.length === 0) return;
+  // Fire-and-forget; her başarısız operasyon konsola yazılır ama UI'yi etkilemez
+  const results = await Promise.allSettled(ops.map(async (o) => {
+    if (o.op === 'upsert') return SupabaseOps.upsert(o.table, o.record);
+    if (o.op === 'delete') return SupabaseOps.remove(o.table, o.id);
+  }));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      const o = ops[i];
+      console.warn(`[Gecit-KFZ sync] ${o.op} ${o.table}#${o.record?.id || o.id} failed:`, r.reason?.message);
+    }
+  });
+}
+
 function useDB() {
   const [db, setDb] = useState(() => loadDB());
   const [liveReady, setLiveReady] = useState(false);
@@ -1896,17 +1947,21 @@ function useDB() {
     }
   }, []);
 
-  // Live mode: subscribe to realtime changes
+  // Live mode: subscribe to realtime changes (tüm tablolar)
   useEffect(() => {
     if (!DataService.isLive()) return;
     const unsub = DataService.onDataChange((table, payload) => {
       setDb(prev => {
         const arr = Array.isArray(prev[table]) ? [...prev[table]] : [];
         if (payload.eventType === 'INSERT') {
-          arr.push(payload.new);
+          // dedupe: aynı id zaten varsa ekleme (bizim kendi yazımızın echo'su)
+          if (!arr.find(r => r.id === payload.new?.id)) {
+            arr.push(payload.new);
+          }
         } else if (payload.eventType === 'UPDATE') {
           const idx = arr.findIndex(r => r.id === payload.new.id);
           if (idx !== -1) arr[idx] = payload.new;
+          else arr.push(payload.new); // bizde yoksa eklenmiş gibi davran
         } else if (payload.eventType === 'DELETE') {
           const idx = arr.findIndex(r => r.id === payload.old?.id);
           if (idx !== -1) arr.splice(idx, 1);
@@ -1920,9 +1975,16 @@ function useDB() {
   const update = useCallback((fn) => {
     setDb(prev => {
       const next = typeof fn === 'function' ? fn(prev) : fn;
-      // Always save to localStorage (offline cache / fallback)
+      // Yerel önbellek (offline / fallback)
       saveDB(next);
-      // In live mode, Supabase writes happen at the call site via DataService
+      // Canlı modda: değişiklikleri Supabase'e otomatik gönder
+      if (DataService.isLive()) {
+        const ops = diffTablesForSync(prev, next);
+        if (ops.length > 0) {
+          // Fire-and-forget — UI'yi bloklamaz
+          syncToSupabase(ops);
+        }
+      }
       return next;
     });
   }, []);
