@@ -25,6 +25,7 @@ import Landing from './pages/Landing.jsx';
 import { GecitKfzModal } from './components/Modal.jsx';
 import { RuhsatPanel } from './components/RuhsatPanel.jsx';
 import AdminAutoiXpert from './components/AdminAutoiXpert.jsx';
+import AdminReportCreate from './components/AdminReportCreate.jsx';
 import { parseRuhsatMock } from './utils/ruhsatParser.js';
 import { useLang } from './i18n/LangContext.jsx';
 
@@ -1439,7 +1440,15 @@ const SupabaseOps = {
     const sb = getSupabase();
     if (!sb) return null;
     const { data, error } = await sb.from(TABLE_MAP[table] || table).upsert(record).select();
-    if (error) console.error(`[Gecit-KFZ] Upsert ${table}:`, error);
+    if (error) {
+      console.error(`[Gecit-KFZ] Upsert ${table} FAILED:`, {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        record_keys: Object.keys(record || {}),
+      });
+    }
     return data?.[0] || null;
   },
 };
@@ -2114,18 +2123,66 @@ function diffTablesForSync(prev, next) {
   return ops;
 }
 
-// Senkron öncesi: kayıtta storage_path varsa data field'ını boşalt
-// (base64 büyük olduğu için Supabase'e gönderilmesin — Storage'da zaten var)
+// Supabase şemasındaki kolonlar — supabase_schema.sql ile birebir
+// Lokal kayıtlarda olabilen ama şemada olmayan alanlar (tuv_date, action,
+// target, baro vb.) UPSERT öncesi strip edilir.
+const KNOWN_COLUMNS = {
+  customers: ['id', 'full_name', 'company', 'email', 'phone', 'type', 'tax_id', 'tax_no', 'tax_office', 'address', 'notes', 'created_at', 'updated_at'],
+  vehicles: ['id', 'owner_id', 'plate', 'brand', 'model', 'year', 'chassis', 'km', 'color', 'fuel', 'engine_cc', 'created_at'],
+  appraisals: ['id', 'vehicle_id', 'status', 'date', 'expert', 'notes', 'result', 'created_at', 'updated_at'],
+  paint_maps: ['vehicle_id', 'data', 'updated_at'],
+  invoices: ['id', 'customer_id', 'no', 'date', 'amount', 'status', 'items', 'created_at'],
+  appointments: ['id', 'customer_id', 'name', 'email', 'phone', 'plate', 'service', 'date', 'time', 'status', 'notes', 'created_at'],
+  customer_documents: ['id', 'customer_id', 'vehicle_id', 'name', 'type', 'category', 'size', 'storage_path', 'data', 'mime', 'uploaded_at', 'uploaded_by', 'created_at'],
+  customer_notes: ['id', 'customer_id', 'text', 'author', 'created_at'],
+  vehicle_notes: ['id', 'vehicle_id', 'text', 'author', 'created_at'],
+  lawyers: ['id', 'name', 'email', 'phone', 'bar_number', 'password', 'active', 'created_at'],
+  lawyer_assignments: ['id', 'lawyer_id', 'customer_id', 'assigned_at'],
+  lawyer_tasks: ['id', 'lawyer_id', 'title', 'description', 'done', 'due_date', 'created_at'],
+  lawyer_cases: ['id', 'lawyer_id', 'customer_id', 'title', 'description', 'status', 'created_at', 'updated_at'],
+  court_dates: ['id', 'lawyer_id', 'case_id', 'title', 'date', 'time', 'court', 'notes', 'created_at'],
+  insurers: ['id', 'company', 'name', 'email', 'phone', 'password', 'active', 'created_at'],
+  insurance_assignments: ['id', 'insurer_id', 'customer_id', 'assigned_at'],
+  insurance_claims: ['id', 'customer_id', 'vehicle_id', 'insurer_id', 'appraisal_id', 'status', 'claim_date', 'damage_description', 'claim_amount', 'offer_amount', 'notes', 'created_at', 'updated_at'],
+  insurance_offers: ['id', 'claim_id', 'insurer_id', 'amount', 'description', 'notes', 'status', 'created_at'],
+  damage_photos: ['id', 'vehicle_id', 'type', 'label', 'part', 'url', 'storage_path', 'created_at'],
+  damage_timeline: ['id', 'vehicle_id', 'customer_id', 'event', 'date', 'description', 'actor', 'created_at'],
+  messages: ['id', 'contact_id', 'contact_type', 'sender', 'sender_name', 'text', 'read_by_admin', 'read_by_customer', 'read_by_lawyer', 'read_by_insurance', 'claim_id', 'created_at'],
+  notifications: ['id', 'user_id', 'text', 'type', 'read', 'link', 'created_at'],
+  activity_logs: ['id', 'type', 'user_id', 'text', 'metadata', 'created_at'],
+  satisfaction_surveys: ['id', 'appraisal_id', 'customer_id', 'rating', 'comment', 'created_at'],
+  objection_templates: ['id', 'title', 'category', 'content', 'created_at'],
+  file_flows: ['id', 'trigger', 'actions', 'label', 'active', 'created_at'],
+  whatsapp_templates: ['id', 'name', 'message', 'trigger', 'active', 'created_at'],
+  gallery: ['id', 'vehicle_id', 'url', 'storage_path', 'caption', 'created_at'],
+  reminders: ['id', 'text', 'due_date', 'done', 'status', 'priority', 'created_at'],
+  live_feed: ['id', 'type', 'text', 'time', 'date', 'status', 'created_at'],
+};
+
+// Senkron öncesi sanitize:
+// 1. Sadece şemadaki kolonları gönder (tuv_date gibi extras strip)
+// 2. storage_path varsa base64 data alanını gönderme
+// 3. Lokal-only meta alanları (_signedUrl vb) strip
 function sanitizeRecordForSync(table, record) {
   if (!record) return record;
-  if (table === 'customer_documents' || table === 'damage_photos' || table === 'gallery') {
-    if (record.storage_path) {
-      // Storage'a yüklenmiş — data alanını gönderme
-      const { data: _omit, _signedUrl: _omit2, ...rest } = record;
-      return rest;
+  const allowed = KNOWN_COLUMNS[table];
+  let out = record;
+
+  // Bilinmeyen kolonları çıkar
+  if (allowed) {
+    out = {};
+    for (const key of allowed) {
+      if (record[key] !== undefined) out[key] = record[key];
     }
   }
-  return record;
+
+  // Storage'a yüklenmiş binary için data alanını gönderme (büyük base64)
+  if ((table === 'customer_documents' || table === 'damage_photos' || table === 'gallery')
+      && record.storage_path && out.data) {
+    out = { ...out, data: null };
+  }
+
+  return out;
 }
 
 async function syncToSupabase(ops) {
@@ -2651,7 +2708,7 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
     { key: 'live',         label: 'Canlı Dashboard',     icon: ActivityIcon },
     { key: 'bireysel',     label: 'Bireysel Müşteriler', icon: UsersIcon },
     { key: 'kurumsal',     label: 'Kurumsal Firmalar',   icon: Building },
-    { key: 'autoixpert',   label: 'AutoiXpert',          icon: Database },
+    { key: 'report_create', label: 'Rapor Oluştur',      icon: FileText },
     { key: 'appointments', label: 'Termin Planlayıcı',   icon: CalendarIcon },
     { key: 'tuv',          label: 'TÜF Takip',           icon: Shield },
     { key: 'partners',     label: 'Avukatlar & Sigorta', icon: ScaleIcon },
@@ -10524,6 +10581,7 @@ function AdminApp({ user, onLogout, onHome }) {
     file_flows: 'Dateifluss-Engine', whatsapp_tpl: 'WhatsApp-Vorlagen',
     activity_logs: 'Aktivitätsprotokolle', settings: 'Einstellungen',
     autoixpert: 'AutoiXpert Spiegel',
+    report_create: 'Rapor Oluştur',
   };
   const reminderCount = (db.reminders || []).filter(r => r.status === 'active').length;
   const adminNavItems = [
@@ -10531,7 +10589,7 @@ function AdminApp({ user, onLogout, onHome }) {
     { key: 'live',          label: 'Live-Dashboard',     icon: ActivityIcon },
     { key: 'bireysel',      label: 'Privatkunden',       icon: UsersIcon },
     { key: 'kurumsal',      label: 'Geschäftskunden',     icon: Building },
-    { key: 'autoixpert',    label: 'AutoiXpert',          icon: Database },
+    { key: 'report_create', label: 'Gutachten erstellen', icon: FileText },
     { key: 'appointments',  label: 'Termine',             icon: CalendarIcon },
     { key: 'tuv',           label: 'HU/AU-Tracking',      icon: Shield },
     { key: 'partners',      label: 'Anwälte & Versicherungen', icon: ScaleIcon },
@@ -10557,7 +10615,7 @@ function AdminApp({ user, onLogout, onHome }) {
           subtitle="Privatkunden-Einträge" db={db} setDb={setDb} onOpenCustomer={setOpenCustomer} currentUser={user} />}
         {section === 'kurumsal' && <CustomerListView title="Geschäftskunden" type="kurumsal"
           subtitle="Autohäuser, Versicherungen und Flotten" db={db} setDb={setDb} onOpenCustomer={setOpenCustomer} currentUser={user} />}
-        {section === 'autoixpert' && <AdminAutoiXpert />}
+        {section === 'report_create' && <AdminReportCreate db={db} setDb={setDb} user={user} />}
         {section === 'appointments' && <AdminAppointments db={db} setDb={setDb} />}
         {section === 'tuv' && <AdminTuvTracking db={db} setDb={setDb} />}
         {section === 'partners' && <AdminPartners db={db} setDb={setDb} currentUser={user} />}
