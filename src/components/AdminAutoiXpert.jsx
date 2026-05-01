@@ -31,6 +31,15 @@ const MODULES = [
 
 const PAGE_LIMIT = 500;
 
+// List view'da çekilecek sütunlar — raw_payload gibi büyük JSONB'leri
+// dahil etmiyoruz (timeout'u önlemek için). Detay tıklanınca tek satır
+// için raw_payload da dahil tüm alanlar ayrı sorguyla çekilir.
+const LIST_COLUMNS = {
+  gutachten: 'id,external_id,type,state,token,created_at,order_date,completion_date,location_id,responsible_assessor_id,claimant,car,external_updated_at,synced_at',
+  kontakte:  'id,external_id,organization_type,salutation,first_name,last_name,organization_name,email,phone,phone2,city,zip,vat_id,debtor_number,created_at,external_updated_at,synced_at',
+  rechnungen: 'id,number,date,date_of_supply,total_net,total_gross,vat_rate,due_date,has_outstanding_payments,current_unpaid_amount,is_fully_canceled,cancels_invoice_id,is_electronic_invoice_enabled,location_id,recipient,created_at,external_updated_at,synced_at',
+};
+
 export default function AdminAutoiXpert({ mode = 'admin' }) {
   const [activeModule, setActiveModule] = useState('gutachten');
   const [counts, setCounts] = useState({});
@@ -74,6 +83,8 @@ export default function AdminAutoiXpert({ mode = 'admin' }) {
   }, []);
 
   // Aktif modul verisini lazy yükle
+  // Performans: raw_payload (büyük JSONB) list view'da çekilmez —
+  // satıra tıklayınca detay için ayrı sorgu yapılır.
   useEffect(() => {
     const mod = MODULES.find((m) => m.key === activeModule);
     if (!mod || mod.kind !== 'data' || data[activeModule]) return;
@@ -84,9 +95,11 @@ export default function AdminAutoiXpert({ mode = 'admin' }) {
     setError(null);
     (async () => {
       try {
+        // List view: sadece UI'da görünen sütunları çek (timeout'u önlemek için)
+        const listColumns = LIST_COLUMNS[activeModule] || '*';
         const { data: rows, error: dbErr } = await sb
           .from(mod.table)
-          .select('*')
+          .select(listColumns)
           .order('created_at', { ascending: false })
           .limit(PAGE_LIMIT);
         if (!mounted) return;
@@ -109,6 +122,22 @@ export default function AdminAutoiXpert({ mode = 'admin' }) {
     if (!q) return rows;
     return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(q));
   }, [rows, search]);
+
+  // Satıra tıklayınca tam kaydı (raw_payload dahil) ayrı sorguyla çek
+  const openDetail = async (record) => {
+    if (!record?.id || !activeMod?.table) return;
+    setDetail(record); // önce hızlı görünüm (mevcut alanlarla)
+    const sb = getSupabaseClient();
+    if (!sb) return;
+    const { data: full, error } = await sb
+      .from(activeMod.table)
+      .select('*')
+      .eq('id', record.id)
+      .maybeSingle();
+    if (!error && full) {
+      setDetail(full); // tam veriyle güncelle (raw_payload dahil)
+    }
+  };
 
   // Detay modu — bir kayıt seçildiyse tam detay görünümü göster
   if (detail && activeMod?.kind === 'data') {
@@ -184,7 +213,7 @@ export default function AdminAutoiXpert({ mode = 'admin' }) {
           error={error}
           search={search}
           setSearch={setSearch}
-          onRowClick={setDetail}
+          onRowClick={openDetail}
           lastSync={lastSyncMap[activeMod.key]?.last_complete_run_at}
         />
       )}

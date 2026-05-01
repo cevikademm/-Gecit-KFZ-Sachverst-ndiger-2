@@ -1938,13 +1938,58 @@ function useDB() {
   const [db, setDb] = useState(() => loadDB());
   const [liveReady, setLiveReady] = useState(false);
 
-  // Live mode: fetch from Supabase on mount
+  // Live mode: önce localStorage'daki orphan kayıtları Supabase'e taşı,
+  // sonra Supabase'den oku. Böylece eski verileri kaybetmiyoruz.
   useEffect(() => {
-    if (DataService.isLive()) {
-      DataService.loadAll().then(data => {
-        if (data) { setDb(data); setLiveReady(true); }
-      });
-    }
+    if (!DataService.isLive()) return;
+    let mounted = true;
+
+    (async () => {
+      try {
+        const localData = loadDB();
+
+        // 1) Her tablo için Supabase'de mevcut id'leri al, eksik olanları UPSERT et
+        const migrationOps = [];
+        for (const table of Object.keys(TABLE_MAP)) {
+          const localRows = Array.isArray(localData?.[table]) ? localData[table] : [];
+          if (localRows.length === 0) continue;
+          // Supabase'deki id'leri çek (sadece id, hızlı)
+          const sb = getSupabase();
+          if (!sb) break;
+          const { data: existing, error: exErr } = await sb
+            .from(TABLE_MAP[table] || table)
+            .select('id');
+          if (exErr) {
+            console.warn(`[migrate] ${table} read failed:`, exErr.message);
+            continue;
+          }
+          const existingIds = new Set((existing || []).map((r) => r.id));
+          const orphans = localRows.filter((r) => r?.id && !existingIds.has(r.id));
+          if (orphans.length > 0) {
+            console.log(`[migrate] ${table}: ${orphans.length} yerel kayıt Supabase'e gönderiliyor`);
+            for (const orphan of orphans) {
+              migrationOps.push({ table, op: 'upsert', record: orphan });
+            }
+          }
+        }
+        if (migrationOps.length > 0) {
+          await syncToSupabase(migrationOps);
+          console.log(`[migrate] ✓ ${migrationOps.length} orphan kayıt göç ettirildi`);
+        }
+
+        // 2) Supabase'den tam veriyi yükle
+        const data = await DataService.loadAll();
+        if (mounted && data) {
+          setDb(data);
+          setLiveReady(true);
+        }
+      } catch (e) {
+        console.warn('[useDB] live load failed:', e?.message);
+        // Hata: localStorage verisini koru, üzerine yazma
+      }
+    })();
+
+    return () => { mounted = false; };
   }, []);
 
   // Live mode: subscribe to realtime changes (tüm tablolar)
