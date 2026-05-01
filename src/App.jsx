@@ -2332,6 +2332,7 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
     { key: 'live',         label: 'Canlı Dashboard',     icon: ActivityIcon },
     { key: 'bireysel',     label: 'Bireysel Müşteriler', icon: UsersIcon },
     { key: 'kurumsal',     label: 'Kurumsal Firmalar',   icon: Building },
+    { key: 'autoixpert',   label: 'AutoiXpert',          icon: Database },
     { key: 'appointments', label: 'Termin Planlayıcı',   icon: CalendarIcon },
     { key: 'tuv',          label: 'TÜF Takip',           icon: Shield },
     { key: 'partners',     label: 'Avukatlar & Sigorta', icon: ScaleIcon },
