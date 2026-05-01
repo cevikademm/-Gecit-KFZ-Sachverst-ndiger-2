@@ -18,6 +18,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { C } from '../utils/tokens.js';
 import { getSupabaseClient } from '../utils/supabaseAuth.js';
+import { ReportDetail, ContactDetail, InvoiceDetail } from './AutoiXpertDetail.jsx';
 
 const MODULES = [
   { key: 'aufgaben',     label: 'Aufgaben',       emoji: '✅', kind: 'placeholder', subtitle: 'Görevler ve takip' },
@@ -109,6 +110,13 @@ export default function AdminAutoiXpert({ mode = 'admin' }) {
     return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(q));
   }, [rows, search]);
 
+  // Detay modu — bir kayıt seçildiyse tam detay görünümü göster
+  if (detail && activeMod?.kind === 'data') {
+    if (activeMod.key === 'gutachten') return <ReportDetail report={detail} onBack={() => setDetail(null)} />;
+    if (activeMod.key === 'kontakte') return <ContactDetail contact={detail} onBack={() => setDetail(null)} />;
+    if (activeMod.key === 'rechnungen') return <InvoiceDetail invoice={detail} onBack={() => setDetail(null)} />;
+  }
+
   return (
     <div>
       <div className="mb-6">
@@ -181,9 +189,6 @@ export default function AdminAutoiXpert({ mode = 'admin' }) {
         />
       )}
 
-      <AnimatePresence>
-        {detail && <DetailModal record={detail} onClose={() => setDetail(null)} />}
-      </AnimatePresence>
     </div>
   );
 }
