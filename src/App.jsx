@@ -24,6 +24,7 @@ import {
 import Landing from './pages/Landing.jsx';
 import { GecitKfzModal } from './components/Modal.jsx';
 import { RuhsatPanel } from './components/RuhsatPanel.jsx';
+import AdminAutoiXpert from './components/AdminAutoiXpert.jsx';
 import { parseRuhsatMock } from './utils/ruhsatParser.js';
 import { useLang } from './i18n/LangContext.jsx';
 
@@ -10062,6 +10063,7 @@ function AdminApp({ user, onLogout, onHome }) {
     partners: 'Anwälte & Versicherungen', gallery: 'Galerie', reminders: 'Erinnerungen',
     file_flows: 'Dateifluss-Engine', whatsapp_tpl: 'WhatsApp-Vorlagen',
     activity_logs: 'Aktivitätsprotokolle', settings: 'Einstellungen',
+    autoixpert: 'AutoiXpert Spiegel',
   };
   const reminderCount = (db.reminders || []).filter(r => r.status === 'active').length;
   const adminNavItems = [
@@ -10069,6 +10071,7 @@ function AdminApp({ user, onLogout, onHome }) {
     { key: 'live',          label: 'Live-Dashboard',     icon: ActivityIcon },
     { key: 'bireysel',      label: 'Privatkunden',       icon: UsersIcon },
     { key: 'kurumsal',      label: 'Geschäftskunden',     icon: Building },
+    { key: 'autoixpert',    label: 'AutoiXpert',          icon: Database },
     { key: 'appointments',  label: 'Termine',             icon: CalendarIcon },
     { key: 'tuv',           label: 'HU/AU-Tracking',      icon: Shield },
     { key: 'partners',      label: 'Anwälte & Versicherungen', icon: ScaleIcon },
@@ -10094,6 +10097,7 @@ function AdminApp({ user, onLogout, onHome }) {
           subtitle="Privatkunden-Einträge" db={db} setDb={setDb} onOpenCustomer={setOpenCustomer} currentUser={user} />}
         {section === 'kurumsal' && <CustomerListView title="Geschäftskunden" type="kurumsal"
           subtitle="Autohäuser, Versicherungen und Flotten" db={db} setDb={setDb} onOpenCustomer={setOpenCustomer} currentUser={user} />}
+        {section === 'autoixpert' && <AdminAutoiXpert />}
         {section === 'appointments' && <AdminAppointments db={db} setDb={setDb} />}
         {section === 'tuv' && <AdminTuvTracking db={db} setDb={setDb} />}
         {section === 'partners' && <AdminPartners db={db} setDb={setDb} currentUser={user} />}
