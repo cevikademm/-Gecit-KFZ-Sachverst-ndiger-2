@@ -723,8 +723,15 @@ GROUP BY c.id, c.email, c.full_name, c.company;
 -- Customer/Lawyer/Insurance kendi verisini görür.
 
 -- Helper: admin mi?
+-- ÖNEMLİ: SECURITY DEFINER zorunlu — aksi takdirde user_profiles'ın
+-- RLS policy'si is_admin() çağırınca sonsuz recursion olur.
 CREATE OR REPLACE FUNCTION is_admin()
-RETURNS BOOLEAN LANGUAGE sql STABLE AS $$
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
   SELECT EXISTS (
     SELECT 1 FROM user_profiles
     WHERE id = auth.uid() AND role IN ('super_admin', 'admin') AND active = TRUE
