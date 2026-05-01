@@ -247,7 +247,14 @@ function LoginDrawer({ open, onClose, onLogin }) {
       const em = email.trim().toLowerCase();
       const { user, error: signErr } = await SupabaseAuth.signIn(em, password);
       if (signErr || !user) {
-        setError('E-Mail veya şifre hatalı.');
+        const msg = String(signErr || '');
+        if (msg.toLowerCase().includes('invalid login') || msg.toLowerCase().includes('email not confirmed')) {
+          setError('E-Mail veya şifre hatalı.');
+        } else if (msg.toLowerCase().includes('supabase') || msg.toLowerCase().includes('initialized')) {
+          setError('Bağlantı hatası: Supabase ayarları eksik. (F12 → Konsol → localStorage.clear() → yenileyin)');
+        } else {
+          setError('Giriş yapılamadı: ' + (signErr || 'bilinmeyen hata'));
+        }
         return;
       }
       if (!user.role) {
@@ -1303,9 +1310,16 @@ const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3Mi
 const ENV_SUPABASE_URL = (import.meta.env?.VITE_SUPABASE_URL || '').trim();
 const ENV_SUPABASE_ANON_KEY = (import.meta.env?.VITE_SUPABASE_ANON_KEY || '').trim();
 
+// localStorage'da bozuk değer varsa yoksay, default'a düş.
+const isValidUrl = (v) => typeof v === 'string' && v.startsWith('https://') && !v.includes('YOUR_PROJECT');
+const isValidKey = (v) => typeof v === 'string' && v.length > 20;
+
+const _lsUrl = (() => { try { return localStorage.getItem('gecit_kfz_supabase_url'); } catch (e) { return null; } })();
+const _lsKey = (() => { try { return localStorage.getItem('gecit_kfz_supabase_key'); } catch (e) { return null; } })();
+
 const SUPABASE_CONFIG = {
-  url: localStorage.getItem('gecit_kfz_supabase_url') || ENV_SUPABASE_URL || DEFAULT_SUPABASE_URL,
-  anonKey: localStorage.getItem('gecit_kfz_supabase_key') || ENV_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY,
+  url: (isValidUrl(_lsUrl) && _lsUrl) || (isValidUrl(ENV_SUPABASE_URL) && ENV_SUPABASE_URL) || DEFAULT_SUPABASE_URL,
+  anonKey: (isValidKey(_lsKey) && _lsKey) || (isValidKey(ENV_SUPABASE_ANON_KEY) && ENV_SUPABASE_ANON_KEY) || DEFAULT_SUPABASE_ANON_KEY,
 };
 
 // Env veya fallback ile geçerli bir URL/Key varsa otomatik canlı moda geç

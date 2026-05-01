@@ -14,19 +14,26 @@ function readLocalStorage(key) {
   try { return localStorage.getItem(key); } catch (e) { return null; }
 }
 
+// localStorage'da bozuk değer varsa yoksay, default'a düş.
+const isValidUrl = (v) => typeof v === 'string' && v.startsWith('https://') && !v.includes('YOUR_PROJECT');
+const isValidKey = (v) => typeof v === 'string' && v.length > 20;
+
+const _lsUrl = readLocalStorage('gecit_kfz_supabase_url');
+const _lsKey = readLocalStorage('gecit_kfz_supabase_key');
+
 const SUPABASE_CONFIG = {
-  url: readLocalStorage('gecit_kfz_supabase_url') || ENV_SUPABASE_URL || DEFAULT_SUPABASE_URL,
-  anonKey: readLocalStorage('gecit_kfz_supabase_key') || ENV_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY,
+  url: (isValidUrl(_lsUrl) && _lsUrl) || (isValidUrl(ENV_SUPABASE_URL) && ENV_SUPABASE_URL) || DEFAULT_SUPABASE_URL,
+  anonKey: (isValidKey(_lsKey) && _lsKey) || (isValidKey(ENV_SUPABASE_ANON_KEY) && ENV_SUPABASE_ANON_KEY) || DEFAULT_SUPABASE_ANON_KEY,
 };
 
 let _client = null;
 
 export function getSupabaseClient() {
   if (_client) return _client;
-  const valid = SUPABASE_CONFIG.url.startsWith('https://')
-    && !SUPABASE_CONFIG.url.includes('YOUR_PROJECT')
-    && (SUPABASE_CONFIG.anonKey || '').length > 20;
-  if (!valid) return null;
+  if (!isValidUrl(SUPABASE_CONFIG.url) || !isValidKey(SUPABASE_CONFIG.anonKey)) {
+    console.error('[supabaseAuth] config invalid:', { url: SUPABASE_CONFIG.url, keyLen: SUPABASE_CONFIG.anonKey?.length });
+    return null;
+  }
   _client = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });

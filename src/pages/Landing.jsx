@@ -431,7 +431,14 @@ function LoginDrawer({ open, onClose, onLogin }) {
       const em = email.trim().toLowerCase();
       const { user, error: signErr } = await supabaseSignIn(em, password);
       if (signErr || !user) {
-        setError('E-Mail veya şifre hatalı.');
+        const msg = String(signErr || '');
+        if (msg.toLowerCase().includes('invalid login') || msg.toLowerCase().includes('email not confirmed')) {
+          setError('E-Mail veya şifre hatalı.');
+        } else if (msg.toLowerCase().includes('supabase')) {
+          setError('Bağlantı hatası: F12 → Console → localStorage.clear() → yenileyin');
+        } else {
+          setError('Giriş yapılamadı: ' + (signErr || 'bilinmeyen'));
+        }
         return;
       }
       if (!user.role) {
