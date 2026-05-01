@@ -1445,18 +1445,57 @@ const SupabaseOps = {
 };
 
 // ─── Supabase Auth helpers ──────────────────────────
+const PROFILE_COLS = 'role, full_name, linked_id, active';
+const PROFILE_CACHE_PREFIX = 'gecit_kfz_profile_';
+
+function readCachedProfileLS(userId) {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_PREFIX + userId);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    return (p && p.role && p.active !== false) ? p : null;
+  } catch (e) { return null; }
+}
+
+function writeCachedProfileLS(userId, profile) {
+  try {
+    if (profile && profile.role) {
+      localStorage.setItem(PROFILE_CACHE_PREFIX + userId, JSON.stringify(profile));
+    }
+  } catch (e) {}
+}
+
+function clearCachedProfilesLS() {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(PROFILE_CACHE_PREFIX)) localStorage.removeItem(k);
+    }
+  } catch (e) {}
+}
+
 const SupabaseAuth = {
   async signIn(email, password) {
     const sb = getSupabase();
     if (!sb) return { user: null, error: 'Supabase not initialized' };
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) return { user: null, error: error.message };
-    // Fetch user role from profiles table
-    const { data: profile } = await sb.from('user_profiles').select('*').eq('id', data.user.id).single();
-    return { user: { ...data.user, ...profile }, error: null };
+
+    const cached = readCachedProfileLS(data.user.id);
+    if (cached) {
+      sb.from('user_profiles').select(PROFILE_COLS).eq('id', data.user.id).maybeSingle()
+        .then(({ data: fresh }) => { if (fresh) writeCachedProfileLS(data.user.id, fresh); })
+        .catch(() => {});
+      return { user: { ...data.user, ...cached }, error: null };
+    }
+
+    const { data: profile } = await sb.from('user_profiles').select(PROFILE_COLS).eq('id', data.user.id).maybeSingle();
+    if (profile) writeCachedProfileLS(data.user.id, profile);
+    return { user: { ...data.user, ...(profile || {}) }, error: null };
   },
 
   async signOut() {
+    clearCachedProfilesLS();
     const sb = getSupabase();
     if (!sb) return;
     await sb.auth.signOut();
@@ -1540,7 +1579,116 @@ const StorageService = {
     const { data } = sb.storage.from(bucket).getPublicUrl(path);
     return data?.publicUrl || null;
   },
+
+  // Signed URL — private bucket'lardan dosya okumak için (1 saat geçerli)
+  async getSignedUrl(bucket, path, expiresIn = 3600) {
+    const sb = getSupabase();
+    if (!sb || !path) return null;
+    const { data, error } = await sb.storage.from(bucket).createSignedUrl(path, expiresIn);
+    if (error) { console.error('[Storage signed URL]', error.message); return null; }
+    return data?.signedUrl || null;
+  },
 };
+
+// ─── Document upload + display helpers ────────────────────────────────
+// SUPABASE STORAGE öncelikli: dosya base64 olarak localStorage'a yazılmaz,
+// doğrudan Storage'a yüklenir, sadece path saklanır. localStorage quota
+// sorunu yaşanmaz, sayfa yenilenince dosyalar kaybolmaz.
+
+const DOC_BUCKET = 'documents';
+const PHOTO_BUCKET = 'photos';
+
+async function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Bir dosyayı Supabase Storage'a yükler. Live modda Storage'ı dener,
+ * başarısız olursa veya local moddaysa base64 fallback kullanır.
+ *
+ * @returns {Promise<{ storage_path: string|null, storage_bucket: string, public_url: string|null, data: string|null, mime: string, size: number }>}
+ */
+async function uploadCustomerDocument(file, customerId, bucket = DOC_BUCKET) {
+  const ts = Date.now();
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+  const path = `${customerId || 'orphan'}/${ts}_${safeName}`;
+
+  // Live mode: Supabase Storage
+  if (DataService.isLive()) {
+    const sb = getSupabase();
+    if (sb) {
+      const { error } = await sb.storage.from(bucket).upload(path, file, { upsert: false, contentType: file.type });
+      if (!error) {
+        return {
+          storage_path: path,
+          storage_bucket: bucket,
+          public_url: bucket === PHOTO_BUCKET ? StorageService.getPublicUrl(bucket, path) : null,
+          data: null,
+          mime: file.type,
+          size: file.size,
+        };
+      }
+      console.warn('[uploadCustomerDocument] Storage failed, falling back to base64:', error.message);
+    }
+  }
+
+  // Fallback: base64 (uyarı: localStorage 5MB sınırı)
+  try {
+    const base64 = await readFileAsBase64(file);
+    return {
+      storage_path: null,
+      storage_bucket: null,
+      public_url: null,
+      data: base64,
+      mime: file.type,
+      size: file.size,
+    };
+  } catch (e) {
+    console.error('[uploadCustomerDocument] base64 read failed:', e?.message);
+    return null;
+  }
+}
+
+/**
+ * Bir doc kaydı için görüntüleme URL'i döner.
+ * Supabase storage_path varsa: signed URL (private) veya public URL.
+ * Yoksa data (base64) fallback.
+ */
+async function resolveDocUrl(doc) {
+  if (!doc) return null;
+  if (doc.public_url) return doc.public_url;
+  if (doc.storage_path) {
+    const bucket = doc.storage_bucket || DOC_BUCKET;
+    if (bucket === PHOTO_BUCKET || bucket === 'gallery') {
+      return StorageService.getPublicUrl(bucket, doc.storage_path);
+    }
+    return await StorageService.getSignedUrl(bucket, doc.storage_path, 3600);
+  }
+  return doc.data || null;
+}
+
+/**
+ * Senkron versiyon — iframe/img src için kullanılır. Async URL gerekirse
+ * resolveDocUrl kullanın. Public bucket veya base64 için anında çalışır.
+ */
+function getDocUrlSync(doc) {
+  if (!doc) return null;
+  if (doc.public_url) return doc.public_url;
+  if (doc.storage_path) {
+    const bucket = doc.storage_bucket || DOC_BUCKET;
+    if (bucket === PHOTO_BUCKET || bucket === 'gallery') {
+      return StorageService.getPublicUrl(bucket, doc.storage_path);
+    }
+    // private bucket için cache'lenmiş signed URL'i kontrol et (yoksa fallback)
+    return doc._signedUrl || doc.data || null;
+  }
+  return doc.data || null;
+}
 
 // ─── DataService — Unified interface ────────────────
 // Tüm portallar bunu kullanır. Mode'a göre local veya Supabase'e yönlendirir.
@@ -1868,7 +2016,54 @@ function loadDB() {
     return parsed;
   } catch (e) { return seedDB(); }
 }
-function saveDB(db) { try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch (e) {} }
+// localStorage'a kaydet — quota aşımı durumunda büyük binary alanları
+// (data: base64) çıkararak yeniden dene. Asla sessizce başarısız olma.
+let _saveDB_warningShown = false;
+function saveDB(db) {
+  try {
+    localStorage.setItem(DB_KEY, JSON.stringify(db));
+    return true;
+  } catch (e) {
+    // QuotaExceededError → büyük base64 alanlarını strip ederek tekrar dene
+    if (e && (e.name === 'QuotaExceededError' || e.code === 22 || /quota/i.test(e.message || ''))) {
+      console.warn('[Gecit-KFZ] localStorage quota aşıldı — base64 dosyalar çıkarılıyor');
+      try {
+        const stripped = stripBase64FromDb(db);
+        localStorage.setItem(DB_KEY, JSON.stringify(stripped));
+        if (!_saveDB_warningShown && typeof window !== 'undefined') {
+          _saveDB_warningShown = true;
+          console.error('[Gecit-KFZ] ⚠ Bazı dosyalar localStorage limitini aştı için yerel önbellekten çıkarıldı. Live mode\'da Supabase Storage kullanılır, dosyalar oradadır.');
+          // Konsolu kullanıcı görmüyorsa, ilk seferde alert göster
+          try { window.alert('Uyarı: Tarayıcı önbelleği dolu. Yeni yüklediğiniz dosyalar Supabase\'e gitti, ama yerel önbellekte saklanamıyor. Sayfayı yenileyin, dosyalar Supabase\'den yüklenecektir.'); } catch (_) {}
+        }
+        return true;
+      } catch (e2) {
+        console.error('[Gecit-KFZ] saveDB ikinci deneme de başarısız:', e2?.message);
+        return false;
+      }
+    }
+    console.error('[Gecit-KFZ] saveDB beklenmedik hata:', e?.message);
+    return false;
+  }
+}
+
+// Base64 'data' alanlarını ve ruhsatData içindeki olası büyük blobları kaldır
+function stripBase64FromDb(db) {
+  const stripDoc = (d) => {
+    if (!d) return d;
+    const out = { ...d };
+    if (typeof out.data === 'string' && out.data.startsWith('data:') && out.data.length > 50000) {
+      out.data = null; // çok büyük base64 — düş
+    }
+    return out;
+  };
+  return {
+    ...db,
+    customer_documents: (db.customer_documents || []).map(stripDoc),
+    damage_photos: (db.damage_photos || []).map(stripDoc),
+    gallery: (db.gallery || []).map(stripDoc),
+  };
+}
 
 // Mobile breakpoint hook (lg: 1024px+ desktop, altı mobil)
 function useIsMobile() {
@@ -1919,11 +2114,28 @@ function diffTablesForSync(prev, next) {
   return ops;
 }
 
+// Senkron öncesi: kayıtta storage_path varsa data field'ını boşalt
+// (base64 büyük olduğu için Supabase'e gönderilmesin — Storage'da zaten var)
+function sanitizeRecordForSync(table, record) {
+  if (!record) return record;
+  if (table === 'customer_documents' || table === 'damage_photos' || table === 'gallery') {
+    if (record.storage_path) {
+      // Storage'a yüklenmiş — data alanını gönderme
+      const { data: _omit, _signedUrl: _omit2, ...rest } = record;
+      return rest;
+    }
+  }
+  return record;
+}
+
 async function syncToSupabase(ops) {
   if (!ops || ops.length === 0) return;
   // Fire-and-forget; her başarısız operasyon konsola yazılır ama UI'yi etkilemez
   const results = await Promise.allSettled(ops.map(async (o) => {
-    if (o.op === 'upsert') return SupabaseOps.upsert(o.table, o.record);
+    if (o.op === 'upsert') {
+      const sanitized = sanitizeRecordForSync(o.table, o.record);
+      return SupabaseOps.upsert(o.table, sanitized);
+    }
     if (o.op === 'delete') return SupabaseOps.remove(o.table, o.id);
   }));
   results.forEach((r, i) => {
@@ -5326,43 +5538,49 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
     setUploadModalOpen(true);
   };
 
-  const confirmUpload = () => {
+  const confirmUpload = async () => {
     if (!uploadCategory) return;
     const customerLabel = customer.full_name || customer.company || customer.email;
-    pendingFiles.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const doc = {
-          id: 'cd' + uid(),
-          customer_id: customer.id,
-          vehicle_id: myVehicles[0]?.id || '',
-          name: file.name,
-          type: uploadCategory,
-          size: file.size,
-          data: reader.result,
-          uploaded_at: new Date().toISOString().slice(0, 10),
-          mime: file.type,
-        };
-        if (isRuhsatDoc(uploadCategory)) {
-          doc.ruhsatData = parseRuhsatMock(file);
-        }
-        const catLabel = (DOC_CATEGORIES.find(c => c.key === uploadCategory)?.label) || uploadCategory;
-        setDb(withLog(
-          prev => ({ ...prev, customer_documents: [...(prev.customer_documents || []), doc] }),
-          makeLogEntry({
-            user: currentUser,
-            action: 'doc_upload',
-            target: { kind: 'customer', id: customer.id, label: customerLabel },
-            details: `${file.name} (${catLabel}) → ${customerLabel}`,
-            metadata: { doc_id: doc.id, category: uploadCategory, size: file.size },
-          })
-        ));
-        if (isRuhsatDoc(uploadCategory)) {
-          setRuhsatPanelDoc(doc);
-        }
+    const catLabel = (DOC_CATEGORIES.find(c => c.key === uploadCategory)?.label) || uploadCategory;
+
+    for (const file of pendingFiles) {
+      // Yeni helper: önce Supabase Storage'a, fallback base64
+      const uploaded = await uploadCustomerDocument(file, customer.id, DOC_BUCKET);
+      if (!uploaded) {
+        console.error('[upload] failed:', file.name);
+        try { window.alert(`"${file.name}" yüklenemedi. Konsolu kontrol edin.`); } catch (_) {}
+        continue;
+      }
+      const doc = {
+        id: 'cd' + uid(),
+        customer_id: customer.id,
+        vehicle_id: myVehicles[0]?.id || '',
+        name: file.name,
+        type: uploadCategory,
+        size: uploaded.size,
+        mime: uploaded.mime,
+        storage_path: uploaded.storage_path,
+        storage_bucket: uploaded.storage_bucket,
+        data: uploaded.data, // base64 fallback (genelde null live mode'da)
+        uploaded_at: new Date().toISOString().slice(0, 10),
       };
-      reader.readAsDataURL(file);
-    });
+      if (isRuhsatDoc(uploadCategory)) {
+        doc.ruhsatData = parseRuhsatMock(file);
+      }
+      setDb(withLog(
+        prev => ({ ...prev, customer_documents: [...(prev.customer_documents || []), doc] }),
+        makeLogEntry({
+          user: currentUser,
+          action: 'doc_upload',
+          target: { kind: 'customer', id: customer.id, label: customerLabel },
+          details: `${file.name} (${catLabel}) → ${customerLabel}`,
+          metadata: { doc_id: doc.id, category: uploadCategory, size: file.size, storage_path: doc.storage_path },
+        })
+      ));
+      if (isRuhsatDoc(uploadCategory)) {
+        setRuhsatPanelDoc(doc);
+      }
+    }
     setPendingFiles([]);
     setUploadCategory('');
     setUploadModalOpen(false);
@@ -12199,20 +12417,38 @@ function App() {
         if (!mounted || !session) return;
         const sb = getSupabase();
         if (!sb) return;
+
+        const buildUser = (p) => ({
+          email: session.user.email,
+          role: p.role,
+          name: p.full_name || session.user.email,
+          lawyer_id: p.role === 'lawyer' ? p.linked_id : undefined,
+          insurer_id: p.role === 'insurance' ? p.linked_id : undefined,
+        });
+
+        const cached = readCachedProfileLS(session.user.id);
+        if (cached) {
+          setUser(buildUser(cached));
+          setView('app');
+          sb.from('user_profiles').select(PROFILE_COLS).eq('id', session.user.id).maybeSingle()
+            .then(({ data: fresh }) => {
+              if (!mounted || !fresh) return;
+              if (fresh.active === false || !fresh.role) { SupabaseAuth.signOut(); return; }
+              writeCachedProfileLS(session.user.id, fresh);
+              setUser(buildUser(fresh));
+            }).catch(() => {});
+          return;
+        }
+
         const { data: profile, error } = await sb.from('user_profiles')
-          .select('*').eq('id', session.user.id).single();
+          .select(PROFILE_COLS).eq('id', session.user.id).maybeSingle();
         if (!mounted) return;
         if (error || !profile || profile.active === false || !profile.role) {
           await SupabaseAuth.signOut();
           return;
         }
-        setUser({
-          email: session.user.email,
-          role: profile.role,
-          name: profile.full_name || session.user.email,
-          lawyer_id: profile.role === 'lawyer' ? profile.linked_id : undefined,
-          insurer_id: profile.role === 'insurance' ? profile.linked_id : undefined,
-        });
+        writeCachedProfileLS(session.user.id, profile);
+        setUser(buildUser(profile));
         setView('app');
       } catch (e) {
         console.warn('[Gecit-KFZ] Session restore failed:', e?.message);
