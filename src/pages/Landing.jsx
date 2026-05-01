@@ -170,23 +170,38 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
       className="fixed left-0 right-0 z-50 transition-all duration-300"
       style={{
         top: 'calc(26px + env(safe-area-inset-top))',
-        background: scrolled ? 'rgba(255, 255, 255, 0.8)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(12px) saturate(180%)' : 'none',
-        WebkitBackdropFilter: scrolled ? 'blur(12px) saturate(180%)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.05)' : 'none',
-        height: scrolled ? '72px' : '96px',
-        boxShadow: scrolled ? '0 4px 30px rgba(0, 0, 0, 0.03)' : 'none',
+        background: scrolled ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.05)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.1)',
+        height: scrolled ? '96px' : '130px',
+        boxShadow: scrolled ? '0 10px 40px rgba(0, 0, 0, 0.08)' : 'none',
       }}
     >
-      <div className="mx-auto px-6 h-full flex items-center justify-between" style={{ maxWidth: 1200 }}>
         {/* Logo */}
-        <a href="#" className="flex items-center h-full">
+        <a href="#" className="flex items-center h-full gap-3 flex-shrink-0">
           <img src="/logocustom3.png" alt="Gecit Kfz Sachverständiger" 
-            className="h-16 md:h-20 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
+            className="h-14 sm:h-16 md:h-20 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
+          <div className="hidden xl:flex items-center gap-2 border-l border-gray-100 pl-4 h-8">
+            <span className="text-xs leading-none">🇩🇪</span>
+            <span className="text-[10px] font-bold tracking-[0.1em] text-[#E30613] uppercase leading-none">
+              {t('topbar.service')}
+            </span>
+          </div>
         </a>
 
+        {/* Mobile Center Service Badge */}
+        <div className="flex md:hidden flex-1 justify-center px-2">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-100">
+            <span className="text-xs leading-none">🇩🇪</span>
+            <span className="text-[8px] font-black tracking-[0.05em] text-[#E30613] uppercase leading-none">
+              {t('topbar.service')}
+            </span>
+          </div>
+        </div>
+
         {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-8 h-full">
+        <div className="hidden md:flex items-center gap-5 lg:gap-8 h-full">
           {links.map((link, i) => (
             <a
               key={link.key}
@@ -197,14 +212,14 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
                   setActiveSubPage('kontakt');
                 }
               }}
-              className="relative text-sm font-bold tracking-wider transition-colors hover:text-[#E30613]"
+              className="relative text-xs lg:text-sm font-black tracking-[0.25em] transition-all hover:text-[#E30613] hover:scale-110"
               style={{ color: i === 0 ? '#E30613' : '#0A0A0A' }}
             >
               {link.label}
               {i === 0 && (
                 <motion.div
                   layoutId="nav-underline"
-                  className="absolute -bottom-2 left-0 right-0 h-0.5 bg-[#E30613]"
+                  className="absolute -bottom-2 left-0 right-0 h-1 bg-[#E30613] rounded-full"
                 />
               )}
             </a>
@@ -212,10 +227,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 md:gap-4">
-          <div className="hidden sm:block">
-            <LanguageSelector />
-          </div>
+        <div className="flex items-center gap-3 md:gap-4 ml-auto pl-8 lg:pl-12">
           {user ? (
             <div className="relative">
               <button
@@ -265,6 +277,10 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
             {t('nav.book')}
           </button>
           
+          <div className="hidden sm:block">
+            <LanguageSelector />
+          </div>
+          
           {/* Mobile Toggle */}
           <button 
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -300,14 +316,22 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
               className="fixed right-0 bottom-0 w-[85%] max-w-sm z-50 bg-white shadow-2xl flex flex-col md:hidden"
               style={{ top: 'calc(26px + env(safe-area-inset-top))' }}
             >
-              <div className="p-6 flex items-center justify-between border-b border-gray-100">
-                <img src="/logocustom3.png" alt="Logo" className="h-10 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
-                <button 
-                  onClick={() => setMobileOpen(false)}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-500"
-                >
-                  <XClose size={20} />
-                </button>
+              <div className="p-6 flex flex-col gap-4 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <img src="/logocustom3.png" alt="Logo" className="h-10 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
+                  <button 
+                    onClick={() => setMobileOpen(false)}
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-500"
+                  >
+                    <XClose size={20} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100 self-start">
+                  <span className="text-xs">🇩🇪</span>
+                  <span className="text-[10px] font-black tracking-widest text-[#E30613] uppercase leading-none">
+                    {t('topbar.service')}
+                  </span>
+                </div>
               </div>
               
               <div className="flex-1 overflow-y-auto py-8 px-6 flex flex-col gap-6">
@@ -406,7 +430,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
     setTimeout(() => {
       const em = email.trim().toLowerCase();
       if (em === 'cevikademm@gmail.com' && password === 'Adem123') {
-        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Adem Cevik' };
+        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Geçit' };
         try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
         onLogin(user);
         setEmail(''); setPassword('');
@@ -442,7 +466,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
     const dbData = dbRaw ? (() => { try { return JSON.parse(dbRaw); } catch(e) { return null; } })() : null;
     let user = null;
     if (role === 'admin') {
-      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Adem Cevik' };
+      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Geçit' };
     } else if (role === 'customer') {
       const c = (dbData?.customers || [])[0];
       user = c
@@ -644,7 +668,6 @@ function RevealHeading({ text, className = '', style = {}, delay = 0 }) {
 }
 
 // Hero, CTA, Features → src/pages/landing/{Hero,CTA,Features}.jsx
-
 // Footer → src/pages/landing/Footer.jsx
 
 function PWAInstallBanner() {
@@ -928,8 +951,8 @@ function PlatformFeatures() {
   ];
 
   return (
-    <section className="relative py-16 md:py-40" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+    <section className="relative py-24 md:py-48" style={{ zIndex: 2 }}>
+      <div className="mx-auto px-10" style={{ maxWidth: 1400 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.8, ease: easeOut }} className="mb-16 md:mb-24 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-10 items-center">
@@ -979,7 +1002,7 @@ function PlatformFeatures() {
 function KostenlosBanner() {
   return (
     <section className="relative py-20 md:py-28 overflow-hidden" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+      <div className="mx-auto px-10" style={{ maxWidth: 1400 }}>
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1074,61 +1097,73 @@ function FahrzeugklassenSection({ onBook }) {
   const iconProps = { width: 36, height: 36, viewBox: '0 0 24 24', fill: 'none', stroke: RED, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
   const items = [
     {
-      title: 'PKW',
-      desc: 'Präzise Gutachten für alle Pkw-Typen, unabhängig von Marke und Modell.',
+      key: 'pkw',
       icon: (
         <svg {...iconProps}><path d="M3 13l2-5a3 3 0 0 1 2.8-2h8.4A3 3 0 0 1 19 8l2 5"/><path d="M3 13h18v4a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2H8a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-4z"/><circle cx="7.5" cy="16" r="1.2"/><circle cx="16.5" cy="16" r="1.2"/></svg>
       ),
     },
     {
-      title: 'Elektrofahrzeuge',
-      desc: 'Ob Elektroauto oder E-Bike — wir bieten spezialisierte Gutachten, die technische Besonderheiten berücksichtigen.',
+      key: 'electric',
+      icon: (
+        <svg {...iconProps}><path d="M11 2L9 12h4l-2 10"/><path d="M18.5 13l2-5a3 3 0 0 0-2.8-2h-1.4"/><path d="M3 13h16v4a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2H8a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-4z"/><circle cx="7.5" cy="16" r="1.2"/><circle cx="16.5" cy="16" r="1.2"/></svg>
+      ),
+    },
+    {
+      key: 'hybrid',
       icon: (
         <svg {...iconProps}><path d="M3 13l2-5a3 3 0 0 1 2.8-2h6.4A3 3 0 0 1 17 8l2 5"/><path d="M3 13h16v4a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2H8a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-4z"/><path d="M21 9v6"/><path d="M11 9l-2 3h3l-2 3"/></svg>
       ),
     },
     {
-      title: 'LKW',
-      desc: 'Vom leichten Nutzfahrzeug bis zum schweren Lkw, maßgeschneidert auf die speziellen Einsatzbereiche.',
+      key: 'construction',
       icon: (
-        <svg {...iconProps}><path d="M2 17V7a1 1 0 0 1 1-1h11v11"/><path d="M14 10h4l3 4v3h-7"/><circle cx="6.5" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/></svg>
+        <svg {...iconProps}><path d="M2 17V7a1 1 0 0 1 1-1h11v11"/><path d="M14 10h4l3 4v3h-7"/><circle cx="6.5" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/><path d="M10 6v-4h4v4"/></svg>
       ),
     },
     {
-      title: 'Caravan',
-      desc: 'Detaillierte Bewertungen für Wohnwagen und Wohnmobile, inkl. Wohnbereich und Sonderausstattung.',
-      icon: (
-        <svg {...iconProps}><path d="M3 8a2 2 0 0 1 2-2h11a3 3 0 0 1 3 3v6H3V8z"/><path d="M19 15h2v2h-2"/><rect x="6" y="9" width="4" height="3"/><circle cx="8" cy="17" r="1.5"/><circle cx="15" cy="17" r="1.5"/></svg>
-      ),
-    },
-    {
-      title: 'Anhänger',
-      desc: 'Umfassende Gutachten für Last- und Spezialanhänger, mit Fokus auf Sicherheitsaspekte.',
+      key: 'trailers',
       icon: (
         <svg {...iconProps}><rect x="3" y="7" width="14" height="9" rx="1"/><path d="M17 14h4"/><circle cx="21.5" cy="14.5" r="1"/><circle cx="8" cy="18" r="1.5"/><circle cx="13" cy="18" r="1.5"/></svg>
       ),
     },
     {
-      title: 'Motorräder',
-      desc: 'Sorgfältige Schadens- und Wertgutachten für Motorräder.',
+      key: 'trucks',
+      icon: (
+        <svg {...iconProps}><path d="M2 17V7a1 1 0 0 1 1-1h11v11"/><path d="M14 10h4l3 4v3h-7"/><circle cx="6.5" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/></svg>
+      ),
+    },
+    {
+      key: 'training',
+      icon: (
+        <svg {...iconProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      ),
+    },
+    {
+      key: 'moto',
       icon: (
         <svg {...iconProps}><circle cx="5.5" cy="16" r="3"/><circle cx="18.5" cy="16" r="3"/><path d="M5.5 16l4-6h5l3 6"/><path d="M14 7h3v3"/></svg>
+      ),
+    },
+    {
+      key: 'certs',
+      icon: (
+        <svg {...iconProps}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M8 11l3 3 5-5"/></svg>
       ),
     },
   ];
   return (
     <section className="relative py-12 md:py-32" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1100 }}>
+      <div className="mx-auto px-10" style={{ maxWidth: 1300 }}>
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.7, ease: easeOut }}
           className="text-center mb-14">
           <div className="text-sm md:text-base font-semibold mb-3" style={{ color: RED, letterSpacing: '0.02em' }}>
-            Ihr Partner für umfassende Bewertungen
+            {t('vehicle_classes.subheading')}
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold"
             style={{ color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-            Gutachten für alle <span style={{ color: RED }}>Fahrzeugklassen</span>
+            {t('vehicle_classes.heading')} <span style={{ color: RED }}>{t('vehicle_classes.heading_red')}</span>
           </h2>
         </motion.div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1138,17 +1173,24 @@ function FahrzeugklassenSection({ onBook }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-40px' }}
               transition={{ duration: 0.6, ease: easeOut, delay: i * 0.08 }}
-              className="rounded-2xl p-6 md:p-7"
-              style={{ background: '#FAFAFA', border: `1px solid ${C.border}`,
-                backdropFilter: 'blur(4px)' }}>
+              className="rounded-2xl p-6 md:p-7 flex flex-col h-full"
+              style={{ 
+                background: item.key === 'certs' ? 'rgba(227,6,19,0.02)' : '#FAFAFA', 
+                border: item.key === 'certs' ? `1px solid rgba(227,6,19,0.2)` : `1px solid ${C.border}`,
+                backdropFilter: 'blur(4px)' 
+              }}>
               <div className="flex items-center gap-4 mb-3">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
                   style={{ background: 'rgba(227,6,19,0.08)', border: '1px solid rgba(227,6,19,0.25)' }}>
                   {item.icon}
                 </div>
-                <h3 className="text-xl font-bold" style={{ color: RED }}>{item.title}</h3>
+                <h3 className="text-xl font-bold" style={{ color: RED }}>
+                  {t(`vehicle_classes.${item.key}.title`)}
+                </h3>
               </div>
-              <p className="leading-relaxed" style={{ color: C.textDim }}>{item.desc}</p>
+              <p className="leading-relaxed text-sm flex-1" style={{ color: C.textDim }}>
+                {t(`vehicle_classes.${item.key}.desc`)}
+              </p>
             </motion.div>
           ))}
         </div>
@@ -1167,7 +1209,7 @@ function RechteSection() {
   ];
   return (
     <section className="relative py-24 md:py-32" style={{ zIndex: 2, background: '#FAFAFA' }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1100 }}>
+      <div className="mx-auto px-10" style={{ maxWidth: 1300 }}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-14 items-center mb-14">
           <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: '-80px' }}
@@ -1277,8 +1319,8 @@ function WhyGecitKfz() {
   ];
 
   return (
-    <section className="relative py-32 md:py-40 overflow-hidden" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6 relative" style={{ maxWidth: 1200 }}>
+    <section className="relative py-44 md:py-56 overflow-hidden" style={{ zIndex: 2 }}>
+      <div className="mx-auto px-10 relative" style={{ maxWidth: 1400 }}>
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
@@ -1328,6 +1370,40 @@ function WhyGecitKfz() {
             </motion.div>
           ))}
         </div>
+
+        {/* Expertise Grid */}
+        <div className="mt-32">
+          <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            className="text-center mb-16">
+            <h3 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: C.text }}>Unsere Zertifizierungen & Expertise</h3>
+            <div className="w-20 h-1.5 bg-[#e10600] mx-auto rounded-full mb-6" />
+            <p className="text-gray-500 max-w-xl mx-auto">
+              Wir verfügen über offizielle Zertifikate für modernste Antriebstechniken, Spezialfahrzeuge und Fachtrainings.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+            {[
+              { icon: Zap, title: 'Elektro & Hybrid', desc: 'Zertifiziert für Hochvolt-Systeme', color: '#10B981' },
+              { icon: CarIcon, title: 'Spezial-Anhänger', desc: 'Sonder- & Schwerlast-Dorsen', color: '#6366F1' },
+              { icon: Wrench, title: 'Baumaschinen', desc: 'Bagger, Kräne & Spezialgerät', color: '#F59E0B' },
+              { icon: RadioTowerIcon, title: 'LKW & TIR', desc: 'Nutzfahrzeuge & Logistik-Einheiten', color: '#E30613' },
+              { icon: Layers, title: 'Zweiräder', desc: 'Motorräder & E-Bikes Gutachten', color: '#06B6D4' },
+              { icon: ShieldIcon, title: 'Fachtrainings', desc: 'Zertifizierte TIR Schulungen', color: '#8B5CF6' },
+            ].map((item, idx) => (
+              <motion.div key={idx} initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }} transition={{ delay: idx * 0.05 }}
+                className="group p-6 rounded-[2rem] bg-white border border-gray-100 hover:border-[#E30613]/20 hover:shadow-2xl transition-all duration-500 text-center">
+                <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-500"
+                  style={{ color: item.color }}>
+                  <item.icon size={24} />
+                </div>
+                <h4 className="text-sm font-bold mb-1" style={{ color: C.text }}>{item.title}</h4>
+                <p className="text-[10px] text-gray-400 font-medium">{item.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -1336,7 +1412,7 @@ function WhyGecitKfz() {
 function PeaceOfMindSection() {
   return (
     <section className="relative py-24 md:py-32 overflow-hidden" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+      <div className="mx-auto px-10" style={{ maxWidth: 1400 }}>
         <div className="relative rounded-[2.5rem] overflow-hidden bg-[#F9FAFB] border border-gray-100 p-8 md:p-20">
           <div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none">
             <div className="absolute top-[-20%] right-[-10%] w-[140%] h-[140%] rounded-full"
@@ -1427,7 +1503,7 @@ function DownloadCenter() {
 
   return (
     <section className="relative py-24 md:py-32 overflow-hidden bg-white" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+      <div className="mx-auto px-10" style={{ maxWidth: 1400 }}>
         <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-bold mb-4" style={{ color: C.text, letterSpacing: '-0.03em' }}>
             Wichtige <span style={{ color: '#E30613' }}>Dokumente</span> & Downloads
@@ -1480,8 +1556,8 @@ function HowItWorks() {
     { n: '03', title: 'Bericht erhalten', desc: 'Nach Abschluss der Prüfung erhalten Sie das detaillierte PDF-Gutachten im Portal und per E-Mail.', align: 'left' },
   ];
   return (
-    <section id="ablauf" ref={ref} className="relative py-32 md:py-40 overflow-hidden" style={{ zIndex: 2 }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+    <section id="ablauf" ref={ref} className="relative py-44 md:py-56 overflow-hidden" style={{ zIndex: 2 }}>
+      <div className="mx-auto px-10" style={{ maxWidth: 1400 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.8, ease: easeOut }} className="text-center mb-20">
@@ -1574,7 +1650,7 @@ function Stat({ value, prefix = '', suffix = '', label }) {
 function Stats() {
   return (
     <section className="relative py-24 md:py-32" style={{ zIndex: 2, background: '#FFFFFF' }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+      <div className="mx-auto px-10" style={{ maxWidth: 1400 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.8, ease: easeOut }} className="mb-20">
@@ -1671,7 +1747,7 @@ function PricingCard({ name, price, desc, features, highlighted, cta }) {
 function Pricing({ onBook }) {
   return (
     <section className="relative py-24 md:py-32" style={{ zIndex: 2, background: '#FFFFFF' }}>
-      <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
+      <div className="mx-auto px-10" style={{ maxWidth: 1400 }}>
         <motion.div initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.8, ease: easeOut }} className="text-center mb-16">
@@ -1920,6 +1996,12 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
       // Leistungen
       'unfallgutachten': { title: 'Unfallgutachten', type: 'unfallgutachten' },
       'wertgutachten': { title: 'Wertgutachten', type: 'wertgutachten' },
+      'baumaschinen': { title: 'Baumaschinen-Gutachten', type: 'baumaschinen' },
+      'elektro-hybrid': { title: 'Elektro- & Hybrid-Gutachten', type: 'elektro-hybrid' },
+      'lkw-tir': { title: 'LKW- & TIR-Gutachten', type: 'lkw-tir' },
+      'spezial-anhaenger': { title: 'Spezial-Anhänger-Gutachten', type: 'spezial-anhaenger' },
+      'zweiraeder': { title: 'Zweiräder-Gutachten', type: 'zweiraeder' },
+      'tir-schulungen': { title: 'TIR-Schulungen & Fachtrainings', type: 'tir-schulungen' },
       'reparaturkosten': { title: 'Reparaturkosten-Ermittlung', type: 'reparaturkosten' },
       'leasing-check': { title: 'Leasing-Zustandsbericht', type: 'leasing-check' },
       'oldtimer': { title: 'Oldtimer-Bewertung', type: 'oldtimer' },

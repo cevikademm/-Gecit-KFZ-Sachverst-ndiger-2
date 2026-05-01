@@ -245,7 +245,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
     setTimeout(() => {
       const em = email.trim().toLowerCase();
       if (em === 'cevikademm@gmail.com' && password === 'Adem123') {
-        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Adem Çevik' };
+        const user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Gecit' };
         try { localStorage.setItem('gecit_kfz_user', JSON.stringify(user)); } catch(err) {}
         onLogin(user);
         setEmail(''); setPassword('');
@@ -281,7 +281,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
     const dbData = dbRaw ? (() => { try { return JSON.parse(dbRaw); } catch(e) { return null; } })() : null;
     let user = null;
     if (role === 'admin') {
-      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Adem Çevik' };
+      user = { email: 'cevikademm@gmail.com', role: 'super_admin', name: 'Rohat Gecit' };
     } else if (role === 'customer') {
       const c = (dbData?.customers || [])[0];
       user = c

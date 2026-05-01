@@ -141,11 +141,31 @@ export const SubPageContent = ({ type, onBack }) => {
           </Section>
 
           <Section title="Verantwortlich für den Inhalt" icon={Users}>
-            <p className="text-lg font-bold text-gray-900">Adem Çevik</p>
+            <p className="text-lg font-bold text-gray-900">Rohat Gecit</p>
             <p>
               Am Gutshof 37<br />
               52080 Aachen
             </p>
+          </Section>
+
+          <Section title="Umsatzsteuer-ID" icon={FileText}>
+            <p className="text-xs uppercase tracking-widest text-gray-400 mb-1">USt-IdNr. gemäß § 27 a Umsatzsteuergesetz</p>
+            <p className="text-lg font-bold text-gray-900">DE366304119</p>
+          </Section>
+
+          <Section title="Bankverbindung" icon={ClipboardIcon}>
+            <p className="text-xs uppercase tracking-widest text-gray-400 mb-1">Kontoinhaber: Rohat Gecit</p>
+            <p className="text-lg font-bold text-gray-900 mb-2">Sparkasse Aachen</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-0.5">IBAN</p>
+                <p className="text-sm font-mono font-bold text-gray-900">DE12 3905 0000 1077 3885 83</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-0.5">BIC</p>
+                <p className="text-sm font-mono font-bold text-gray-900">AACSDE33XXX</p>
+              </div>
+            </div>
           </Section>
 
           <Section title="EU-Streitschlichtung" icon={Shield}>
@@ -361,7 +381,11 @@ export const SubPageContent = ({ type, onBack }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
                   <label className="text-xs uppercase tracking-widest text-gray-400 font-bold">Ihr Name</label>
-                  <input type="text" placeholder="Adem Çevik" className="w-full bg-white border border-gray-200 rounded-2xl px-6 py-4 outline-none focus:border-[#E30613] transition-colors" />
+<<<<<<< HEAD
+                  <input type="text" placeholder="Rohat Geçit" className="w-full bg-white border border-gray-200 rounded-2xl px-6 py-4 outline-none focus:border-[#E30613] transition-colors" />
+=======
+                  <input type="text" placeholder="Rohat Gecit" className="w-full bg-white border border-gray-200 rounded-2xl px-6 py-4 outline-none focus:border-[#E30613] transition-colors" />
+>>>>>>> 6b267c6 (son guncellemeler en kararli surum)
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs uppercase tracking-widest text-gray-400 font-bold">E-Mail Adresse</label>
@@ -427,6 +451,106 @@ export const SubPageContent = ({ type, onBack }) => {
           <Section title="Zustandsnoten" icon={Star}>
             <p>Von Note 1 (Makellos) bis Note 5 (Restaurierungsobjekt) – wir ordnen Ihr Fahrzeug präzise ein und dokumentieren alle wertrelevanten Details.</p>
           </Section>
+        </div>
+      );
+    
+    case 'baumaschinen':
+      return (
+        <div className="space-y-10">
+          <Section title="Baumaschinen-Gutachten" icon={Wrench}>
+            <p className="text-xl leading-relaxed">
+              Spezialisierte Bewertungen für **Bagger, Kräne, Radlader** und andere Baumaschinen. Wir erfassen technische Mängel, Betriebsstunden und den allgemeinen Verschleißzustand.
+            </p>
+          </Section>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm">
+              <h3 className="text-xl font-bold mb-3">Zertifizierte Expertise</h3>
+              <p className="text-gray-500">Unsere Gutachter sind speziell für die komplexen Hydraulik- und Antriebssysteme von Baumaschinen geschult.</p>
+            </div>
+            <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm">
+              <h3 className="text-xl font-bold mb-3">Einsatzbereitschaft</h3>
+              <p className="text-gray-500">Wir prüfen die Sicherheit und Funktionalität nach aktuellen UVV-Vorschriften.</p>
+            </div>
+          </div>
+        </div>
+      );
+
+    case 'elektro-hybrid':
+      return (
+        <div className="space-y-10">
+          <Section title="Elektro- & Hybridfahrzeuge" icon={Info}>
+            <p className="text-xl leading-relaxed">
+              Die Begutachtung von E-Fahrzeugen erfordert Fachwissen über **Hochvolt-Systeme** und Batteriezustände. Wir sind zertifiziert für alle gängigen Elektro- und Hybrid-Modelle.
+            </p>
+          </Section>
+          <Section title="Hochvolt-Sicherheit" icon={ShieldCheck}>
+            <p>Sicherheit geht vor. Wir prüfen die Integrität der Batteriegehäuse und die Funktionsfähigkeit der Abschaltsysteme nach einem Unfall.</p>
+          </Section>
+        </div>
+      );
+
+    case 'lkw-tir':
+      return (
+        <div className="space-y-10">
+          <Section title="LKW- & TIR-Gutachten" icon={Car}>
+            <p className="text-xl leading-relaxed">
+              Nutzfahrzeuge sind das Rückgrat der Logistik. Wir bieten schnelle und präzise Gutachten für **Sattelzüge, LKWs und Transporter**, um Standzeiten zu minimieren.
+            </p>
+          </Section>
+          <div className="p-8 bg-gray-50 rounded-2xl border border-gray-100">
+            <h3 className="text-xl font-bold mb-4">Logistik-Fokus</h3>
+            <p>Wir berücksichtigen Aufbauarten, Kühlaggregate und Ladebordwände in unserer Bewertung.</p>
+          </div>
+        </div>
+      );
+
+    case 'spezial-anhaenger':
+      return (
+        <div className="space-y-10">
+          <Section title="Spezial-Anhänger & Dorsen" icon={ClipboardIcon}>
+            <p className="text-xl leading-relaxed">
+              Ob Tieflader, Kipper oder Spezial-Dorsen – wir begutachten alle Arten von Anhängern auf technische Sicherheit und Wert.
+            </p>
+          </Section>
+          <Section title="Schwerlast-Expertise" icon={Wrench}>
+            <p>Besonderes Augenmerk legen wir auf die Rahmenstruktur und die Bremssysteme bei Schwerlast-Einheiten.</p>
+          </Section>
+        </div>
+      );
+
+    case 'zweiraeder':
+      return (
+        <div className="space-y-10">
+          <Section title="Zweiräder-Gutachten" icon={Star}>
+            <p className="text-xl leading-relaxed">
+              Motorräder, Roller und hochwertige E-Bikes benötigen eine feinfühlige Begutachtung, da versteckte Rahmenschäden oft fatal sein können.
+            </p>
+          </Section>
+          <div className="bg-red-50 p-8 rounded-[2rem] border border-red-100">
+            <h3 className="text-xl font-bold text-[#E30613] mb-4">Rahmenvermessung</h3>
+            <p className="text-red-900/70">Wir nutzen modernste Verfahren zur Prüfung der Rahmengeometrie nach Unfällen.</p>
+          </div>
+        </div>
+      );
+
+    case 'tir-schulungen':
+      return (
+        <div className="space-y-10">
+          <Section title="TIR-Schulungen & Fachtrainings" icon={Award}>
+            <p className="text-xl leading-relaxed">
+              Wissen ist Sicherheit. Wir bieten **zertifizierte Schulungen** für Fahrer und Logistikunternehmen an.
+            </p>
+          </Section>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+              <h4 className="font-bold text-gray-900 mb-2">Ladungssicherung</h4>
+              <p className="text-sm">Praxisnahe Trainings nach VDI 2700ff.</p>
+            </div>
+            <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
+              <h4 className="font-bold text-gray-900 mb-2">TIR-Verfahren</h4>
+              <p className="text-sm">Schulungen zu Zollabwicklungen und internationalen Transportstandards.</p>
+            </div>
+          </div>
         </div>
       );
 

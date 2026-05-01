@@ -23,15 +23,19 @@ export const translations = {
       login: 'LOGIN', dashboard: 'DASHBOARD', logout: 'ABMELDEN',
     },
     topbar: {
-      service: 'BUNDESWEITER SERVICE',
+      service: 'ALL SERVICE IN DEUTSCHLAND',
       recognized: 'ANERKANNT BEI ALLEN DEUTSCHEN WERKSTÄTTEN',
       emergency: '24/7 NOTFALL-SERVICE',
     },
     hero: {
+      eyebrow: 'ZUKUNFT DER KFZ-EXPERTISE',
+      title_part1: 'KI-GESTÜTZTE',
+      title_part2: 'BEGUTACHTUNG',
       title: 'KFZ-GUTACHTER',
       subtitle: 'IHR PARTNER IM SCHADENFALL',
-      description: 'Als unabhängiger Kfz-Gutachter stehe ich Ihnen mit fachkompetenter und persönlicher Beratung zur Seite. Ich erstelle schnelle, zuverlässige und rechtssichere Gutachten.',
+      description: 'Erleben Sie die nächste Generation der Kfz-Expertise. Mit 120-Punkt AI-Analyse, automatischer Kennzeichenerkennung und Echtzeit-Historien-Check für maximale Präzision.',
       cta: 'JETZT TERMIN VEREINBAREN',
+      watch_demo: 'DEMO ANSEHEN',
     },
     cta: {
       tagline: 'SCHNELL • UNABHÄNGIG • ZUVERLÄSSIG',
@@ -94,6 +98,27 @@ export const translations = {
       save: 'Speichern', cancel: 'Abbrechen', delete: 'Löschen', edit: 'Bearbeiten',
       new: 'Neu', add: 'Hinzufügen', ok: 'OK', search: 'Suchen', loading: 'Wird geladen...',
     },
+    vehicle_classes: {
+      heading: 'Gutachten für alle', heading_red: 'Fahrzeugklassen',
+      subheading: 'Ihr Partner für umfassende Bewertungen',
+      pkw: { title: 'PKW', desc: 'Präzise Gutachten für alle Pkw-Typen, unabhängig von Marke und Modell.' },
+      electric: { title: 'Elektroautos', desc: 'Spezialisierte Gutachten für rein elektrische Fahrzeuge und deren Batteriesysteme.' },
+      hybrid: { title: 'Hybridfahrzeuge', desc: 'Fachgerechte Bewertung von Hybridantrieben und Hochvolt-Komponenten.' },
+      construction: { title: 'Baumaschinen', desc: 'Zertifizierte Experten für Bagger, Kräne und spezialisierte Baumaschinen.' },
+      trailers: { title: 'Spezial-Anhänger & Dorsen', desc: 'Umfassende Gutachten für Last- und Spezialanhänger sowie Schwerlast-Einheiten.' },
+      trucks: { title: 'LKW & TIR', desc: 'Vom leichten Nutzfahrzeug bis zum schweren Lkw und Sattelzügen.' },
+      training: { title: 'TIR-Schulungen', desc: 'Zertifizierte Fachtrainings für TIR-Logistik und Ladungssicherung.' },
+      moto: { title: 'Zweiräder', desc: 'Sorgfältige Schadens- und Wertgutachten für Motorräder, E-Bikes und Roller.' },
+      certs: { title: 'Zertifikate & Qualifikationen', desc: 'Staatlich anerkannte Zertifizierungen und kontinuierliche Weiterbildung für höchste Präzision.' },
+    },
+    why_us: {
+      certs: {
+        title: 'Staatlich geprüfte Expertise',
+        desc: 'Unsere Sachverständigen sind staatlich geprüft und verfügen over alle notwendigen Zertifikate für modernste Fahrzeugtechnologien.',
+        stat: 'ISO',
+        statLabel: 'Zertifizierte Qualität'
+      }
+    }
   },
 
   tr: {
@@ -104,15 +129,19 @@ export const translations = {
       login: 'GİRİŞ', dashboard: 'PANELE GİT', logout: 'ÇIKIŞ YAP',
     },
     topbar: {
-      service: 'ÜLKE GENELİ HİZMET',
+      service: 'ALL SERVICE IN DEUTSCHLAND',
       recognized: 'TÜM ALMAN SERVİSLERİNDE GEÇERLİ',
       emergency: '7/24 ACİL DESTEK',
     },
     hero: {
+      eyebrow: 'ARAÇ EKSPERTİZİNİN GELECEĞİ',
+      title_part1: 'YAPAY ZEKA DESTEKLİ',
+      title_part2: 'EKSPERTİZ',
       title: 'ARAÇ EKSPERİ',
       subtitle: 'KAZA SONRASI YANINIZDAYIZ',
-      description: 'Bağımsız bir araç eksperi olarak uzman ve kişisel danışmanlıkla yanınızdayım. Hızlı, güvenilir ve hukuken sağlam ekspertiz raporları hazırlıyorum.',
+      description: 'Yeni nesil araç ekspertizini deneyimleyin. 120 noktalı yapay zeka analizi, otomatik plaka tanıma ve gerçek zamanlı geçmiş kontrolü ile maksimum hassasiyet.',
       cta: 'HEMEN RANDEVU AL',
+      watch_demo: 'DEMOYU İZLE',
     },
     cta: {
       tagline: 'HIZLI • BAĞIMSIZ • GÜVENİLİR',
@@ -173,6 +202,27 @@ export const translations = {
       save: 'Kaydet', cancel: 'İptal', delete: 'Sil', edit: 'Düzenle',
       new: 'Yeni', add: 'Ekle', ok: 'Tamam', search: 'Ara', loading: 'Yükleniyor...',
     },
+    vehicle_classes: {
+      heading: 'Tüm Araç Sınıfları İçin', heading_red: 'Ekspertiz',
+      subheading: 'Kapsamlı değerlendirmeler için ortağınız',
+      pkw: { title: 'Binek Araçlar', desc: 'Marka ve modelden bağımsız olarak tüm binek araç tipleri için hassas ekspertiz.' },
+      electric: { title: 'Elektrikli Arabalar', desc: 'Tam elektrikli araçlar ve batarya sistemleri için uzmanlaşmış ekspertiz raporları.' },
+      hybrid: { title: 'Hibrit Arabalar', desc: 'Hibrit sürücüler ve yüksek voltaj bileşenlerinin profesyonel değerlendirmesi.' },
+      construction: { title: 'İnşaat Araçları', desc: 'Ekskavatörler, vinçler ve özel inşaat makineleri için sertifikalı bilirkişilik.' },
+      trailers: { title: 'Özel Dorseler', desc: 'Yük ve özel römorklar ile ağır yük birimleri için kapsamlı raporlar.' },
+      trucks: { title: 'Kamyon & TIR', desc: 'Hafif ticari araçlardan ağır vasıtalara ve çekicilere kadar geniş hizmet yelpazesi.' },
+      training: { title: 'TIR Eğitimleri', desc: 'TIR lojistiği ve yük emniyeti için sertifikalı uzmanlık eğitimleri.' },
+      moto: { title: 'İki Tekerlekli Araçlar', desc: 'Motosikletler, e-bisikletler ve scooterlar için titiz hasar ve değerleme raporları.' },
+      certs: { title: 'Sertifikalarımız', desc: 'Devlet tarafından tanınan sertifikalarımız ve en yüksek hassasiyet için sürekli eğitim.' },
+    },
+    why_us: {
+      certs: {
+        title: 'Sertifikalı Uzmanlık',
+        desc: 'Bilirkişilerimiz devlet tarafından tanınan sertifikalara sahiptir ve en modern araç teknolojileri konusunda uzmanlaşmıştır.',
+        stat: 'ISO',
+        statLabel: 'Sertifikalı Kalite'
+      }
+    }
   },
 
   en: {
