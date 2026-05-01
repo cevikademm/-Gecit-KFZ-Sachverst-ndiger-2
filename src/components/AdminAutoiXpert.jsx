@@ -1,5 +1,17 @@
-// AutoiXpert Spiegel — Admin görünümü
-// Supabase'deki autoixpert_* tablolarını okur, read-only listeler.
+// AutoiXpert Spiegel — admin & avukat panelinde AutoiXpert'in
+// modul yapisini ayna olarak sunan iskelet component.
+//
+// AutoiXpert'in orijinal UI'sindeki 6 modul:
+//   Aufgaben       (Görevler)
+//   Auswertungen   (Analitik)
+//   Kontakte       (Kişiler)
+//   Meine Gutachten (Raporlarım)
+//   Optionen       (Ayarlar)
+//   Rechnungen     (Faturalar)
+//
+// admin: RLS sayesinde verilere erişebilir → dolu görüntü
+// lawyer: RLS bloklar → otomatik boş iskelet
+//
 // Ref: docs/ADR/0001-autoixpert-mirror.md
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -7,72 +19,78 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { C } from '../utils/tokens.js';
 import { getSupabaseClient } from '../utils/supabaseAuth.js';
 
-const TABS = [
-  { key: 'reports',  label: 'Gutachten',  emoji: '📋' },
-  { key: 'contacts', label: 'Kontakte',   emoji: '👥' },
-  { key: 'invoices', label: 'Rechnungen', emoji: '💶' },
+const MODULES = [
+  { key: 'aufgaben',     label: 'Aufgaben',       emoji: '✅', kind: 'placeholder', subtitle: 'Görevler ve takip' },
+  { key: 'auswertungen', label: 'Auswertungen',   emoji: '📊', kind: 'placeholder', subtitle: 'İstatistik ve grafik' },
+  { key: 'kontakte',     label: 'Kontakte',       emoji: '👥', kind: 'data', table: 'autoixpert_contacts',  subtitle: 'Kişi yönetimi' },
+  { key: 'gutachten',    label: 'Meine Gutachten', emoji: '📋', kind: 'data', table: 'autoixpert_reports',   subtitle: 'Ekspertiz raporları' },
+  { key: 'optionen',     label: 'Optionen',       emoji: '⚙️', kind: 'placeholder', subtitle: 'Tercih ve ayarlar' },
+  { key: 'rechnungen',   label: 'Rechnungen',     emoji: '💶', kind: 'data', table: 'autoixpert_invoices',  subtitle: 'Faturalandırma' },
 ];
 
 const PAGE_LIMIT = 500;
 
-export default function AdminAutoiXpert() {
-  const [activeTab, setActiveTab] = useState('reports');
-  const [data, setData] = useState({ reports: null, contacts: null, invoices: null });
+export default function AdminAutoiXpert({ mode = 'admin' }) {
+  const [activeModule, setActiveModule] = useState('gutachten');
+  const [counts, setCounts] = useState({});
+  const [data, setData] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [detail, setDetail] = useState(null);
-  const [counts, setCounts] = useState({ reports: 0, contacts: 0, invoices: 0 });
   const [lastSyncMap, setLastSyncMap] = useState({});
 
+  // Sayım + sync durumu (tek seferlik)
   useEffect(() => {
     const sb = getSupabaseClient();
     if (!sb) return;
     let mounted = true;
     (async () => {
       try {
-        const [r, c, i, sync] = await Promise.all([
-          sb.from('autoixpert_reports').select('id', { count: 'exact', head: true }),
-          sb.from('autoixpert_contacts').select('id', { count: 'exact', head: true }),
-          sb.from('autoixpert_invoices').select('id', { count: 'exact', head: true }),
+        const dataModules = MODULES.filter((m) => m.kind === 'data');
+        const [results, syncRes] = await Promise.all([
+          Promise.all(
+            dataModules.map((m) =>
+              sb.from(m.table).select('id', { count: 'exact', head: true })
+            )
+          ),
           sb.from('autoixpert_sync_status').select('*'),
         ]);
         if (!mounted) return;
-        setCounts({
-          reports:  r.count ?? 0,
-          contacts: c.count ?? 0,
-          invoices: i.count ?? 0,
-        });
-        if (sync.data) {
+        const c = {};
+        dataModules.forEach((m, i) => { c[m.key] = results[i].count ?? 0; });
+        setCounts(c);
+        if (syncRes.data) {
           const map = {};
-          for (const row of sync.data) map[row.resource] = row;
+          for (const row of syncRes.data) map[row.resource] = row;
           setLastSyncMap(map);
         }
       } catch (e) {
-        console.warn('[AdminAutoiXpert] count load failed:', e?.message);
+        console.warn('[AutoiXpert] count failed:', e?.message);
       }
     })();
     return () => { mounted = false; };
   }, []);
 
+  // Aktif modul verisini lazy yükle
   useEffect(() => {
-    if (data[activeTab] !== null) return;
+    const mod = MODULES.find((m) => m.key === activeModule);
+    if (!mod || mod.kind !== 'data' || data[activeModule]) return;
     const sb = getSupabaseClient();
-    if (!sb) { setError('Supabase bağlantısı yok'); return; }
+    if (!sb) return;
     let mounted = true;
     setLoading(true);
     setError(null);
     (async () => {
       try {
-        const table = `autoixpert_${activeTab}`;
         const { data: rows, error: dbErr } = await sb
-          .from(table)
+          .from(mod.table)
           .select('*')
           .order('created_at', { ascending: false })
           .limit(PAGE_LIMIT);
         if (!mounted) return;
         if (dbErr) throw dbErr;
-        setData((prev) => ({ ...prev, [activeTab]: rows ?? [] }));
+        setData((prev) => ({ ...prev, [activeModule]: rows ?? [] }));
       } catch (e) {
         if (mounted) setError(e?.message || 'Bilinmeyen hata');
       } finally {
@@ -80,9 +98,10 @@ export default function AdminAutoiXpert() {
       }
     })();
     return () => { mounted = false; };
-  }, [activeTab, data]);
+  }, [activeModule, data]);
 
-  const rows = data[activeTab];
+  const activeMod = MODULES.find((m) => m.key === activeModule);
+  const rows = activeMod?.kind === 'data' ? data[activeModule] : null;
   const filtered = useMemo(() => {
     if (!rows) return null;
     const q = search.trim().toLowerCase();
@@ -97,115 +116,166 @@ export default function AdminAutoiXpert() {
           AutoiXpert Spiegel
         </h1>
         <p className="text-sm" style={{ color: C.textDim }}>
-          Read-only Mirror der AutoiXpert-Daten. Quelle: app.autoixpert.de · Befehl{' '}
-          <code className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.05)' }}>
-            npm run autoixpert:import
-          </code>
+          Spiegel der AutoiXpert-Daten · 6 Module wie im Original
+          {mode === 'lawyer' && ' · Lese-Modus (Anwalt)'}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {TABS.map((t) => {
-          const ls = lastSyncMap[t.key]?.last_complete_run_at;
+      {/* Module quick stats / nav */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        {MODULES.map((m) => {
+          const isActive = activeModule === m.key;
+          const count = m.kind === 'data' ? counts[m.key] : null;
           return (
             <button
-              key={t.key}
+              key={m.key}
               type="button"
-              onClick={() => setActiveTab(t.key)}
-              className="text-left rounded-xl p-4 transition-all hover:translate-y-[-2px]"
+              onClick={() => setActiveModule(m.key)}
+              className="text-left rounded-xl p-3 transition-all"
               style={{
-                background: activeTab === t.key ? `${C.neon}10` : 'rgba(0,0,0,0.04)',
-                border: `1px solid ${activeTab === t.key ? C.neon : C.border}`,
+                background: isActive ? `${C.neon}10` : 'rgba(0,0,0,0.04)',
+                border: `1px solid ${isActive ? C.neon : C.border}`,
               }}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase tracking-wider" style={{ color: C.textDim }}>
-                  {t.emoji} {t.label}
-                </span>
+              <div className="text-xl mb-1">{m.emoji}</div>
+              <div className="text-xs font-semibold" style={{ color: C.text }}>
+                {m.label}
               </div>
-              <p className="text-3xl font-bold font-mono" style={{ color: C.text }}>
-                {counts[t.key]}
-              </p>
-              {ls && (
-                <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-                  Letzte Sync: {formatDateTime(ls)}
-                </p>
+              <div className="text-[10px] mt-0.5" style={{ color: C.textDim }}>
+                {m.subtitle}
+              </div>
+              {count !== null && (
+                <div className="text-base font-bold font-mono mt-2" style={{ color: C.text }}>
+                  {count}
+                </div>
+              )}
+              {m.kind === 'placeholder' && (
+                <div
+                  className="text-[10px] mt-2 inline-block px-2 py-0.5 rounded-full"
+                  style={{ background: 'rgba(0,0,0,0.05)', color: C.textDim }}
+                >
+                  bald verfügbar
+                </div>
               )}
             </button>
           );
         })}
       </div>
 
-      <div className="flex gap-1 mb-4 border-b" style={{ borderColor: C.border }}>
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setActiveTab(t.key)}
-            className="px-4 py-2 text-sm font-medium transition-colors"
-            style={{
-              color: activeTab === t.key ? C.text : C.textDim,
-              borderBottom: activeTab === t.key ? `2px solid ${C.neon}` : '2px solid transparent',
-              marginBottom: -1,
-            }}
-          >
-            {t.emoji} {t.label}
-            <span className="ml-2 text-xs font-mono" style={{ color: C.textDim }}>
-              ({counts[t.key]})
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-4">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Suche (Volltext über JSON)…"
-          className="w-full md:max-w-sm px-4 py-2 rounded-lg text-sm outline-none transition-colors"
-          style={{
-            background: 'rgba(0,0,0,0.04)',
-            border: `1px solid ${C.border}`,
-            color: C.text,
-          }}
-          onFocus={(e) => (e.target.style.borderColor = C.neon)}
-          onBlur={(e) => (e.target.style.borderColor = C.border)}
-        />
-        {filtered && (
-          <span className="ml-3 text-xs" style={{ color: C.textDim }}>
-            {filtered.length} / {rows?.length ?? 0} Einträge
-            {rows?.length === PAGE_LIMIT && ` (Limit: ${PAGE_LIMIT})`}
-          </span>
-        )}
-      </div>
-
-      {loading && <div className="text-sm py-8 text-center" style={{ color: C.textDim }}>Wird geladen…</div>}
-      {error && (
-        <div
-          className="text-sm rounded-lg px-4 py-3"
-          style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)', color: '#B91C1C' }}
-        >
-          Fehler beim Laden: {error}
-        </div>
+      {/* Section content */}
+      {activeMod?.kind === 'placeholder' && (
+        <PlaceholderSection module={activeMod} />
       )}
 
-      {!loading && !error && filtered && (
-        <>
-          {activeTab === 'reports' && <ReportsTable rows={filtered} onRowClick={setDetail} />}
-          {activeTab === 'contacts' && <ContactsTable rows={filtered} onRowClick={setDetail} />}
-          {activeTab === 'invoices' && <InvoicesTable rows={filtered} onRowClick={setDetail} />}
-          {filtered.length === 0 && (
-            <div className="text-center py-8 text-sm" style={{ color: C.textDim }}>
-              Keine Einträge gefunden.
-            </div>
-          )}
-        </>
+      {activeMod?.kind === 'data' && (
+        <DataSection
+          module={activeMod}
+          rows={rows}
+          filtered={filtered}
+          loading={loading}
+          error={error}
+          search={search}
+          setSearch={setSearch}
+          onRowClick={setDetail}
+          lastSync={lastSyncMap[activeMod.key]?.last_complete_run_at}
+        />
       )}
 
       <AnimatePresence>
         {detail && <DetailModal record={detail} onClose={() => setDetail(null)} />}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Placeholder modules (Aufgaben / Auswertungen / Optionen) ──────────
+function PlaceholderSection({ module: m }) {
+  return (
+    <div className="rounded-2xl p-12 text-center" style={{ background: 'rgba(0,0,0,0.02)', border: `1px dashed ${C.border}` }}>
+      <div className="text-5xl mb-4">{m.emoji}</div>
+      <h2 className="text-xl font-bold mb-2" style={{ color: C.text }}>{m.label}</h2>
+      <p className="text-sm mb-6" style={{ color: C.textDim }}>{m.subtitle}</p>
+      <div className="max-w-md mx-auto space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="flex items-center gap-3 p-4 rounded-xl"
+            style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}
+          >
+            <div className="w-10 h-10 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
+            <div className="flex-1 space-y-2">
+              <div className="h-3 rounded-full w-3/4" style={{ background: 'rgba(0,0,0,0.06)' }} />
+              <div className="h-2 rounded-full w-1/2" style={{ background: 'rgba(0,0,0,0.04)' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs mt-6" style={{ color: C.textDim }}>
+        Bu modül için içerik henüz hazırlanmadı. Yapı tamamlandığında veriler burada görünecek.
+      </p>
+    </div>
+  );
+}
+
+// ─── Data modules (Kontakte / Gutachten / Rechnungen) ──────────────────
+function DataSection({ module: m, rows, filtered, loading, error, search, setSearch, onRowClick, lastSync }) {
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Suche…"
+          className="flex-1 md:max-w-sm px-4 py-2 rounded-lg text-sm outline-none transition-colors"
+          style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}
+          onFocus={(e) => (e.target.style.borderColor = C.neon)}
+          onBlur={(e) => (e.target.style.borderColor = C.border)}
+        />
+        {filtered && (
+          <span className="text-xs" style={{ color: C.textDim }}>
+            {filtered.length} / {rows?.length ?? 0}
+            {rows?.length === PAGE_LIMIT && ` (Limit ${PAGE_LIMIT})`}
+          </span>
+        )}
+        {lastSync && (
+          <span className="text-xs ml-auto" style={{ color: C.textDim }}>
+            Letzte Sync: {formatDateTime(lastSync)}
+          </span>
+        )}
+      </div>
+
+      {loading && (
+        <div className="text-sm py-12 text-center" style={{ color: C.textDim }}>
+          Wird geladen…
+        </div>
+      )}
+
+      {error && (
+        <div
+          className="text-sm rounded-lg px-4 py-3"
+          style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)', color: '#B91C1C' }}
+        >
+          Erişim engellendi: {error}
+          <p className="mt-1 text-[11px]" style={{ color: '#9B2C2C' }}>
+            (Bu rol için RLS izinleri kısıtlı olabilir.)
+          </p>
+        </div>
+      )}
+
+      {!loading && !error && filtered && filtered.length === 0 && (
+        <div className="text-center py-12 text-sm" style={{ color: C.textDim }}>
+          Henüz kayıt yok.
+        </div>
+      )}
+
+      {!loading && !error && filtered && filtered.length > 0 && (
+        <>
+          {m.key === 'gutachten'  && <ReportsTable  rows={filtered} onRowClick={onRowClick} />}
+          {m.key === 'kontakte'   && <ContactsTable rows={filtered} onRowClick={onRowClick} />}
+          {m.key === 'rechnungen' && <InvoicesTable rows={filtered} onRowClick={onRowClick} />}
+        </>
+      )}
     </div>
   );
 }
@@ -225,24 +295,12 @@ function ReportsTable({ rows, onRowClick }) {
       </thead>
       <tbody>
         {rows.map((r) => (
-          <tr
-            key={r.id}
-            onClick={() => onRowClick(r)}
-            className="cursor-pointer transition-colors hover:bg-black/5"
-          >
-            <Td>
-              <span className="font-mono text-xs">{r.token || '—'}</span>
-            </Td>
+          <tr key={r.id} onClick={() => onRowClick(r)} className="cursor-pointer transition-colors hover:bg-black/5">
+            <Td><span className="font-mono text-xs">{r.token || '—'}</span></Td>
             <Td>{formatPerson(r.claimant)}</Td>
-            <Td>
-              <span className="text-xs">{formatCar(r.car)}</span>
-            </Td>
-            <Td>
-              <Badge tone="info">{r.type}</Badge>
-            </Td>
-            <Td>
-              <Badge tone={r.state === 'done' ? 'success' : 'warn'}>{r.state}</Badge>
-            </Td>
+            <Td><span className="text-xs">{formatCar(r.car)}</span></Td>
+            <Td><Badge tone="info">{r.type}</Badge></Td>
+            <Td><Badge tone={r.state === 'done' ? 'success' : 'warn'}>{r.state}</Badge></Td>
             <Td className="text-xs whitespace-nowrap">{formatDate(r.created_at)}</Td>
           </tr>
         ))}
@@ -266,19 +324,9 @@ function ContactsTable({ rows, onRowClick }) {
       </thead>
       <tbody>
         {rows.map((r) => (
-          <tr
-            key={r.id}
-            onClick={() => onRowClick(r)}
-            className="cursor-pointer transition-colors hover:bg-black/5"
-          >
-            <Td>
-              <Badge tone="info">{r.organization_type}</Badge>
-            </Td>
-            <Td>
-              {r.organization_name ||
-                `${r.first_name || ''} ${r.last_name || ''}`.trim() ||
-                '—'}
-            </Td>
+          <tr key={r.id} onClick={() => onRowClick(r)} className="cursor-pointer transition-colors hover:bg-black/5">
+            <Td><Badge tone="info">{r.organization_type}</Badge></Td>
+            <Td>{r.organization_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || '—'}</Td>
             <Td className="text-xs">{r.email || '—'}</Td>
             <Td className="text-xs font-mono">{r.phone || '—'}</Td>
             <Td>{r.city || '—'}</Td>
@@ -305,33 +353,13 @@ function InvoicesTable({ rows, onRowClick }) {
       </thead>
       <tbody>
         {rows.map((r) => (
-          <tr
-            key={r.id}
-            onClick={() => onRowClick(r)}
-            className="cursor-pointer transition-colors hover:bg-black/5"
-          >
-            <Td>
-              <span className="font-mono text-xs">{r.number || '—'}</span>
-            </Td>
+          <tr key={r.id} onClick={() => onRowClick(r)} className="cursor-pointer transition-colors hover:bg-black/5">
+            <Td><span className="font-mono text-xs">{r.number || '—'}</span></Td>
             <Td>{formatPerson(r.recipient)}</Td>
             <Td className="text-xs whitespace-nowrap">{formatDate(r.date)}</Td>
-            <Td className="text-right font-mono">
-              {r.total_gross != null ? `${Number(r.total_gross).toFixed(2)} €` : '—'}
-            </Td>
-            <Td>
-              {r.has_outstanding_payments ? (
-                <Badge tone="warn">Offen</Badge>
-              ) : (
-                <Badge tone="success">Bezahlt</Badge>
-              )}
-            </Td>
-            <Td>
-              {r.is_fully_canceled ? (
-                <Badge tone="error">Storniert</Badge>
-              ) : (
-                <Badge tone="info">Aktiv</Badge>
-              )}
-            </Td>
+            <Td className="text-right font-mono">{r.total_gross != null ? `${Number(r.total_gross).toFixed(2)} €` : '—'}</Td>
+            <Td>{r.has_outstanding_payments ? <Badge tone="warn">Offen</Badge> : <Badge tone="success">Bezahlt</Badge>}</Td>
+            <Td>{r.is_fully_canceled ? <Badge tone="error">Storniert</Badge> : <Badge tone="info">Aktiv</Badge>}</Td>
           </tr>
         ))}
       </tbody>
@@ -348,45 +376,28 @@ function DetailModal({ record, onClose }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       onClick={onClose}
       className="fixed inset-0 z-[200] flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
     >
       <motion.div
-        initial={{ scale: 0.95, y: 12 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, y: 12 }}
+        initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 12 }}
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col"
         style={{ border: `1px solid ${C.border}` }}
       >
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: C.border }}>
           <div>
-            <h3 className="text-lg font-bold" style={{ color: C.text }}>
-              Datensatz Details
-            </h3>
-            <p className="text-xs font-mono mt-0.5" style={{ color: C.textDim }}>
-              ID: {record.id}
-            </p>
+            <h3 className="text-lg font-bold" style={{ color: C.text }}>Datensatz Details</h3>
+            <p className="text-xs font-mono mt-0.5" style={{ color: C.textDim }}>ID: {record.id}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
+          <button type="button" onClick={onClose}
             className="text-2xl leading-none px-3 py-1 rounded-full hover:bg-black/5 transition-colors"
-            style={{ color: C.textDim }}
-            aria-label="Schließen"
-          >
-            ×
-          </button>
+            style={{ color: C.textDim }} aria-label="Schließen">×</button>
         </div>
         <div className="p-5 overflow-auto">
-          <pre
-            className="text-xs font-mono whitespace-pre-wrap"
-            style={{ color: C.text, lineHeight: 1.6 }}
-          >
+          <pre className="text-xs font-mono whitespace-pre-wrap" style={{ color: C.text, lineHeight: 1.6 }}>
             {JSON.stringify(record.raw_payload || record, null, 2)}
           </pre>
         </div>
@@ -395,12 +406,10 @@ function DetailModal({ record, onClose }) {
   );
 }
 
+// ─── Cell helpers ──────────────────────────────────────────────────────
 function TableShell({ children }) {
   return (
-    <div
-      className="overflow-x-auto rounded-xl"
-      style={{ border: `1px solid ${C.border}` }}
-    >
+    <div className="overflow-x-auto rounded-xl" style={{ border: `1px solid ${C.border}` }}>
       <table className="w-full text-sm">{children}</table>
     </div>
   );
@@ -408,12 +417,8 @@ function TableShell({ children }) {
 
 function Th({ children, className = '' }) {
   return (
-    <th
-      className={`text-left text-[10px] uppercase tracking-wider font-semibold py-3 px-3 ${className}`}
-      style={{ color: C.textDim }}
-    >
-      {children}
-    </th>
+    <th className={`text-left text-[10px] uppercase tracking-wider font-semibold py-3 px-3 ${className}`}
+        style={{ color: C.textDim }}>{children}</th>
   );
 }
 
@@ -435,10 +440,8 @@ const TONES = {
 function Badge({ tone = 'info', children }) {
   const t = TONES[tone] || TONES.info;
   return (
-    <span
-      className="inline-block px-2 py-0.5 rounded-md text-[10px] font-medium font-mono"
-      style={{ background: t.bg, color: t.color, border: `1px solid ${t.border}` }}
-    >
+    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-medium font-mono"
+      style={{ background: t.bg, color: t.color, border: `1px solid ${t.border}` }}>
       {children}
     </span>
   );
@@ -446,9 +449,7 @@ function Badge({ tone = 'info', children }) {
 
 function formatPerson(obj) {
   if (!obj) return '—';
-  const name =
-    obj.organization_name ||
-    `${obj.first_name || ''} ${obj.last_name || ''}`.trim();
+  const name = obj.organization_name || `${obj.first_name || ''} ${obj.last_name || ''}`.trim();
   return name || '—';
 }
 
@@ -461,28 +462,12 @@ function formatCar(car) {
 
 function formatDate(iso) {
   if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleDateString('de-DE', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  } catch (e) {
-    return String(iso).slice(0, 10);
-  }
+  try { return new Date(iso).toLocaleDateString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit' }); }
+  catch (e) { return String(iso).slice(0, 10); }
 }
 
 function formatDateTime(iso) {
   if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleString('de-DE', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch (e) {
-    return String(iso);
-  }
+  try { return new Date(iso).toLocaleString('de-DE', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+  catch (e) { return String(iso); }
 }

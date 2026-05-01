@@ -1024,6 +1024,7 @@ function KostenlosBanner() {
 
 // ─── Vehicle classes / Fahrzeugklassen ────────────
 function FahrzeugklassenSection({ onBook }) {
+  const { t } = useLang();
   const RED = '#E30613';
   const iconProps = { width: 36, height: 36, viewBox: '0 0 24 24', fill: 'none', stroke: RED, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
   const items = [

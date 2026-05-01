@@ -8220,6 +8220,7 @@ function LawyerApp({ user, onLogout, onHome }) {
     { key: 'diff_report', label: 'Fark Raporu', icon: AlertTriangle },
     { key: 'client_summary', label: 'Müvekkil Özeti', icon: ClipboardIcon },
     { key: 'reports', label: 'Ekspertiz Raporları', icon: Wrench },
+    { key: 'autoixpert', label: 'AutoiXpert', icon: Database },
     { key: 'upload', label: 'Dosya Yükle', icon: UploadIcon },
     { key: 'metrics', label: 'Performans', icon: TrendingUp },
   ];
@@ -9596,6 +9597,8 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
             </GlassCard>
           </>
         )}
+
+        {section === 'autoixpert' && <AdminAutoiXpert mode="lawyer" />}
       </main>
       <MobileBottomNav items={lawyerNavItems} active={section} onChange={setSection}
         onHome={onHome} onLogout={handleLogout} />

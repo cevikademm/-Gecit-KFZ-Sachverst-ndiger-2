@@ -14,7 +14,9 @@
     "autoixpert:import:contacts": "node --env-file=.env.local scripts/autoixpert/import-all.js --only=contacts",
     "autoixpert:import:invoices": "node --env-file=.env.local scripts/autoixpert/import-all.js --only=invoices",
     "autoixpert:import:dry-run": "node --env-file=.env.local scripts/autoixpert/import-all.js --dry-run",
-    "autoixpert:import:resume": "node --env-file=.env.local scripts/autoixpert/import-all.js --resume"
+    "autoixpert:import:resume": "node --env-file=.env.local scripts/autoixpert/import-all.js --resume",
+    "autoixpert:match": "node --env-file=.env.local scripts/autoixpert/match-contacts.js",
+    "autoixpert:match:dry-run": "node --env-file=.env.local scripts/autoixpert/match-contacts.js --dry-run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
