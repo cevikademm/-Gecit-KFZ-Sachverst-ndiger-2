@@ -2877,9 +2877,9 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
         </div>
       )}
 
-      {/* Grid view */}
+      {/* Grid view — Premium minimal cards */}
       {list.length > 0 && viewMode === 'grid' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {list.map((c, i) => {
             const [g1, g2] = paletteFor(c.id);
             const vehicles = getCustomerVehicles(c.id);
@@ -2890,117 +2890,182 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
             const phoneDigits = (c.phone || '').replace(/[^0-9+]/g, '').replace('+', '');
             return (
               <motion.div key={c.id}
-                initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i * 0.04, 0.4), duration: 0.4 }}
-                whileHover={{ y: -4 }}
+                initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i * 0.03, 0.3), duration: 0.35, ease: 'easeOut' }}
+                whileHover={{ y: -5, transition: { duration: 0.18 } }}
                 onClick={() => onOpenCustomer(c)}
-                className="group relative rounded-2xl overflow-hidden cursor-pointer"
-                style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-                <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                  style={{ background: `radial-gradient(circle, ${accent}33, transparent 70%)`, filter: 'blur(30px)' }} />
-                <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, ${g1}, ${g2})` }} />
+                className="group relative rounded-3xl overflow-hidden cursor-pointer"
+                style={{
+                  background: '#FFFFFF',
+                  border: `1px solid ${C.border}`,
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  transition: 'box-shadow 0.3s ease',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.boxShadow = `0 12px 32px -8px ${g1}33, 0 4px 12px rgba(0,0,0,0.06)`}
+                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)'}>
 
-                <div className="relative p-5">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="relative flex-shrink-0">
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-base font-bold"
-                        style={{ background: `linear-gradient(135deg, ${g1}, ${g2})`, color: '#FFFFFF',
-                          boxShadow: `0 8px 24px ${g1}33` }}>
-                        {getInitials(c)}
-                      </div>
-                      {activeAprs > 0 && (
-                        <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
-                          style={{ background: C.magenta, color: '#fff', boxShadow: `0 0 10px ${C.magenta}88`, border: `2px solid ${C.surface}` }}>
-                          {activeAprs}
-                        </span>
-                      )}
+                {/* Premium gradient banner — top */}
+                <div className="relative h-28 overflow-hidden"
+                  style={{ background: `linear-gradient(135deg, ${g1}, ${g2})` }}>
+                  <div className="absolute inset-0 opacity-40"
+                    style={{ background: `radial-gradient(circle at 30% 20%, rgba(255,255,255,0.4), transparent 50%)` }} />
+                  <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full"
+                    style={{ background: `radial-gradient(circle, rgba(255,255,255,0.3), transparent 70%)`, filter: 'blur(20px)' }} />
+
+                  {/* Type pill — top right */}
+                  <div className="absolute top-3 right-3">
+                    <span className="text-[9px] uppercase tracking-widest px-2.5 py-1 rounded-full font-semibold backdrop-blur"
+                      style={{ background: 'rgba(255,255,255,0.25)', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.3)', letterSpacing: '0.15em' }}>
+                      {isKurum ? 'Kurumsal' : 'Bireysel'}
+                    </span>
+                  </div>
+
+                  {/* Active badge — bottom left */}
+                  {activeAprs > 0 && (
+                    <div className="absolute bottom-3 left-3">
+                      <span className="text-[10px] px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1.5 backdrop-blur"
+                        style={{ background: 'rgba(255,255,255,0.95)', color: g1, border: `1px solid rgba(255,255,255,0.5)` }}>
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: g1, boxShadow: `0 0 6px ${g1}` }} />
+                        {activeAprs} aktiv
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: accent }}>
-                        {isKurum ? 'Geschäftlich · ' + (c.tax_office || '—') : 'Privat'}
-                      </p>
-                      <h3 className="text-base font-semibold truncate" style={{ color: C.text }}>
-                        {isKurum ? c.company : c.full_name}
-                      </h3>
-                      {isKurum && <p className="text-xs mt-0.5 truncate" style={{ color: C.textDim }}>Ansprechpartner: {c.full_name}</p>}
+                  )}
+                </div>
+
+                {/* Avatar — overlapping banner */}
+                <div className="relative px-6">
+                  <div className="absolute -top-8 left-6">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-lg font-bold"
+                      style={{
+                        background: '#FFFFFF',
+                        color: g1,
+                        border: `3px solid #FFFFFF`,
+                        boxShadow: `0 8px 24px ${g1}40, 0 2px 4px rgba(0,0,0,0.08)`,
+                      }}>
+                      <span style={{ background: `linear-gradient(135deg, ${g1}, ${g2})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                        {getInitials(c)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div className="pt-12 px-6 pb-5">
+                  <h3 className="text-lg font-bold leading-tight truncate" style={{ color: C.text, letterSpacing: '-0.01em' }}>
+                    {isKurum ? c.company : c.full_name}
+                  </h3>
+                  <p className="text-xs mt-1 truncate" style={{ color: C.textDim }}>
+                    {isKurum ? `Ansprechpartner: ${c.full_name}` : (c.email || 'Keine E-Mail')}
+                  </p>
+
+                  {/* Featured stat row */}
+                  <div className="flex items-center gap-4 mt-5 pb-5" style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <div className="flex-1">
+                      <p className="text-[9px] uppercase tracking-widest" style={{ color: C.textDim, letterSpacing: '0.18em' }}>Fahrzeuge</p>
+                      <p className="text-2xl font-bold font-mono mt-0.5" style={{ color: C.text }}>{vehicles.length}</p>
+                    </div>
+                    <div className="w-px h-10" style={{ background: C.border }} />
+                    <div className="flex-1">
+                      <p className="text-[9px] uppercase tracking-widest" style={{ color: C.textDim, letterSpacing: '0.18em' }}>Gutachten</p>
+                      <p className="text-2xl font-bold font-mono mt-0.5" style={{ color: C.text }}>{apprs.length}</p>
+                    </div>
+                    <div className="w-px h-10" style={{ background: C.border }} />
+                    <div className="flex-1">
+                      <p className="text-[9px] uppercase tracking-widest" style={{ color: C.textDim, letterSpacing: '0.18em' }}>Aktiv</p>
+                      <p className="text-2xl font-bold font-mono mt-0.5" style={{ color: activeAprs > 0 ? g1 : C.textDim }}>{activeAprs}</p>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 mb-4">
-                    <div className="flex items-center gap-2 text-xs">
-                      <MailIcon size={12} style={{ color: C.textDim }} />
-                      <span className="truncate" style={{ color: C.textDim }}>{c.email || '—'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <PhoneIcon size={12} style={{ color: C.textDim }} />
-                      <span className="font-mono" style={{ color: C.textDim }}>{c.phone || '—'}</span>
-                    </div>
+                  {/* Contact mini */}
+                  <div className="space-y-2 mt-4">
+                    {c.phone && (
+                      <div className="flex items-center gap-2.5 text-xs">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'rgba(0,0,0,0.04)' }}>
+                          <PhoneIcon size={12} style={{ color: C.textDim }} />
+                        </div>
+                        <span className="font-mono truncate" style={{ color: C.text }}>{c.phone}</span>
+                      </div>
+                    )}
+                    {c.email && !isKurum && (
+                      <div className="flex items-center gap-2.5 text-xs">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'rgba(0,0,0,0.04)' }}>
+                          <MailIcon size={12} style={{ color: C.textDim }} />
+                        </div>
+                        <span className="truncate" style={{ color: C.text }}>{c.email}</span>
+                      </div>
+                    )}
+                    {isKurum && c.email && (
+                      <div className="flex items-center gap-2.5 text-xs">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'rgba(0,0,0,0.04)' }}>
+                          <MailIcon size={12} style={{ color: C.textDim }} />
+                        </div>
+                        <span className="truncate" style={{ color: C.text }}>{c.email}</span>
+                      </div>
+                    )}
                     {isKurum && c.tax_no && (
-                      <div className="flex items-center gap-2 text-xs">
-                        <FileText size={12} style={{ color: C.textDim }} />
-                        <span className="font-mono" style={{ color: C.textDim }}>VKN: {c.tax_no}</span>
+                      <div className="flex items-center gap-2.5 text-xs">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'rgba(0,0,0,0.04)' }}>
+                          <FileText size={12} style={{ color: C.textDim }} />
+                        </div>
+                        <span className="font-mono truncate" style={{ color: C.textDim }}>VKN {c.tax_no}</span>
                       </div>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 mb-4">
-                    {[
-                      { v: vehicles.length, l: 'Fahrzeuge', icon: CarIcon, col: '#F59E0B' },
-                      { v: apprs.length, l: 'Gutachten', icon: Wrench, col: C.cyan },
-                      { v: activeAprs, l: 'Aktiv', icon: TrendingUp, col: C.magenta },
-                    ].map((s, idx) => (
-                      <div key={idx} className="rounded-xl p-2 text-center"
-                        style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
-                        <s.icon size={11} style={{ color: s.col, margin: '0 auto 2px' }} />
-                        <p className="text-base font-bold font-mono leading-none" style={{ color: C.text }}>{s.v}</p>
-                        <p className="text-[9px] uppercase mt-0.5" style={{ color: C.textDim, letterSpacing: '0.1em' }}>{s.l}</p>
-                      </div>
-                    ))}
-                  </div>
-
+                  {/* Assignment chips */}
                   {(lawyer || insurer) && (
-                    <div className="flex flex-wrap gap-1.5 mb-4">
+                    <div className="flex flex-wrap gap-1.5 mt-4">
                       {lawyer && (
-                        <span className="text-[10px] px-2 py-1 rounded-full inline-flex items-center gap-1"
-                          style={{ background: 'rgba(245,158,11,0.08)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.2)' }}>
+                        <span className="text-[10px] px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 font-medium"
+                          style={{ background: 'rgba(245,158,11,0.08)', color: '#D97706', border: '1px solid rgba(245,158,11,0.2)' }}>
                           <ScaleIcon size={10} /> {lawyer.name.replace('Av. ', '').replace('RA ', '')}
                         </span>
                       )}
                       {insurer && (
-                        <span className="text-[10px] px-2 py-1 rounded-full inline-flex items-center gap-1"
-                          style={{ background: 'rgba(0,0,0,0.04)', color: C.cyan, border: '1px solid rgba(0,0,0,0.08)' }}>
+                        <span className="text-[10px] px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 font-medium"
+                          style={{ background: 'rgba(14,165,233,0.08)', color: '#0EA5E9', border: '1px solid rgba(14,165,233,0.2)' }}>
                           <ShieldIcon size={10} /> {insurer.company}
                         </span>
                       )}
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between pt-3" style={{ borderTop: `1px solid ${C.border}` }}>
-                    <p className="text-[10px]" style={{ color: C.textDim }}>
-                      Reg: {c.created_at || '—'}
-                    </p>
-                    <div className="flex items-center gap-1">
+                  {/* Action footer */}
+                  <div className="flex items-center justify-between mt-5 pt-4" style={{ borderTop: `1px solid ${C.border}` }}>
+                    <div className="flex items-center gap-1.5">
                       {phoneDigits && (
                         <button onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${phoneDigits}`, '_blank'); }}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center transition hover:scale-110"
+                          className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105"
                           style={{ background: 'rgba(37,211,102,0.1)', color: '#25D366', border: '1px solid rgba(37,211,102,0.25)' }}
                           title="WhatsApp">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347"/></svg>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347"/></svg>
                         </button>
                       )}
                       {c.phone && (
                         <a onClick={(e) => e.stopPropagation()} href={`tel:${c.phone}`}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center transition hover:scale-110"
-                          style={{ background: `rgba(${accentRgb},0.1)`, color: accent, border: `1px solid rgba(${accentRgb},0.25)` }}
-                          title="Ara">
-                          <PhoneIcon size={11} />
+                          className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105"
+                          style={{ background: `rgba(${accentRgb},0.08)`, color: accent, border: `1px solid rgba(${accentRgb},0.2)` }}
+                          title="Anrufen">
+                          <PhoneIcon size={13} />
                         </a>
                       )}
-                      <span className="ml-1 text-[10px] inline-flex items-center gap-1 px-2 py-1 rounded-lg"
-                        style={{ color: accent, background: `rgba(${accentRgb},0.08)` }}>
-                        Details <ChevronRight size={10} />
-                      </span>
+                      {c.email && (
+                        <a onClick={(e) => e.stopPropagation()} href={`mailto:${c.email}`}
+                          className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105"
+                          style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim, border: `1px solid ${C.border}` }}
+                          title="E-Mail">
+                          <MailIcon size={13} />
+                        </a>
+                      )}
                     </div>
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all group-hover:gap-2"
+                      style={{ color: g1, background: `${g1}10`, border: `1px solid ${g1}20` }}>
+                      Details <ChevronRight size={12} />
+                    </span>
                   </div>
                 </div>
               </motion.div>
