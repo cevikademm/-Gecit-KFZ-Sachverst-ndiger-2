@@ -154,6 +154,14 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
     });
   }, [scrollY]);
 
+  useEffect(() => {
+    if (mobileOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [mobileOpen]);
+
   const links = [
     { key: 'home',     label: t('nav.home'),     href: '#home' },
     { key: 'services', label: t('nav.services'), href: '#leistungen' },
@@ -165,44 +173,46 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
   const initials = user ? user.email.slice(0, 2).toUpperCase() : '';
 
   return (
+    <>
     <motion.nav
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       className="fixed left-0 right-0 z-50 transition-all duration-300"
       style={{
         top: 'calc(26px + env(safe-area-inset-top))',
-        background: scrolled ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.05)',
+        background: scrolled ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0.85)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.1)',
-        height: scrolled ? '96px' : '130px',
-        boxShadow: scrolled ? '0 10px 40px rgba(0, 0, 0, 0.08)' : 'none',
+        borderBottom: scrolled ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(0,0,0,0.04)',
+        height: scrolled ? '64px' : '76px',
+        boxShadow: scrolled ? '0 8px 30px rgba(0, 0, 0, 0.06)' : 'none',
       }}
     >
-        {/* Logo */}
-        <a href="#" className="flex items-center h-full gap-3 flex-shrink-0">
-          <img src="/logocustom3.png" alt="Gecit Kfz Sachverständiger" 
-            className="h-14 sm:h-16 md:h-20 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
-          <div className="hidden xl:flex items-center gap-2 border-l border-gray-100 pl-4 h-8">
-            <span className="text-xs leading-none">🇩🇪</span>
-            <span className="text-[10px] font-bold tracking-[0.1em] text-[#E30613] uppercase leading-none">
+      <div className="flex items-center justify-between h-full w-full px-4 sm:px-6 lg:px-8 mx-auto gap-3 sm:gap-4 lg:gap-6" style={{ maxWidth: 1440 }}>
+        {/* Logo + Service Badge (left) */}
+        <a href="#" className="flex items-center h-full gap-3 lg:gap-4 flex-shrink-0">
+          <img src="/logocustom3.png" alt="Gecit Kfz Sachverständiger"
+            className="h-9 sm:h-11 lg:h-12 w-auto object-contain flex-shrink-0" style={{ mixBlendMode: 'multiply' }} />
+          <div className="hidden lg:flex items-center gap-2 pl-3 lg:pl-4 border-l border-gray-200 h-7">
+            <span className="text-base leading-none">🇩🇪</span>
+            <span className="text-[10px] font-black tracking-[0.18em] text-[#E30613] uppercase leading-none whitespace-nowrap">
               {t('topbar.service')}
             </span>
           </div>
         </a>
 
-        {/* Mobile Center Service Badge */}
-        <div className="flex md:hidden flex-1 justify-center px-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-100">
-            <span className="text-xs leading-none">🇩🇪</span>
-            <span className="text-[8px] font-black tracking-[0.05em] text-[#E30613] uppercase leading-none">
+        {/* Center: Service Badge on mobile/tablet, Nav on desktop */}
+        <div className="lg:hidden flex-1 flex items-center justify-center min-w-0 px-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-gray-50 border border-gray-200 max-w-full">
+            <span className="text-sm sm:text-base leading-none flex-shrink-0">🇩🇪</span>
+            <span className="text-[8px] sm:text-[10px] font-black tracking-[0.12em] sm:tracking-[0.18em] text-[#E30613] uppercase leading-none whitespace-nowrap truncate">
               {t('topbar.service')}
             </span>
           </div>
         </div>
 
-        {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-5 lg:gap-8 h-full">
+        {/* Center: Desktop Nav (lg+) */}
+        <div className="hidden lg:flex items-center justify-center gap-7 xl:gap-10 flex-1 min-w-0">
           {links.map((link, i) => (
             <a
               key={link.key}
@@ -213,22 +223,22 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
                   setActiveSubPage('kontakt');
                 }
               }}
-              className="relative text-xs lg:text-sm font-black tracking-[0.25em] transition-all hover:text-[#E30613] hover:scale-110"
+              className="relative text-[11px] xl:text-xs font-black tracking-[0.2em] xl:tracking-[0.25em] transition-colors hover:text-[#E30613] whitespace-nowrap"
               style={{ color: i === 0 ? '#E30613' : '#0A0A0A' }}
             >
               {link.label}
               {i === 0 && (
                 <motion.div
                   layoutId="nav-underline"
-                  className="absolute -bottom-2 left-0 right-0 h-1 bg-[#E30613] rounded-full"
+                  className="absolute -bottom-2 left-0 right-0 h-[3px] bg-[#E30613] rounded-full"
                 />
               )}
             </a>
           ))}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3 md:gap-4 ml-auto pl-8 lg:pl-12">
+        {/* Actions (right) */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {user ? (
             <div className="relative">
               <button
@@ -266,26 +276,28 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
           ) : (
             <button
               onClick={onLoginClick}
-              className="hidden sm:block text-xs font-bold tracking-widest text-gray-500 hover:text-black transition-colors"
+              className="hidden lg:block text-xs font-bold tracking-widest text-gray-500 hover:text-black transition-colors whitespace-nowrap"
             >
               {t('nav.login')}
             </button>
           )}
+
           <button
             onClick={onBook}
-            className="hidden sm:block px-6 py-3 bg-[#E30613] text-white text-xs font-bold tracking-widest rounded-md hover:bg-[#B0050F] transition-colors shadow-lg shadow-red-500/20 keep-white"
+            className="hidden sm:inline-flex items-center px-4 lg:px-5 py-2 lg:py-2.5 bg-[#E30613] text-white text-[10px] lg:text-[11px] font-bold tracking-widest rounded-md hover:bg-[#B0050F] transition-colors shadow-md shadow-red-500/20 keep-white whitespace-nowrap"
           >
             {t('nav.book')}
           </button>
-          
-          <div className="hidden sm:block">
+
+          <div className="hidden md:block">
             <LanguageSelector />
           </div>
-          
-          {/* Mobile Toggle */}
-          <button 
+
+          {/* Mobile/Tablet Toggle */}
+          <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200"
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 flex-shrink-0"
+            aria-label="Menu"
           >
             <Svg size={20}>
               {mobileOpen ? (
@@ -296,9 +308,11 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
             </Svg>
           </button>
         </div>
+      </div>{/* end grid row */}
+    </motion.nav>
 
-      {/* Mobile menu */}
-      <AnimatePresence>
+    {/* Mobile menu — outside nav to escape transform containing block */}
+    <AnimatePresence>
         {mobileOpen && (
           <>
             <motion.div
@@ -306,35 +320,27 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md md:hidden"
+              className="fixed inset-0 z-[1100] bg-black/70 backdrop-blur-md lg:hidden"
             />
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed right-0 bottom-0 w-[85%] max-w-sm z-50 bg-white shadow-2xl flex flex-col md:hidden"
-              style={{ top: 'calc(26px + env(safe-area-inset-top))' }}
+              className="fixed right-0 top-0 w-[85%] max-w-sm z-[1110] bg-white shadow-2xl flex flex-col lg:hidden"
+              style={{ height: '100dvh' }}
             >
-              <div className="p-6 flex flex-col gap-4 border-b border-gray-100">
-                <div className="flex items-center justify-between">
-                  <img src="/logocustom3.png" alt="Logo" className="h-10 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
-                  <button 
-                    onClick={() => setMobileOpen(false)}
-                    className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-500"
-                  >
-                    <XClose size={20} />
-                  </button>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100 self-start">
-                  <span className="text-xs">🇩🇪</span>
-                  <span className="text-[10px] font-black tracking-widest text-[#E30613] uppercase leading-none">
-                    {t('topbar.service')}
-                  </span>
-                </div>
+              <div className="p-6 flex items-center justify-between border-b border-gray-100 bg-white">
+                <img src="/logocustom3.png" alt="Logo" className="h-10 w-auto object-contain" style={{ mixBlendMode: 'multiply' }} />
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-500"
+                >
+                  <XClose size={20} />
+                </button>
               </div>
-              
-              <div className="flex-1 overflow-y-auto py-8 px-6 flex flex-col gap-6">
+
+              <div className="flex-1 min-h-0 overflow-y-auto py-8 px-6 flex flex-col gap-6">
                 {links.map((l, idx) => (
                   <motion.a
                     key={l.key}
@@ -405,7 +411,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook, setActiveSub
           </>
         )}
       </AnimatePresence>
-    </motion.nav>
+    </>
   );
 }
 
@@ -733,7 +739,7 @@ function BannerShowcase({ setLightbox }) {
     },
   ];
   return (
-    <section className="relative py-20 md:py-28 overflow-hidden" style={{ zIndex: 2 }}>
+    <section className="relative py-28 md:py-36 overflow-hidden" style={{ zIndex: 2 }}>
       <div className="mx-auto px-6" style={{ maxWidth: 1280 }}>
         <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
@@ -904,7 +910,7 @@ function PlatformFeatures() {
             </p>
           </div>
         </motion.div>
-        <div className="grid grid-cols-12 gap-4">
+        <div className="grid grid-cols-12 gap-6">
           {features.map((f, i) => (
             <motion.div key={i}
               initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
@@ -939,7 +945,7 @@ function PlatformFeatures() {
 // ─── Kirmizi bant CTA ────────────────────────────
 function KostenlosBanner() {
   return (
-    <section className="relative py-20 md:py-28 overflow-hidden" style={{ zIndex: 2 }}>
+    <section className="relative py-28 md:py-36 overflow-hidden" style={{ zIndex: 2 }}>
       <div className="mx-auto px-10" style={{ maxWidth: 1400 }}>
         <motion.div
           initial={{ opacity: 0, y: 40 }}
@@ -1091,7 +1097,7 @@ function FahrzeugklassenSection({ onBook }) {
     },
   ];
   return (
-    <section className="relative py-12 md:py-32" style={{ zIndex: 2 }}>
+    <section className="relative py-24 md:py-36" style={{ zIndex: 2 }}>
       <div className="mx-auto px-10" style={{ maxWidth: 1300 }}>
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
@@ -1105,20 +1111,20 @@ function FahrzeugklassenSection({ onBook }) {
             {t('vehicle_classes.heading')} <span style={{ color: RED }}>{t('vehicle_classes.heading_red')}</span>
           </h2>
         </motion.div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {items.map((item, i) => (
             <motion.div key={i}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-40px' }}
               transition={{ duration: 0.6, ease: easeOut, delay: i * 0.08 }}
-              className="rounded-2xl p-6 md:p-7 flex flex-col h-full"
-              style={{ 
-                background: item.key === 'certs' ? 'rgba(227,6,19,0.02)' : '#FAFAFA', 
+              className="rounded-2xl p-8 md:p-10 flex flex-col h-full"
+              style={{
+                background: item.key === 'certs' ? 'rgba(227,6,19,0.02)' : '#FAFAFA',
                 border: item.key === 'certs' ? `1px solid rgba(227,6,19,0.2)` : `1px solid ${C.border}`,
-                backdropFilter: 'blur(4px)' 
+                backdropFilter: 'blur(4px)'
               }}>
-              <div className="flex items-center gap-4 mb-3">
+              <div className="flex items-center gap-5 mb-6">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
                   style={{ background: 'rgba(227,6,19,0.08)', border: '1px solid rgba(227,6,19,0.25)' }}>
                   {item.icon}
@@ -1398,7 +1404,7 @@ function PeaceOfMindSection() {
               className="relative"
             >
               <div className="relative z-10 rounded-3xl overflow-hidden shadow-2xl border border-gray-100">
-                <img src="/images/inspection.jpg" alt="Professionelles KFZ-Gutachter Team" className="w-full h-auto" />
+                <img src="/images/inspection_v2.png" alt="Professionelles KFZ-Gutachter Team" className="w-full h-auto" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A]/20 via-transparent to-transparent" />
               </div>
               <motion.div 
@@ -1598,7 +1604,7 @@ function Stats() {
             Vertrauen in Zahlen.
           </h2>
         </motion.div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-16">
           <Stat value={15} suffix="K+" label="Erstellte Gutachten" />
           <Stat value={3} suffix="sn" label="Scan-Zeit" />
           <Stat value={120} suffix="+" label="Prüfpunkte" />
@@ -2127,7 +2133,6 @@ function LandingInner({ user, onLogin, onLogout, onEnterApp }) {
         <VerkehrsunfallSection onBook={() => setBookOpen(true)} />
         <RechteSection />
         <PeaceOfMindSection />
-        <FooterCTA onBook={() => setBookOpen(true)} />
         <BannerShowcase setLightbox={setLightbox} />
         <DownloadCenter />
       </main>

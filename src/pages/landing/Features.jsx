@@ -22,20 +22,20 @@ export default function Features() {
   }));
 
   return (
-    <section id="leistungen" className="py-24 bg-[#F9FAFB]">
+    <section id="leistungen" className="py-28 md:py-36 bg-[#F9FAFB]">
       <div className="mx-auto px-6" style={{ maxWidth: 1200 }}>
-        <div className="text-center mb-16">
+        <div className="text-center mb-20">
           <h2 className="text-5xl font-black tracking-tight text-[#0A0A0A] mb-4 uppercase">
             {t('features.heading_pre')} <span className="text-[#E30613]">{t('features.heading_main')}</span>
           </h2>
           <div className="w-20 h-1 bg-[#E30613] mx-auto" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border border-gray-100">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((f, i) => (
             <div
               key={i}
-              className="p-10 bg-white border border-gray-50 flex flex-col items-start text-left group hover:shadow-xl transition-all duration-300"
+              className="p-10 bg-white border border-gray-100 rounded-2xl flex flex-col items-start text-left group hover:shadow-xl transition-all duration-300"
             >
               <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-8 text-[#E30613] group-hover:bg-[#E30613] group-hover:text-white transition-colors duration-300">
                 <f.icon size={32} />

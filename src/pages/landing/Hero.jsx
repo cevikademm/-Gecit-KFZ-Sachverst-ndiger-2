@@ -9,7 +9,7 @@ export default function Hero({ onBook }) {
   const rm = useReducedMotion();
   const { t } = useLang();
   return (
-    <section id="home" className="relative min-h-[85vh] flex items-center overflow-hidden bg-white pt-32 pb-16">
+    <section id="home" className="relative min-h-[85vh] flex items-center overflow-hidden bg-white pt-[140px] pb-16">
       <div className="mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center" style={{ maxWidth: 1200 }}>
         <motion.div
           initial={{ opacity: 0, x: -30 }}
