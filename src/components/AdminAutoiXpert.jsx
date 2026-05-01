@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { C } from '../utils/tokens.js';
 import { getSupabaseClient } from '../utils/supabaseAuth.js';
 import { ReportDetail, ContactDetail, InvoiceDetail } from './AutoiXpertDetail.jsx';
+import GutachtenWorkbench from './GutachtenWorkbench.jsx';
 
 const MODULES = [
   { key: 'aufgaben',     label: 'Aufgaben',       emoji: '✅', kind: 'placeholder', subtitle: 'Görevler ve takip' },
@@ -140,8 +141,10 @@ export default function AdminAutoiXpert({ mode = 'admin' }) {
   };
 
   // Detay modu — bir kayıt seçildiyse tam detay görünümü göster
+  // Gutachten: AutoiXpert tarzı düzenlenebilir Workbench
+  // Kontakte / Rechnungen: read-only detay
   if (detail && activeMod?.kind === 'data') {
-    if (activeMod.key === 'gutachten') return <ReportDetail report={detail} onBack={() => setDetail(null)} />;
+    if (activeMod.key === 'gutachten') return <GutachtenWorkbench report={detail} onBack={() => setDetail(null)} />;
     if (activeMod.key === 'kontakte') return <ContactDetail contact={detail} onBack={() => setDetail(null)} />;
     if (activeMod.key === 'rechnungen') return <InvoiceDetail invoice={detail} onBack={() => setDetail(null)} />;
   }
