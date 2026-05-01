@@ -8,7 +8,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --port 5500",
-    "start": "vite --port 5500"
+    "start": "vite --port 5500",
+    "autoixpert:import": "node --env-file=.env.local scripts/autoixpert/import-all.js",
+    "autoixpert:import:reports": "node --env-file=.env.local scripts/autoixpert/import-all.js --only=reports",
+    "autoixpert:import:contacts": "node --env-file=.env.local scripts/autoixpert/import-all.js --only=contacts",
+    "autoixpert:import:invoices": "node --env-file=.env.local scripts/autoixpert/import-all.js --only=invoices",
+    "autoixpert:import:dry-run": "node --env-file=.env.local scripts/autoixpert/import-all.js --dry-run",
+    "autoixpert:import:resume": "node --env-file=.env.local scripts/autoixpert/import-all.js --resume"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

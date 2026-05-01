@@ -1,0 +1,213 @@
+{
+  "_comment": "GET /externalApi/v1/reports/{report_id} dokümantasyonundan kopyalandı. Demo veri.",
+  "report": {
+    "id": "OmCMeäXCDs",
+    "external_id": null,
+    "state": "recorded",
+    "created_at": "2018-11-22T20:23:30.000Z",
+    "type": "liability",
+    "completion_date": null,
+    "token": "Gutachten-002",
+    "order_date": "2020-11-18",
+    "order_time": "2020-11-18T15:01:31.667Z",
+    "responsible_assessor_id": "default-DEMODATA",
+    "location_id": "1TxP56J3WVK",
+    "use_factoring": true,
+    "use_dekra_fees": false,
+    "claimant": {
+      "salutation": "Frau",
+      "first_name": "Anna Marie",
+      "last_name": "Meyer",
+      "organization_name": "",
+      "email": "anna-marie@mustermayer.com",
+      "phone": "07308-8098980",
+      "phone2": null,
+      "street_and_housenumber_or_lockbox": "Musterweg 13/1",
+      "zip": "54321",
+      "city": "Musterhausen",
+      "is_owner": true,
+      "case_number": null,
+      "represented_by_lawyer": false
+    },
+    "owner_of_claimants_car": {
+      "salutation": "Frau",
+      "first_name": "Anna Marie",
+      "last_name": "Meyer",
+      "organization_name": "",
+      "email": "anna-marie@mustermayer.com",
+      "phone": "07308-8098980",
+      "phone2": null,
+      "street_and_housenumber_or_lockbox": "Musterweg 13/1",
+      "zip": "54321",
+      "city": "Musterhausen"
+    },
+    "author_of_damage": {
+      "salutation": "Herr",
+      "first_name": "Leon",
+      "last_name": "Baumann",
+      "organization_name": null,
+      "email": null,
+      "phone": "07323-12345",
+      "phone2": null,
+      "street_and_housenumber_or_lockbox": "Königsberger Str. 21",
+      "zip": "89564",
+      "city": "Nattheim",
+      "license_plate": "HDH-LB-87",
+      "is_owner": true
+    },
+    "owner_of_author_of_damages_car": {
+      "salutation": "Herr",
+      "first_name": "Leon",
+      "last_name": "Baumann",
+      "organization_name": null,
+      "email": null,
+      "phone": "07323-12345",
+      "phone2": null,
+      "street_and_housenumber_or_lockbox": "Königsberger Str. 21",
+      "zip": "89564",
+      "city": "Nattheim"
+    },
+    "garage": {
+      "salutation": null,
+      "first_name": null,
+      "last_name": null,
+      "organization_name": "BMW Musterwerkstatt GmbH & Co. KG",
+      "email": "info@bmw-musterwerkstatt.de",
+      "phone": "0731-7654321",
+      "phone2": null,
+      "street_and_housenumber_or_lockbox": "Blautal Str. 109-111",
+      "zip": "89077",
+      "city": "Ulm"
+    },
+    "lawyer": {
+      "salutation": null,
+      "first_name": null,
+      "last_name": null,
+      "organization_name": null,
+      "email": null,
+      "phone": null,
+      "phone2": null,
+      "street_and_housenumber_or_lockbox": null,
+      "zip": null,
+      "city": null,
+      "case_number": null
+    },
+    "insurance": {
+      "salutation": null,
+      "first_name": null,
+      "last_name": null,
+      "organization_name": "Cosmos Versicherung",
+      "email": "info@cosmosdirekt.de",
+      "phone": "06819-666800",
+      "phone2": null,
+      "street_and_housenumber_or_lockbox": "Halbergstraße 50-60",
+      "zip": "66121",
+      "city": "Saarbrücken",
+      "case_number": "KH-2018-GG/132456790/1",
+      "contract_number": "123456789",
+      "deductible_partial_kasko": 150,
+      "deductible_full_kasko": 600
+    },
+    "car": {
+      "license_plate": "MH-MM-1970",
+      "vin": "WBAUB310X0VH51444",
+      "make": "BMW",
+      "model": "Baureihe 1 Lim. (E81/E87)",
+      "performance_kw": 105,
+      "performance_hp": 142.7601,
+      "first_registration_date": "2008-05-29",
+      "latest_registration_date": "2016-10-12",
+      "next_general_inspection_date": "2021-07-01",
+      "mileage_estimated": 91234,
+      "mileage_as_stated": null,
+      "mileage_meter": 91234,
+      "axles": [
+        {
+          "id": "axle_1_id",
+          "axle_number": 1,
+          "axle_position": "front",
+          "axle_load": 850,
+          "is_steerable": true,
+          "left_tire": {
+            "id": "tire_1_left_id",
+            "axle": 1,
+            "position": "left",
+            "type": "205/55 R16",
+            "tread_in_mm": 6.5,
+            "season": "custom",
+            "custom_type": "Performance Ganzjahresreifen",
+            "manufacturer": "Continental",
+            "comment": "Guter Zustand",
+            "second_tire_set": null
+          },
+          "right_tire": {
+            "id": "tire_1_right_id",
+            "axle": 1,
+            "position": "right",
+            "type": "205/55 R16",
+            "tread_in_mm": 6.2,
+            "season": "summer",
+            "custom_type": null,
+            "manufacturer": "Continental",
+            "comment": "Guter Zustand",
+            "second_tire_set": {
+              "type": "205/55 R16",
+              "tread_in_mm": 8.0,
+              "season": "custom",
+              "custom_type": "Spikes Winterreifen",
+              "manufacturer": "Michelin",
+              "comment": "Winterreifen für zweiten Satz"
+            }
+          },
+          "center_tire": null,
+          "outer_left_tire": null,
+          "outer_right_tire": null
+        }
+      ],
+      "spare_tire_equipment": {
+        "type": "compactSpareWheel",
+        "dimension": "155/80 R16",
+        "tread_in_mm": 8.0,
+        "season": "allyear",
+        "custom_type": null,
+        "manufacturer": "Continental",
+        "comment": "Notrad im Kofferraum"
+      },
+      "damage_description": "Beschädigung des vorderen Stoßfängers und des linken Außenspiegels"
+    },
+    "paint_thickness_measurements": [
+      {
+        "position": "frontLeft",
+        "title": "Vorne links",
+        "comment": "Normale Lackdicke",
+        "values": [120, 125, 118],
+        "manual_type": "original",
+        "no_measurement_reason": null
+      }
+    ],
+    "paint_thickness_measurement_comment": "Allgemeine Lackschichtdicke-Messung durchgeführt mit Kalibrierung auf Originallack.",
+    "paint_thickness_selected_scale_id": "181G8czeFrw1",
+    "lease_return": {
+      "title": "Leasingrückläufer Bewertung BMW 320d",
+      "relative_residual_value": 65.5,
+      "lease_return_item_taxation_type": "net",
+      "sections": []
+    },
+    "accident": {
+      "location": "B10 Abfahrt Musterhausen",
+      "date": "2020-11-17",
+      "police_case_number": "BY-181120-545352",
+      "police_department": null,
+      "circumstances": "<p>Zum Schadenhergang sind Einzelheiten nicht bekannt geworden.</p>"
+    },
+    "labels": [
+      { "id": "NdkQQ7Rha3Eg", "name": "In Prüfung", "color": "#FF9500" },
+      { "id": "W7mwZrPXOqi4", "name": "Regressrisiko", "color": "#FF3333" }
+    ],
+    "custom_fields": {
+      "Überschrift Schadengutachten": null,
+      "Gutachten per Mail": false,
+      "Gutachten per Post": null
+    }
+  }
+}

@@ -39,3 +39,11 @@ TUV_Bildirim_*.pdf
 Fatura_*.pdf
 
 .vercel
+
+# AutoiXpert dökümantasyon dosyaları (lokal referans, repo'ya commit edilmez)
+Einstellungen _ aX.html
+Einstellungen _ aX_files/
+Pagination _ API Dokumentation.html
+Pagination _ API Dokumentation_files/
+*_API Dokumentation.html
+*_API Dokumentation_files/
