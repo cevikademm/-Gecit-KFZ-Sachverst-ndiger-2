@@ -5,21 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <title>Gecit kfz Sachverstandiger - Akilli Oto Ekspertiz ve Musteri Portali</title>
-  <meta name="description" content="Yapay zeka destekli oto ekspertiz platformu. Ruhsat fotografindan saniyeler icinde arac bilgisi, tramer gecmisi, online termin ve canli rapor takibi - tek cati altinda." />
+  <title>Gecit KFZ Sachverständigenbüro — Akıllı Oto Ekspertiz ve Müşteri Portalı</title>
+  <meta name="description" content="Gecit KFZ Sachverständigenbüro — Yapay zeka destekli oto ekspertiz, hasar değerlendirme, ruhsat tarama, online termin ve canlı rapor takibi tek çatı altında." />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
 
   <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#07060B" />
-  <meta name="msapplication-TileColor" content="#07060B" />
-  <meta name="msapplication-navbutton-color" content="#07060B" />
+  <meta name="theme-color" content="#E11D2E" />
+  <meta name="msapplication-TileColor" content="#E11D2E" />
+  <meta name="msapplication-navbutton-color" content="#E11D2E" />
+  <meta name="msapplication-TileImage" content="/icon-512.png" />
+  <meta name="application-name" content="Gecit KFZ Sachverständigenbüro" />
 
   <!-- iOS PWA Meta Tags -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gecit kfz" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Gecit KFZ Sachverständigenbüro" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Gecit KFZ Sachverständigenbüro — Akıllı Oto Ekspertiz" />
+  <meta property="og:description" content="Yapay zeka destekli oto ekspertiz ve müşteri portalı." />
+  <meta property="og:image" content="/icon-512.png" />
+  <meta property="og:site_name" content="Gecit KFZ Sachverständigenbüro" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="/icon-512.png" />
 
   <!-- Tailwind CSS via CDN (gecici - kalici cozum: postcss kurulumu) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -65,7 +83,11 @@
   </script>
 </head>
 <body>
-  <div id="boot" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#8B85A8;font-family:monospace;font-size:14px;letter-spacing:.2em;background:#07060B;z-index:100;text-transform:uppercase">Yukleniyor</div>
+  <div id="boot" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;color:#1F2937;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:13px;letter-spacing:.2em;background:#FFFFFF;z-index:100;text-transform:uppercase">
+    <img src="/logocustom3.png" alt="Gecit KFZ Sachverständigenbüro" style="max-width:300px;width:62vw;height:auto;animation:bootPulse 1.6s ease-in-out infinite" />
+    <div style="opacity:.55;font-weight:500">Yükleniyor…</div>
+    <style>@keyframes bootPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.78;transform:scale(.985)}}</style>
+  </div>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
