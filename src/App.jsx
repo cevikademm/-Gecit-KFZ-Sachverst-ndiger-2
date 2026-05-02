@@ -26,6 +26,7 @@ import { GecitKfzModal } from './components/Modal.jsx';
 import { RuhsatPanel } from './components/RuhsatPanel.jsx';
 import AdminAutoiXpert from './components/AdminAutoiXpert.jsx';
 import AdminReportCreate from './components/AdminReportCreate.jsx';
+import CommunicationsPanel from './components/CommunicationsPanel.jsx';
 import { parseRuhsatMock } from './utils/ruhsatParser.js';
 import { useLang } from './i18n/LangContext.jsx';
 
@@ -2776,6 +2777,7 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
     { key: 'reminders',    label: 'Hatırlatmalar',       icon: BellIcon },
     { key: 'file_flows',    label: 'Dosya Akış Motoru',   icon: Zap },
     { key: 'whatsapp_tpl', label: 'WhatsApp Şablonları', icon: MessageIcon },
+    { key: 'communications', label: 'İletişim & Davet',  icon: MailIcon },
     { key: 'activity_logs', label: 'Aktivite Logları',   icon: EyeIcon },
     { key: 'settings',     label: 'Ayarlar',             icon: SettingsIcon },
   ];
@@ -10642,6 +10644,7 @@ function AdminApp({ user, onLogout, onHome }) {
     activity_logs: 'Aktivitätsprotokolle', settings: 'Einstellungen',
     autoixpert: 'AutoiXpert Spiegel',
     report_create: 'Rapor Oluştur',
+    communications: 'Kommunikation & Einladung',
   };
   const reminderCount = (db.reminders || []).filter(r => r.status === 'active').length;
   const adminNavItems = [
@@ -10657,6 +10660,7 @@ function AdminApp({ user, onLogout, onHome }) {
     { key: 'reminders',     label: 'Erinnerungen',       icon: BellIcon, badge: reminderCount },
     { key: 'file_flows',    label: 'Dateifluss-Engine',   icon: Zap },
     { key: 'whatsapp_tpl',  label: 'WhatsApp-Vorlagen',  icon: MessageIcon },
+    { key: 'communications', label: 'Kommunikation',     icon: MailIcon },
     { key: 'activity_logs', label: 'Aktivitätsprotokolle', icon: EyeIcon },
     { key: 'settings',      label: 'Einstellungen',        icon: SettingsIcon },
   ];
@@ -10681,6 +10685,7 @@ function AdminApp({ user, onLogout, onHome }) {
         {section === 'partners' && <AdminPartners db={db} setDb={setDb} currentUser={user} />}
         {section === 'gallery' && <AdminGallery db={db} setDb={setDb} />}
         {section === 'reminders' && <AdminReminders db={db} setDb={setDb} />}
+        {section === 'communications' && <CommunicationsPanel db={db} />}
         {section === 'settings' && <AdminSettings user={user} db={db} setDb={setDb} />}
 
 
