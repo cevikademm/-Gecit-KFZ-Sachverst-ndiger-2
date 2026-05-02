@@ -1699,6 +1699,46 @@ function getDocUrlSync(doc) {
   return doc.data || null;
 }
 
+// ─── Storage URL enrichment ─────────────────────────
+// DB'den gelen dosya/foto kayıtlarının data/url alanına Supabase Storage URL'i
+// yazar. UI 'doc.data' veya 'photo.url' kontrol ediyor — bu adım olmadan
+// storage_path'li kayıtlar gözükmez (data null kalır).
+//
+// Public bucket'lar (photos, gallery, avatars): sync getPublicUrl
+// Private bucket (documents): async createSignedUrl, 1 saat geçerli
+function _bucketFor(table, rec) {
+  if (rec && rec.storage_bucket) return rec.storage_bucket;
+  if (table === 'damage_photos') return PHOTO_BUCKET;
+  if (table === 'gallery') return 'gallery';
+  return DOC_BUCKET;
+}
+
+async function enrichRecordWithStorageUrl(table, rec) {
+  if (!rec || !rec.storage_path) return rec;
+  const bucket = _bucketFor(table, rec);
+  const isPublic = (bucket === PHOTO_BUCKET || bucket === 'gallery' || bucket === 'avatars');
+  let url = null;
+  if (isPublic) {
+    url = StorageService.getPublicUrl(bucket, rec.storage_path);
+  } else {
+    url = await StorageService.getSignedUrl(bucket, rec.storage_path, 3600);
+  }
+  if (!url) return rec;
+  if (!rec.data) rec.data = url;     // PDF/belge UI'ları doc.data okuyor
+  if (!rec.url) rec.url = url;       // foto/galeri UI'ları .url okuyor
+  rec._signedUrl = url;
+  return rec;
+}
+
+async function enrichRecordsWithStorageUrls(db) {
+  if (!db) return;
+  const tables = ['customer_documents', 'damage_photos', 'gallery'];
+  await Promise.all(tables.flatMap(t => {
+    const arr = Array.isArray(db[t]) ? db[t] : [];
+    return arr.map(r => enrichRecordWithStorageUrl(t, r));
+  }));
+}
+
 // ─── DataService — Unified interface ────────────────
 // Tüm portallar bunu kullanır. Mode'a göre local veya Supabase'e yönlendirir.
 const DataService = {
@@ -1710,26 +1750,46 @@ const DataService = {
   async loadAll() {
     if (this.isLive()) {
       const data = await SupabaseOps.fetchAll();
-      if (data) return data;
+      if (data) {
+        await enrichRecordsWithStorageUrls(data);
+        return data;
+      }
     }
     return loadDB(); // fallback to localStorage
   },
 
   // Table-level operations
   async getTable(table) {
-    if (this.isLive()) return SupabaseOps.fetchTable(table);
+    if (this.isLive()) {
+      const rows = await SupabaseOps.fetchTable(table);
+      if (Array.isArray(rows) && (table === 'customer_documents' || table === 'damage_photos' || table === 'gallery')) {
+        await Promise.all(rows.map(r => enrichRecordWithStorageUrl(table, r)));
+      }
+      return rows;
+    }
     const db = loadDB();
     return db[table] || [];
   },
 
   async addRecord(table, record) {
-    if (this.isLive()) return SupabaseOps.insert(table, record);
-    // localStorage handled by useDB setDb pattern
+    if (this.isLive()) {
+      const inserted = await SupabaseOps.insert(table, record);
+      if (inserted && (table === 'customer_documents' || table === 'damage_photos' || table === 'gallery')) {
+        await enrichRecordWithStorageUrl(table, inserted);
+      }
+      return inserted;
+    }
     return record;
   },
 
   async updateRecord(table, id, changes) {
-    if (this.isLive()) return SupabaseOps.update(table, id, changes);
+    if (this.isLive()) {
+      const updated = await SupabaseOps.update(table, id, changes);
+      if (updated && (table === 'customer_documents' || table === 'damage_photos' || table === 'gallery')) {
+        await enrichRecordWithStorageUrl(table, updated);
+      }
+      return updated;
+    }
     return { id, ...changes };
   },
 
