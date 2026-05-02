@@ -47,9 +47,39 @@ export function getSupabaseClient() {
   return _client;
 }
 
+const PROFILE_COLS = 'role, full_name, linked_id, active';
+const PROFILE_CACHE_PREFIX = 'gecit_kfz_profile_';
+
+function readCachedProfile(userId) {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_PREFIX + userId);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    return (p && p.role && p.active !== false) ? p : null;
+  } catch (e) { return null; }
+}
+
+function writeCachedProfile(userId, profile) {
+  try {
+    if (profile && profile.role) {
+      localStorage.setItem(PROFILE_CACHE_PREFIX + userId, JSON.stringify(profile));
+    }
+  } catch (e) {}
+}
+
+function clearCachedProfiles() {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(PROFILE_CACHE_PREFIX)) localStorage.removeItem(k);
+    }
+  } catch (e) {}
+}
+
 /**
  * Supabase Auth ile giriş yap.
- * Başarılı olursa user_profiles satırını da yükleyip merge eder.
+ * Hızlı yol: profil cache'te varsa anında dön, arka planda revalide et.
+ * Aksi halde profili çek ve cache'le.
  * @returns {Promise<{ user: object | null, error: string | null }>}
  */
 export async function signIn(email, password) {
@@ -57,12 +87,23 @@ export async function signIn(email, password) {
   if (!sb) return { user: null, error: 'Supabase ayarları eksik' };
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) return { user: null, error: error.message };
+
+  const cached = readCachedProfile(data.user.id);
+  if (cached) {
+    sb.from('user_profiles').select(PROFILE_COLS).eq('id', data.user.id).maybeSingle()
+      .then(({ data: fresh }) => { if (fresh) writeCachedProfile(data.user.id, fresh); })
+      .catch(() => {});
+    return { user: { ...data.user, ...cached }, error: null };
+  }
+
   const { data: profile } = await sb.from('user_profiles')
-    .select('*').eq('id', data.user.id).maybeSingle();
+    .select(PROFILE_COLS).eq('id', data.user.id).maybeSingle();
+  if (profile) writeCachedProfile(data.user.id, profile);
   return { user: { ...data.user, ...(profile || {}) }, error: null };
 }
 
 export async function signOut() {
+  clearCachedProfiles();
   const sb = getSupabaseClient();
   if (!sb) return;
   try { await sb.auth.signOut(); } catch (e) {}
