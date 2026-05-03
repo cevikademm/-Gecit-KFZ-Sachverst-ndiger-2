@@ -10,6 +10,36 @@
       }
     })();
   </script>
+  <script>
+    /* Eski Service Worker + cache one-shot purge.
+       PWA ile baglantili eski JS bundle problemini cozer. */
+    (function () {
+      try {
+        var FLAG = 'gecit-sw-purge-2026-05-04-v2';
+        if (typeof localStorage === 'undefined') return;
+        if (localStorage.getItem(FLAG)) return;
+        if (!('serviceWorker' in navigator)) {
+          localStorage.setItem(FLAG, '1');
+          return;
+        }
+        navigator.serviceWorker.getRegistrations()
+          .then(function (regs) {
+            return Promise.all(regs.map(function (r) { return r.unregister(); }));
+          })
+          .then(function () {
+            if (!('caches' in window)) return null;
+            return caches.keys().then(function (keys) {
+              return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+            });
+          })
+          .then(function () {
+            localStorage.setItem(FLAG, '1');
+            location.reload();
+          })
+          .catch(function () { localStorage.setItem(FLAG, '1'); });
+      } catch (e) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="mobile-web-app-capable" content="yes" />
