@@ -25,13 +25,18 @@ async function postJson(path, body) {
     headers,
     body: JSON.stringify(body || {}),
   });
+  const rawText = await res.text().catch(() => '');
   let data = null;
-  try { data = await res.json(); } catch { /* ignore */ }
+  try { data = rawText ? JSON.parse(rawText) : null; } catch { /* not JSON */ }
   if (!res.ok) {
-    const msg = data?.error || `HTTP ${res.status}`;
+    const msg =
+      data?.error ||
+      (rawText && rawText.length < 500 ? rawText : '') ||
+      `HTTP ${res.status} (${res.statusText || 'Hata'})`;
+    console.error('[mailService]', path, 'FAILED', res.status, '→', rawText);
     const err = new Error(msg);
     err.status = res.status;
-    err.body = data;
+    err.body = data || rawText;
     throw err;
   }
   return data;
