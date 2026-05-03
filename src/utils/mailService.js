@@ -1,6 +1,11 @@
 import { getSession } from './supabaseAuth.js';
 
-const API_BASE = (typeof window !== 'undefined' && window.location?.origin) || '';
+const API_BASE = (() => {
+  if (typeof window === 'undefined') return '';
+  const host = window.location.host;
+  if (host === 'kfzgutachter.ac') return 'https://www.kfzgutachter.ac';
+  return window.location.origin;
+})();
 
 async function authHeader() {
   const session = await getSession();
