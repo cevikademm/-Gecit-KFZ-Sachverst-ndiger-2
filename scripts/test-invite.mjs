@@ -6,7 +6,7 @@ const sb = createClient(SB_URL, SB_ANON);
 
 const ADMIN_EMAIL = 'cevikademm@gmail.com';
 const ADMIN_PASS = 'Adem250455+';
-const PROD_URL = 'https://gecit-kfz.vercel.app';
+const PROD_URL = 'https://www.kfzgutachter.ac';
 
 const { data, error } = await sb.auth.signInWithPassword({
   email: ADMIN_EMAIL,
