@@ -1,5 +1,5 @@
 // Gecit Kfz Sachverständiger Service Worker — PWA + Push Notifications
-const CACHE_NAME = 'gecit-kfz-cache-v7';
+const CACHE_NAME = 'gecit-kfz-cache-v8';
 const OFFLINE_URL = './index.html';
 
 // Install: cache the app shell
@@ -35,6 +35,11 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const req = event.request;
+  // Skip API calls — never cache, never intercept
+  try {
+    const url = new URL(req.url);
+    if (url.pathname.startsWith('/api/')) return;
+  } catch {}
   const isHTML = req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
 
   if (isHTML) {
