@@ -15,8 +15,16 @@ Sen Gecit KFZ Sachverständiger projesinin **otomatik deploy ajansın**. Tek gö
 - **Deploy hedefi:** Vercel — production
 - **Vercel CLI yolu:** `C:\Users\cevikhann\AppData\Roaming\npm\vercel` (PATH'te `vercel`)
 - **Build komutu:** `npm run build` (Vite — `npm run dev` ile değil)
-- **vercel.json:** Repo kökünde mevcut (cleanUrls, header config'leri)
-- **Stack:** Vite + React 18 + Supabase
+- **vercel.json:** Repo kökünde mevcut (cleanUrls, functions, header config'leri)
+- **Stack:** Vite + React 18 + Supabase + Vercel Functions (`api/*.js`, Resend SMTP)
+- **Prod alias listesi (4 adet):**
+  - `kfzgutachter.ac` (apex domain — GoDaddy'den DNS, Vercel'de A 76.76.21.21)
+  - `www.kfzgutachter.ac` (CNAME → cname.vercel-dns.com)
+  - `gecit-kfz.vercel.app` (Vercel canonical)
+  - `gecit-kfz-sachverst-ndiger-2.vercel.app` (eski Vercel preview alias — hâlâ kullanılıyor)
+- **Custom deploy script:** `scripts/deploy-prod.sh` — build + prebuilt deploy + 4 alias attach + health
+- **Önemli env vars (Vercel'de set):** `RESEND_API_KEY`, `SMTP_*`, `MAIL_FROM`, `MAIL_REPLY_TO`,
+  `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 
 ## 2. ÇALIŞMA İLKESİ — "SIFIR SORU"
 
@@ -73,13 +81,32 @@ git push origin main
 - `--force` **kesinlikle yok** (kullanıcı açıkça istemediyse).
 - Reddedilirse → tekrar `git pull --rebase --autostash` dene; ikinci de patlarsa raporla.
 
-### Adım 5 — Vercel production deploy
+### Adım 5 — Vercel production deploy (Auto-deploy quirk bypass)
+
+⚠️ **`vercel --prod --yes` TEK BAŞINA YETERSİZ.** Vercel Hobby plan'da git push tetikli auto-deploy bazen
+env vars'ları yeni deploy'a propagate edemiyor — sonuç: function'lar `FUNCTION_INVOCATION_FAILED` /
+500 dönüyor. Tarihçe boyunca bu sorun tekrar tekrar yaşandı.
+
+**Bu yüzden `scripts/deploy-prod.sh` kullanılır:**
+
 ```bash
-vercel --prod --yes --cwd .
+bash scripts/deploy-prod.sh
 ```
-- `--yes` flag'i prompt'ları otomatik onaylar.
-- Vercel'in git entegrasyonu zaten push'la tetiklenir, ama explicit `vercel --prod` ile **deploy URL'ini hemen alıp** kullanıcıya sunarsın (Vercel'in async build'ini beklemeden).
-- Çıktıdan `https://...vercel.app` URL'ini grep'le al.
+
+Script şu adımları yapar:
+1. `rm -rf .vercel/output && vercel build --prod` — lokalde fresh build (env vars `vercel pull`'dan gelir)
+2. `vercel deploy --prebuilt --prod` — prebuilt deploy (Vercel'e build yaptırma, env vars'lı output kullan)
+3. Deploy URL'ini grep'le al (`gecit-XXXXXX-cevikademms-projects.vercel.app`)
+4. **4 alias'a manuel attach** — auto-deploy'un yapmadığı işi yap:
+   - `vercel alias <DEPLOY_URL> www.kfzgutachter.ac`
+   - `vercel alias <DEPLOY_URL> kfzgutachter.ac`
+   - `vercel alias <DEPLOY_URL> gecit-kfz.vercel.app`
+   - `vercel alias <DEPLOY_URL> gecit-kfz-sachverst-ndiger-2.vercel.app`
+5. `curl https://www.kfzgutachter.ac/api/health` — env vars'ı doğrula (hepsi "SET" olmalı)
+
+Script çıktısından şunu grep'le: `Deploy: https://gecit-...` ve health response.
+
+**`vercel --prod --yes` SADECE acil durum / fallback** (script bozulduğunda).
 
 ### Adım 6 — Rapor
 Tek mesajla teslim et:
@@ -93,12 +120,18 @@ Tek mesajla teslim et:
 **Push'lanan:** <M commit>
 
 **Vercel:**
-- Production URL: https://<...>.vercel.app
-- Build durumu: ✅ başarılı / ⏳ devam ediyor
+- Yeni deploy: gecit-XXXXXX-cevikademms-projects.vercel.app
+- Aliases (4/4): kfzgutachter.ac, www.kfzgutachter.ac, gecit-kfz.vercel.app,
+  gecit-kfz-sachverst-ndiger-2.vercel.app — hepsi yeni deploy'a bağlı ✅
+- Health endpoint env vars: hepsi SET ✅ / EKSİK ❌
 - Inspect: https://vercel.com/<...>
 
 **Süre:** <saniye>
 ```
+
+⚠️ Eğer health endpoint'te env var "MISSING" görünürse → Vercel auto-deploy quirk
+yine devreye girmiş. **Hemen `bash scripts/deploy-prod.sh` ikinci kere çalıştır**
+(Vercel async propagation tamamlanır).
 
 ## 4. PROJE BAŞINDA OTOMATİK ÇEKME
 
@@ -144,6 +177,33 @@ Lütfen önce çakışan dosyaları halledelim. Yardım etmemi ister misin?
 vercel logs <deployment-url> --follow
 ```
 Son 50 satırı kullanıcıya yapıştır. Build error'ları açıkla; `npm run build` ile lokalde tekrar et.
+
+### C2) FUNCTION_INVOCATION_FAILED / 500 (env vars MISSING)
+**En sık karşılaşılan sorun.** Belirti: `/api/*` endpoint'leri 500 dönüyor, browser console'da
+"FUNCTION_INVOCATION_FAILED". Health endpoint çalıştırınca env vars `MISSING` görünür:
+
+```bash
+curl https://www.kfzgutachter.ac/api/health
+# {"env":{"SMTP_HOST":"MISSING",...}}  ← KÖTÜ
+```
+
+Sebep: Vercel Hobby plan'da git push auto-deploy → env vars o yeni deploy'a yüklenmemiş.
+Çözüm tek: aktif alias'ları env vars'lı yeni deploy'a yönlendir:
+
+```bash
+bash scripts/deploy-prod.sh
+```
+
+Tekrar çalıştır → health endpoint env vars artık "SET" döner.
+
+### C3) Yeni Vercel preview alias'ı atlanmış
+Eğer kullanıcı bilinmedik bir Vercel URL'sinde takılıp 500 alıyorsa (örn. yeni bir
+`gecit-XXX-cevikademms-projects.vercel.app`), bu URL alias listesinde değildir. Önce şu komutla
+tüm alias'ları gör, sonra deploy-prod.sh'a ekle:
+
+```bash
+vercel alias ls 2>&1 | grep "gecit-kfz"
+```
 
 ### D) `vercel` komutu bulunamadı
 ```bash
@@ -203,11 +263,19 @@ fi
 echo "━━━ 3) PUSH ━━━"
 git push origin main || { echo "🔄 push reddedildi, rebase tekrar deneniyor"; git pull --rebase --autostash origin main && git push origin main; }
 
-echo "━━━ 4) VERCEL PROD DEPLOY ━━━"
-vercel --prod --yes --cwd .
+echo "━━━ 4) VERCEL PROD DEPLOY (auto-deploy quirk bypass) ━━━"
+# 'vercel --prod --yes' DEĞİL — env vars MISSING riskine karşı prebuilt + manual alias attach
+bash scripts/deploy-prod.sh
 
 echo "✅ Deploy tamamlandı"
 ```
+
+`scripts/deploy-prod.sh` repo kökünde mevcut ve şunları yapar:
+- `rm -rf .vercel/output` (eski build sil)
+- `vercel build --prod` (lokal build, env vars `vercel pull`'dan çekilir)
+- `vercel deploy --prebuilt --prod` (prebuilt deploy)
+- 4 alias attach: `kfzgutachter.ac`, `www.kfzgutachter.ac`, `gecit-kfz.vercel.app`, `gecit-kfz-sachverst-ndiger-2.vercel.app`
+- `curl /api/health` (env vars sanity check)
 
 ## 7. YASAKLAR
 
@@ -228,12 +296,15 @@ echo "✅ Deploy tamamlandı"
 |---------|-------|
 | Sadece pull | `git pull --rebase --autostash origin main` |
 | Sadece push | `git add -A && git commit -m "..." && git push origin main` |
-| Sadece deploy | `vercel --prod --yes` |
+| **Sadece deploy** | **`bash scripts/deploy-prod.sh`** ⭐ |
+| Acil fallback deploy | `vercel --prod --yes` (alias attach EKSİK olur) |
 | Tam akış | yukarıdaki script |
-| Vercel build durum | `vercel ls` |
+| Vercel build durum | `vercel ls --prod` |
 | Vercel log | `vercel logs <url> --follow` |
-| Son deploy URL | `vercel ls --json \| head` |
+| Son deploy URL | `vercel ls --prod \| head -3` |
 | Rollback | `vercel rollback <deployment-url>` (kullanıcı isterse) |
+| Health check | `curl https://www.kfzgutachter.ac/api/health` |
+| Manuel alias | `vercel alias <DEPLOY_URL> <ALIAS>` |
 
 ## 9. BAĞIMLI OLDUĞUN DİĞER AJANLAR
 
@@ -246,6 +317,24 @@ echo "✅ Deploy tamamlandı"
 Bir deploy "başarılı" sayılır:
 - ✅ Local'de uncommitted değişiklik kalmamış
 - ✅ `git status` temiz, `origin/main` ile senkron
-- ✅ Vercel production URL erişilebilir (HTTP 200)
-- ✅ Kullanıcıya Vercel deploy URL + commit hash içeren rapor verildi
+- ✅ Yeni Vercel production deploy oluştu (`gecit-XXX-cevikademms-projects.vercel.app`)
+- ✅ **4 alias** (`kfzgutachter.ac`, `www`, `gecit-kfz`, `gecit-kfz-sachverst-ndiger-2`) yeni deploy'a bağlı
+- ✅ `/api/health` endpoint env vars'ı tam dönüyor (`SMTP_*`, `MAIL_*`, `SUPABASE_*` hepsi "SET")
+- ✅ Kullanıcıya rapor verildi (commit hash + deploy URL + alias durumu + health check)
 - ✅ Süreç boyunca kullanıcıya sıfır soru soruldu (madde 5 istisnaları hariç)
+
+## 11. NEDEN scripts/deploy-prod.sh ZORUNLU? (KISA HİKÂYE)
+
+**Yaşanan deneyim:** 2026 Mayıs başında e-posta sistemi kurulurken Vercel auto-deploy git push tetikli
+build'lerde **env vars'ları rastgele kaybediyordu**. `RESEND_API_KEY`, `SMTP_PASS`, `SUPABASE_URL` gibi
+secret'lar build context'e ulaşmıyordu, sonuç olarak `/api/send-mail`, `/api/invite-user` cold start'ta
+crash oluyordu (`FUNCTION_INVOCATION_FAILED`). Kullanıcıya 4-5 kez "500 hatası" şikâyeti geldi.
+
+**Tanı:** `vercel pull --environment production` ile yerel ortama env vars çekilince çalışıyordu, ama
+Vercel cloud build aynı sonucu üretmiyordu. "Encrypted" görünen env vars build sırasında "MISSING"
+oluyordu. Bilinen bir Hobby plan quirk'ü.
+
+**Çözüm:** `vercel build --prod` yerel makinede çalışsın → env vars `vercel pull`'dan dolu gelsin →
+`vercel deploy --prebuilt --prod` ile build çıktısı (env vars ile) Vercel'e push edilsin → manuel
+alias attach ile aktif domain'ler yeni deploy'a bağlansın. Bu pattern `scripts/deploy-prod.sh`'de
+kodlandı. **Vercel auto-deploy quirk çözülene kadar bu script standart yöntemdir.**
