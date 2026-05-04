@@ -1205,6 +1205,7 @@ export default function AdminReportEditor({ db } = {}) {
   const [step, setStep] = useState('beteiligte');
   const [draft, setDraft] = useState(initialDraft);
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [vehiclePicker, setVehiclePicker] = useState(null); // { vehicles, customer }
 
   const customers = db?.customers || [];
@@ -1238,11 +1239,14 @@ export default function AdminReportEditor({ db } = {}) {
     setSelectedCustomerId(customer.id);
     const ownVehicles = vehicles.filter((v) => v.owner_id === customer.id);
     if (ownVehicles.length === 0) {
+      setSelectedVehicleId(null);
       applyAutofill(customer, null);
     } else if (ownVehicles.length === 1) {
+      setSelectedVehicleId(ownVehicles[0].id);
       applyAutofill(customer, ownVehicles[0]);
     } else {
       // Birden fazla araç → seçim modalı aç
+      setSelectedVehicleId(null);
       applyAutofill(customer, null);
       setVehiclePicker({ vehicles: ownVehicles, customer });
     }
@@ -1250,12 +1254,16 @@ export default function AdminReportEditor({ db } = {}) {
 
   const handleVehiclePick = (vehicle) => {
     const customer = vehiclePicker?.customer || customers.find((c) => c.id === selectedCustomerId);
-    if (customer) applyAutofill(customer, vehicle);
+    if (customer) {
+      setSelectedVehicleId(vehicle.id);
+      applyAutofill(customer, vehicle);
+    }
     setVehiclePicker(null);
   };
 
   const handleClearCustomer = () => {
     setSelectedCustomerId(null);
+    setSelectedVehicleId(null);
     setDraft((prev) => ({
       ...prev,
       claimant: { ...initialDraft.claimant },
@@ -1264,6 +1272,17 @@ export default function AdminReportEditor({ db } = {}) {
   };
 
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId) || null;
+  const selectedVehicle  = vehicles.find((v) => v.id === selectedVehicleId) || null;
+  const selectedCustomerVehicles = selectedCustomer
+    ? vehicles.filter((v) => v.owner_id === selectedCustomer.id)
+    : [];
+
+  const handleSwitchVehicle = () => {
+    if (!selectedCustomer) return;
+    if (selectedCustomerVehicles.length > 1) {
+      setVehiclePicker({ vehicles: selectedCustomerVehicles, customer: selectedCustomer });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -1292,19 +1311,23 @@ export default function AdminReportEditor({ db } = {}) {
         })}
       </nav>
 
+      {/* ── Müşteri & Araç Hızlı Seçim Bandı (her sekmede üstte görünür) ── */}
+      <CustomerVehicleBanner
+        customers={customers}
+        vehicles={vehicles}
+        selectedCustomer={selectedCustomer}
+        selectedVehicle={selectedVehicle}
+        ownVehiclesCount={selectedCustomerVehicles.length}
+        onSelectCustomer={handleCustomerSelect}
+        onClearCustomer={handleClearCustomer}
+        onSwitchVehicle={handleSwitchVehicle}
+      />
+
       {step === 'beteiligte' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* SOL — Davacı */}
           <div className="space-y-5">
             <Card title="Davacı" icon="👤">
-              <CustomerPicker
-                customers={customers}
-                vehicles={vehicles}
-                selectedId={selectedCustomerId}
-                onSelect={handleCustomerSelect}
-                onClear={handleClearCustomer}
-              />
-              <div className="my-3" style={{ borderTop: `1px dashed ${C.border}` }} />
               <Field label="Şirket" value={draft.claimant.company} onChange={set('claimant.company')} />
               <div className="grid grid-cols-3 gap-2">
                 <Field label="Selamlama" value={draft.claimant.salutation} onChange={set('claimant.salutation')} placeholder="Bay/Bayan" />
@@ -1520,16 +1543,190 @@ export default function AdminReportEditor({ db } = {}) {
   );
 }
 
-// ─── Müşteri seçici (autocomplete dropdown) ─────────────────────────────────
-function CustomerPicker({ customers, vehicles, selectedId, onSelect, onClear }) {
+// ─── Sayfa üstü banner: müşteri & araç hızlı seçim ──────────────────────────
+function CustomerVehicleBanner({
+  customers, vehicles, selectedCustomer, selectedVehicle, ownVehiclesCount,
+  onSelectCustomer, onClearCustomer, onSwitchVehicle,
+}) {
+  // Seçim yoksa: arama kutulu boş durum
+  if (!selectedCustomer) {
+    return (
+      <div className="rounded-2xl p-4"
+        style={{ background: `${C.neon}06`, border: `1px dashed ${C.neon}55` }}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
+            style={{ background: '#fff', border: `1px solid ${C.border}` }}>
+            👤
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-bold" style={{ color: C.text }}>
+              Müşteri Seç → Form Otomatik Dolsun
+            </div>
+            <div className="text-[11px]" style={{ color: C.textDim }}>
+              Mevcut müşteriden başla; davacı bilgileri ve araç verileri tek tıkla yerleşir.
+            </div>
+          </div>
+        </div>
+        <CustomerSearchInput
+          customers={customers} vehicles={vehicles}
+          onSelect={onSelectCustomer}
+        />
+      </div>
+    );
+  }
+
+  // Seçim varsa: müşteri + araç özet kartı
+  const subtitle = [];
+  if (selectedCustomer.email) subtitle.push(selectedCustomer.email);
+  if (selectedCustomer.phone) subtitle.push(selectedCustomer.phone);
+
+  return (
+    <div className="rounded-2xl overflow-hidden"
+      style={{ background: '#fff', border: `1px solid ${C.neon}33` }}>
+      {/* Üst şerit: kırmızı dolgu */}
+      <div style={{ height: 3, background: C.neon }} />
+      <div className="grid grid-cols-1 md:grid-cols-2" style={{ borderTop: `1px solid ${C.border}` }}>
+        {/* Müşteri kutusu */}
+        <div className="flex items-center gap-3 p-4">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold"
+            style={{ background: C.neon, color: '#fff' }}>
+            {(selectedCustomer.full_name || selectedCustomer.company || '?').slice(0, 2).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold truncate" style={{ color: C.text }}>
+                {selectedCustomer.full_name || selectedCustomer.company}
+              </span>
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
+                style={{
+                  background: selectedCustomer.type === 'kurumsal' ? `${C.neon}15` : 'rgba(0,0,0,0.06)',
+                  color: selectedCustomer.type === 'kurumsal' ? C.neon : C.textDim,
+                }}>
+                {selectedCustomer.type === 'kurumsal' ? 'Kurumsal' : 'Bireysel'}
+              </span>
+            </div>
+            {selectedCustomer.company && selectedCustomer.full_name && (
+              <div className="text-[11px]" style={{ color: C.textDim }}>{selectedCustomer.company}</div>
+            )}
+            <div className="text-[11px] truncate" style={{ color: C.textDim }}>
+              {subtitle.join(' · ') || '—'}
+            </div>
+          </div>
+          <button onClick={onClearCustomer} type="button"
+            className="text-[11px] font-semibold px-2.5 py-1.5 rounded-md transition"
+            style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.08)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}>
+            Temizle
+          </button>
+        </div>
+
+        {/* Araç kutusu */}
+        <div className="flex items-center gap-3 p-4"
+          style={{ background: '#FAFAF8', borderLeft: `1px solid ${C.border}` }}>
+          {selectedVehicle ? (
+            <>
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 text-2xl"
+                style={{ background: '#fff', border: `1px solid ${C.border}` }}>
+                🚗
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <span className="text-sm font-bold" style={{ color: C.text }}>
+                    {selectedVehicle.brand} {selectedVehicle.model}
+                  </span>
+                  {selectedVehicle.year && (
+                    <span className="text-[11px]" style={{ color: C.textDim }}>· {selectedVehicle.year}</span>
+                  )}
+                  <span style={{
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    fontWeight: 700, fontSize: 11, color: C.text,
+                    background: '#fff', padding: '2px 8px', borderRadius: 4,
+                    border: `1px solid ${C.border}`,
+                  }}>
+                    {selectedVehicle.plate || '—'}
+                  </span>
+                </div>
+                {/* ŞASE / VIN — tam halde, mono font */}
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-[9px] font-bold tracking-wider uppercase"
+                    style={{ color: C.textDim }}>Şase</span>
+                  <code style={{
+                    fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    color: C.text, background: '#fff', padding: '1px 6px', borderRadius: 4,
+                    border: `1px solid ${C.border}`, letterSpacing: '0.02em', wordBreak: 'break-all',
+                  }}>
+                    {selectedVehicle.chassis || selectedVehicle.vin || '—'}
+                  </code>
+                  {(selectedVehicle.chassis || selectedVehicle.vin) && (
+                    <button type="button"
+                      onClick={() => navigator.clipboard?.writeText(selectedVehicle.chassis || selectedVehicle.vin)}
+                      title="Kopyala"
+                      className="text-[10px] px-1.5 py-0.5 rounded transition"
+                      style={{ color: C.textDim, background: 'transparent' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                      ⧉
+                    </button>
+                  )}
+                </div>
+              </div>
+              {ownVehiclesCount > 1 && (
+                <button onClick={onSwitchVehicle} type="button"
+                  className="text-[11px] font-semibold px-2.5 py-1.5 rounded-md transition"
+                  style={{ background: `${C.neon}15`, color: C.neon }}>
+                  Değiştir ({ownVehiclesCount})
+                </button>
+              )}
+            </>
+          ) : ownVehiclesCount > 1 ? (
+            <div className="flex items-center gap-3 w-full">
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 text-2xl"
+                style={{ background: '#fff', border: `1px dashed ${C.neon}55` }}>
+                ⚠️
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold" style={{ color: C.text }}>
+                  {ownVehiclesCount} araç bulundu
+                </div>
+                <div className="text-[11px]" style={{ color: C.textDim }}>
+                  Devam etmek için bir araç seç.
+                </div>
+              </div>
+              <button onClick={onSwitchVehicle} type="button"
+                className="text-[11px] font-bold px-3 py-1.5 rounded-md"
+                style={{ background: C.neon, color: '#fff' }}>
+                Araç Seç →
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 w-full">
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 text-2xl"
+                style={{ background: '#fff', border: `1px dashed ${C.border}`, color: C.textDim }}>
+                🚗
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium" style={{ color: C.textDim }}>
+                  Bu müşterinin kayıtlı aracı yok
+                </div>
+                <div className="text-[11px]" style={{ color: C.textDim }}>
+                  Araç bilgilerini elle girin.
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Müşteri arama kutusu (autocomplete dropdown) ───────────────────────────
+function CustomerSearchInput({ customers, vehicles, onSelect }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const wrapRef = useRef(null);
 
-  const selected = customers.find((c) => c.id === selectedId) || null;
-  const ownVehicles = selected ? vehicles.filter((v) => v.owner_id === selected.id) : [];
-
-  // Dış tıklamada kapan
   useEffect(() => {
     if (!open) return;
     const onDoc = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
@@ -1546,62 +1743,26 @@ function CustomerPicker({ customers, vehicles, selectedId, onSelect, onClear }) 
     }).slice(0, 50);
   }, [customers, query]);
 
-  // Seçiliyse kart görünümü, yoksa arama input
-  if (selected) {
-    return (
-      <div className="rounded-xl p-3 flex items-center gap-3"
-        style={{ background: `${C.neon}08`, border: `1px solid ${C.neon}33` }}>
-        <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-          style={{ background: C.neon, color: '#fff' }}>
-          {(selected.full_name || selected.company || '?').slice(0, 2).toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold truncate" style={{ color: C.text }}>
-            {selected.full_name || selected.company}
-          </div>
-          <div className="text-[11px] truncate" style={{ color: C.textDim }}>
-            {selected.email || selected.phone || '—'}
-            {ownVehicles.length > 0 && (
-              <> · <span style={{ color: C.neon, fontWeight: 600 }}>{ownVehicles.length} araç</span></>
-            )}
-          </div>
-        </div>
-        <button onClick={onClear} type="button"
-          className="text-[11px] font-semibold px-2.5 py-1 rounded-md transition"
-          style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.08)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}>
-          Değiştir
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
-      <div>
-        <span className="text-[10px] font-bold tracking-[0.15em] uppercase block mb-1.5" style={{ color: C.textDim }}>
-          Müşteri Seç
-        </span>
-        <div style={{ position: 'relative' }}>
-          <input
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-            onFocus={() => setOpen(true)}
-            placeholder="Ad, şirket, e-posta veya telefon ile ara…"
-            className="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition"
-            style={{
-              background: '#fff',
-              border: `1px solid ${open ? C.neon : C.border}`,
-              color: C.text,
-              paddingLeft: 32,
-            }}
-          />
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textDim} strokeWidth="2"
-            style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}>
-            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-          </svg>
-        </div>
+      <div style={{ position: 'relative' }}>
+        <input
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Ad, şirket, e-posta veya telefon ile ara…"
+          className="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition"
+          style={{
+            background: '#fff',
+            border: `1px solid ${open ? C.neon : C.border}`,
+            color: C.text,
+            paddingLeft: 32,
+          }}
+        />
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textDim} strokeWidth="2"
+          style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}>
+          <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+        </svg>
       </div>
 
       {open && (
@@ -1713,29 +1874,36 @@ function VehiclePickerModal({ customer, vehicles, onPick, onClose }) {
                   🚗
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold" style={{ color: C.text }}>
-                    {v.brand} {v.model}
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="text-sm font-semibold" style={{ color: C.text }}>
+                      {v.brand} {v.model}
+                    </span>
                     {v.year && (
-                      <span className="text-[11px] font-normal ml-1.5" style={{ color: C.textDim }}>
-                        · {v.year}
-                      </span>
+                      <span className="text-[11px]" style={{ color: C.textDim }}>· {v.year}</span>
                     )}
-                  </div>
-                  <div className="flex items-center gap-3 mt-0.5 text-[11px]" style={{ color: C.textDim }}>
                     <span style={{
                       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                      fontWeight: 700, color: C.text,
-                      background: '#fff', padding: '1px 6px', borderRadius: 4,
+                      fontWeight: 700, fontSize: 11, color: C.text,
+                      background: '#fff', padding: '2px 8px', borderRadius: 4,
                       border: `1px solid ${C.border}`,
                     }}>
                       {v.plate || '—'}
                     </span>
-                    {v.chassis && (
-                      <span title="Şasi (VIN)" style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
-                        VIN: {v.chassis.slice(0, 10)}…
-                      </span>
-                    )}
                   </div>
+                  {(v.chassis || v.vin) && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-[9px] font-bold tracking-wider uppercase"
+                        style={{ color: C.textDim }}>Şase</span>
+                      <code style={{
+                        fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                        color: C.text, background: '#fff', padding: '1px 6px', borderRadius: 4,
+                        border: `1px solid ${C.border}`, letterSpacing: '0.02em',
+                        wordBreak: 'break-all',
+                      }}>
+                        {v.chassis || v.vin}
+                      </code>
+                    </div>
+                  )}
                 </div>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.textDim} strokeWidth="2">
                   <path d="m9 18 6-6-6-6" />
