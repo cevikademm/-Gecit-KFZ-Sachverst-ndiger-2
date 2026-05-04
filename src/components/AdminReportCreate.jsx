@@ -88,7 +88,7 @@ function NewReportPanel() {
   );
 }
 
-export default function AdminReportCreate(/* { db, setDb, user } */) {
+export default function AdminReportCreate({ db, setDb, user } = {}) {
   const [tab, setTab] = useState('new');
 
   return (
@@ -127,7 +127,7 @@ export default function AdminReportCreate(/* { db, setDb, user } */) {
 
       <div>
         {tab === 'new' && <NewReportPanel />}
-        {tab === 'editor' && <AdminReportEditor />}
+        {tab === 'editor' && <AdminReportEditor db={db} />}
         {AUTOIXPERT_VISIBLE && tab === 'autoixpert' && <AdminAutoiXpert />}
       </div>
     </div>

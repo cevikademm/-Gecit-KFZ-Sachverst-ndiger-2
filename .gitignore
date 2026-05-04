@@ -53,3 +53,5 @@ GA-HS-*.html
 GA-HS-*_files/
 *_aX.html
 *_aX_files/
+
+.vercel

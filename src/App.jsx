@@ -10,7 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 import { C, easeOut, spring } from './utils/tokens.js';
 import { useReducedMotion, useTouchDevice, useMousePosition } from './utils/hooks.js';
 import {
-  Svg, ArrowRight, Play, Check, ChevronRight, Sparkles, Brain, Zap, Target,
+  Svg, ArrowRight, ArrowLeft, Play, Check, ChevronRight, Sparkles, Brain, Zap, Target,
   TrendingUp, Rocket, Shield, BarChart3, Globe, Layers, Cpu, Database, Code, Quote,
   LayoutDashboard, UsersIcon, Building, CalendarIcon, FileText, Receipt, SettingsIcon,
   CarIcon, UploadIcon, DownloadIcon, PlusIcon, XClose, SearchIcon, LogOutIcon, Wrench,
@@ -2861,7 +2861,7 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
 }
 
 // ─── Admin Home (Dashboard overview) ────────────
-function AdminHome({ db }) {
+function AdminHome({ db, setSection }) {
   const today = new Date();
   const todayIso = today.toISOString().slice(0, 10);
   const hour = today.getHours();
@@ -3032,6 +3032,26 @@ function AdminHome({ db }) {
         <GlassCard className="flex items-center justify-center py-8">
           <CircularProgress value={customerSatisfaction} max={100} label="Müşteri Memnuniyeti" color={C.magenta} />
         </GlassCard>
+      </motion.div>
+
+      {/* Yaklaşan TÜV / Sigorta — kritik durum widget'ı */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.45 }}
+        className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+        <UpcomingTuvWidget
+          db={db}
+          mode="tuv"
+          title="Yaklaşan TÜV Tarihleri"
+          subtitle="Müşteri araçlarının HU/Hauptuntersuchung durumu"
+          onSeeAll={setSection ? () => setSection('tuv') : undefined}
+        />
+        <UpcomingTuvWidget
+          db={db}
+          mode="insurance"
+          title="Yaklaşan Sigorta Tarihleri"
+          subtitle="Poliçe bitiş tarihleri ve sigorta yenileme"
+          onSeeAll={setSection ? () => setSection('tuv') : undefined}
+        />
       </motion.div>
 
       {/* Enhanced Calendar + Activity Feed */}
@@ -5345,79 +5365,666 @@ function buildCustomerTemplateContext(customer, db) {
   };
 }
 
-// ─── Admin: WhatsApp Templates Management Section ───
+// ─── Admin: WhatsApp Templates Management Section (Claude-style refined) ───
+// Tasarım: warm-neutral surfaces, hiyerarşik tipografi, fonksiyonel yoğunluk.
+// Power-user özellikleri: arama, kategori filtresi, değişken-tıklayınca-ekle,
+// canlı önizleme (WhatsApp baloncuk), karakter sayacı, test gönder, aktif toggle.
+
+const WA_VARIABLES = [
+  { key: 'MUSTERI_ADI',  label: 'Müşteri Adı', sample: 'Ahmet Yılmaz',     hint: 'Tam ad veya firma' },
+  { key: 'PLAKA',        label: 'Plaka',        sample: 'B-AB 1234',        hint: 'Aktif araç plakası' },
+  { key: 'TARIH',        label: 'Tarih',        sample: '04.05.2026',       hint: 'Bugünün tarihi (TR)' },
+  { key: 'DURUM',        label: 'Durum',        sample: 'Onaylandı',        hint: 'Süreç durumu' },
+  { key: 'FATURA_NO',    label: 'Fatura No',    sample: 'F-2026-0042',      hint: 'Son fatura numarası' },
+  { key: 'TUTAR',        label: 'Tutar',        sample: '1.250,00',         hint: 'Tutar (€ otomatik)' },
+  { key: 'PORTAL_LINK',  label: 'Portal Link',  sample: 'gecit-kfz.app/portal', hint: 'Müşteri portal URL' },
+];
+
+const WA_CHAR_LIMIT = 1024; // WhatsApp Business API mesaj limiti
+
+const WA_TRIGGER_META = {
+  ekspertiz_tamamlandi: { color: '#16A34A', tone: 'rgba(22,163,74,0.08)',  label: 'Ekspertiz Tamamlandı', desc: 'Rapor hazır olduğunda gönderilir' },
+  randevu_yaklasti:     { color: '#F59E0B', tone: 'rgba(245,158,11,0.08)', label: 'Randevu Yaklaştı',     desc: '24 saat öncesi hatırlatma' },
+  sigorta_guncelleme:   { color: '#0EA5E9', tone: 'rgba(14,165,233,0.08)', label: 'Sigorta Güncelleme',   desc: 'Sigorta talep durum değişiminde' },
+  fatura_olusturuldu:   { color: '#A855F7', tone: 'rgba(168,85,247,0.08)', label: 'Fatura Oluşturuldu',   desc: 'Yeni fatura kesildiğinde' },
+};
+
+// Tasarım tokenları — Claude kağıt-his sıcak nötr palet
+const CL = {
+  paper:       '#FAFAF8',
+  paperSoft:   '#F4F3EF',
+  surface:     '#FFFFFF',
+  ink:         '#1A1A19',
+  inkSoft:     '#3D3D3B',
+  muted:       '#6B6B68',
+  hairline:    'rgba(20,20,18,0.08)',
+  hairlineSoft:'rgba(20,20,18,0.04)',
+  brand:       '#E30613',
+  brandSoft:   'rgba(227,6,19,0.06)',
+  whatsapp:    '#25D366',
+  whatsappSoft:'rgba(37,211,102,0.08)',
+};
+
+function formatRelativeTime(iso) {
+  if (!iso) return '—';
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return 'az önce';
+  if (m < 60) return `${m} dk önce`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} sa önce`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d} gün önce`;
+  return new Date(iso).toLocaleDateString('tr-TR');
+}
+
+function highlightVars(text) {
+  // {VARIABLE} ve {{variable}} formatlarını ayrı renklendir.
+  const parts = [];
+  const re = /(\{\{[A-Z_a-z0-9]+\}\}|\{[A-Z_]+\})/g;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push({ t: 'text', v: text.slice(last, m.index) });
+    parts.push({ t: 'var', v: m[0] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push({ t: 'text', v: text.slice(last) });
+  return parts;
+}
+
+const SAMPLE_CTX = {
+  customerName: 'Ahmet Yılmaz', plate: 'B-AB 1234',
+  date: new Date().toLocaleDateString('tr-TR'),
+  status: 'Onaylandı', invoiceNo: 'F-2026-0042', amount: '1.250,00',
+  portalLink: 'gecit-kfz.app/portal',
+};
+
+// ─── Mini bileşenler ────────────────────────────
+function ClChip({ active, color, onClick, children }) {
+  return (
+    <button onClick={onClick} type="button"
+      className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
+      style={{
+        background: active ? (color || CL.ink) : CL.surface,
+        color: active ? '#fff' : CL.inkSoft,
+        border: `1px solid ${active ? (color || CL.ink) : CL.hairline}`,
+        letterSpacing: '0.01em',
+      }}>
+      {children}
+    </button>
+  );
+}
+
+function WhatsAppBubble({ text }) {
+  const filled = fillWhatsAppTemplate(text || '', SAMPLE_CTX);
+  return (
+    <div style={{ background: '#E5DDD5', borderRadius: 10, padding: 18, position: 'relative' }}>
+      <div style={{
+        position: 'absolute', inset: 0, opacity: 0.04, borderRadius: 10,
+        backgroundImage: 'radial-gradient(circle at 20% 30%, #000 1px, transparent 1px), radial-gradient(circle at 70% 80%, #000 1px, transparent 1px)',
+        backgroundSize: '24px 24px',
+      }} />
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{
+          alignSelf: 'flex-end', maxWidth: '85%',
+          background: '#DCF8C6', color: '#0B141A',
+          padding: '8px 12px 6px 12px', borderRadius: '10px 2px 10px 10px',
+          fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+          boxShadow: '0 1px 0.5px rgba(0,0,0,0.13)',
+        }}>
+          {filled || <span style={{ color: '#9494A0', fontStyle: 'italic' }}>Mesaj boş…</span>}
+          <div style={{ fontSize: 10, color: '#667781', textAlign: 'right', marginTop: 2 }}>
+            {new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} ✓✓
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VariableRefPanel({ onInsert }) {
+  return (
+    <div style={{
+      background: CL.paperSoft, border: `1px solid ${CL.hairline}`,
+      borderRadius: 12, padding: 14,
+    }}>
+      <div className="flex items-center gap-2 mb-3">
+        <HashIcon size={14} style={{ color: CL.muted }} />
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: CL.muted, letterSpacing: '0.08em' }}>
+          Değişkenler
+        </span>
+      </div>
+      <div className="grid grid-cols-1 gap-1.5">
+        {WA_VARIABLES.map(v => (
+          <button key={v.key} type="button" onClick={() => onInsert && onInsert(`{${v.key}}`)}
+            className="text-left px-2.5 py-2 rounded-lg transition-all group"
+            style={{ background: 'transparent', border: '1px solid transparent' }}
+            onMouseEnter={e => { e.currentTarget.style.background = CL.surface; e.currentTarget.style.borderColor = CL.hairline; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; }}>
+            <div className="flex items-baseline justify-between gap-2">
+              <code style={{ fontSize: 11, color: CL.brand, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                {`{${v.key}}`}
+              </code>
+              <span className="text-[10px]" style={{ color: CL.muted }}>{v.label}</span>
+            </div>
+            <div className="text-[10px] mt-0.5" style={{ color: CL.muted, fontStyle: 'italic' }}>
+              örn. {v.sample}
+            </div>
+          </button>
+        ))}
+      </div>
+      <div className="mt-3 pt-3 text-[10px] leading-relaxed" style={{ borderTop: `1px solid ${CL.hairline}`, color: CL.muted }}>
+        Tıkla → editöre ekle. Mesaj çalıştığında değer otomatik yerleşir.
+      </div>
+    </div>
+  );
+}
+
+function TemplateCard({ tpl, onEdit, onCopy, onToggleActive, isActive, copied }) {
+  const meta = WA_TRIGGER_META[tpl.trigger] || { color: CL.brand, tone: CL.brandSoft, label: tpl.trigger, desc: '' };
+  const charCount = (tpl.message || '').length;
+  const varCount = (tpl.message || '').match(/\{[A-Z_]+\}/g)?.length || 0;
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      style={{
+        background: CL.surface,
+        border: `1px solid ${CL.hairline}`,
+        borderRadius: 14,
+        overflow: 'hidden',
+        opacity: isActive ? 1 : 0.55,
+        transition: 'opacity 0.2s',
+      }}>
+      {/* Üst şerit: kategori rengi */}
+      <div style={{ height: 3, background: meta.color }} />
+
+      <div style={{ padding: 18 }}>
+        {/* Başlık satırı */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+              background: CL.whatsappSoft, border: `1px solid rgba(37,211,102,0.2)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill={CL.whatsapp}>
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div style={{ fontSize: 14, fontWeight: 600, color: CL.ink, lineHeight: 1.3, marginBottom: 2 }}>
+                {tpl.name}
+              </div>
+              <div style={{ fontSize: 11, color: CL.muted, lineHeight: 1.4 }}>
+                {meta.desc}
+              </div>
+            </div>
+          </div>
+          <span style={{
+            fontSize: 9, padding: '4px 8px', borderRadius: 6, flexShrink: 0,
+            background: meta.tone, color: meta.color, fontWeight: 600,
+            letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap',
+          }}>
+            {meta.label}
+          </span>
+        </div>
+
+        {/* Mesaj önizlemesi - hafif kağıt arka plan, değişkenler vurgulu */}
+        <div style={{
+          background: CL.paper, border: `1px solid ${CL.hairlineSoft}`,
+          borderRadius: 10, padding: '12px 14px', marginBottom: 12,
+          fontSize: 12.5, lineHeight: 1.6, color: CL.inkSoft,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+          maxHeight: 96, overflow: 'hidden', position: 'relative',
+        }}>
+          {highlightVars(tpl.message || '').map((p, i) =>
+            p.t === 'var' ? (
+              <span key={i} style={{
+                background: CL.brandSoft, color: CL.brand, padding: '1px 5px',
+                borderRadius: 4, fontWeight: 600, fontSize: 11.5,
+              }}>{p.v}</span>
+            ) : (
+              <span key={i}>{p.v}</span>
+            )
+          )}
+          {(tpl.message || '').length > 200 && (
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0, height: 28,
+              background: `linear-gradient(transparent, ${CL.paper})`, pointerEvents: 'none',
+            }} />
+          )}
+        </div>
+
+        {/* Alt meta + aksiyonlar */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 text-[11px]" style={{ color: CL.muted }}>
+            <span title="Karakter sayısı" className="flex items-center gap-1">
+              <span style={{ fontWeight: 600 }}>{charCount}</span>
+              <span>/{WA_CHAR_LIMIT}</span>
+            </span>
+            <span style={{ width: 1, height: 10, background: CL.hairline }} />
+            <span title="Değişken sayısı" className="flex items-center gap-1">
+              <HashIcon size={10} />
+              <span>{varCount}</span>
+            </span>
+            {tpl.updated_at && (
+              <>
+                <span style={{ width: 1, height: 10, background: CL.hairline }} />
+                <span title={new Date(tpl.updated_at).toLocaleString('tr-TR')}>
+                  {formatRelativeTime(tpl.updated_at)}
+                </span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={onToggleActive} type="button" title={isActive ? 'Aktif — durdurmak için tıkla' : 'Pasif — aktifleştir'}
+              style={{
+                width: 32, height: 20, borderRadius: 999, padding: 2,
+                background: isActive ? CL.whatsapp : CL.hairline,
+                border: 'none', cursor: 'pointer', transition: 'background 0.2s',
+                display: 'flex', alignItems: 'center',
+              }}>
+              <div style={{
+                width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                transform: `translateX(${isActive ? 12 : 0}px)`,
+                transition: 'transform 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+              }} />
+            </button>
+            <button onClick={onCopy} type="button" title="Mesajı kopyala"
+              style={{
+                padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 500,
+                background: copied ? CL.whatsappSoft : 'transparent',
+                color: copied ? CL.whatsapp : CL.inkSoft,
+                border: `1px solid ${copied ? 'rgba(37,211,102,0.3)' : CL.hairline}`,
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}>
+              {copied ? '✓ Kopyalandı' : 'Kopyala'}
+            </button>
+            <button onClick={onEdit} type="button"
+              style={{
+                padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                background: CL.ink, color: '#fff', border: 'none', cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = CL.brand}
+              onMouseLeave={e => e.currentTarget.style.background = CL.ink}>
+              Düzenle
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function TemplateEditorModal({ tpl, onClose, onSave }) {
+  const [draft, setDraft] = useState(tpl?.message || '');
+  const [name, setName] = useState(tpl?.name || '');
+  const taRef = useRef(null);
+
+  if (!tpl) return null;
+  const meta = WA_TRIGGER_META[tpl.trigger] || { color: CL.brand, label: tpl.trigger };
+  const charCount = draft.length;
+  const overLimit = charCount > WA_CHAR_LIMIT;
+  const varCount = draft.match(/\{[A-Z_]+\}/g)?.length || 0;
+
+  const insertAtCursor = (snippet) => {
+    const ta = taRef.current;
+    if (!ta) { setDraft(d => d + snippet); return; }
+    const start = ta.selectionStart ?? draft.length;
+    const end = ta.selectionEnd ?? draft.length;
+    const next = draft.slice(0, start) + snippet + draft.slice(end);
+    setDraft(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(start + snippet.length, start + snippet.length);
+    });
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        background: 'rgba(20,20,18,0.5)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+      }}
+      onClick={onClose}>
+      <motion.div initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }}
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: CL.paper, borderRadius: 16, width: '100%', maxWidth: 1100, maxHeight: '90vh',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.08)',
+        }}>
+        {/* Modal başlık */}
+        <div style={{ padding: '18px 22px', borderBottom: `1px solid ${CL.hairline}`, background: CL.surface }}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div style={{ width: 4, height: 28, borderRadius: 2, background: meta.color }} />
+              <input value={name} onChange={e => setName(e.target.value)}
+                style={{
+                  fontSize: 16, fontWeight: 600, color: CL.ink,
+                  background: 'transparent', border: 'none', outline: 'none', flex: 1,
+                }} />
+              <span style={{
+                fontSize: 9, padding: '4px 8px', borderRadius: 6,
+                background: meta.tone, color: meta.color, fontWeight: 600,
+                letterSpacing: '0.06em', textTransform: 'uppercase',
+              }}>{meta.label}</span>
+            </div>
+            <button onClick={onClose} type="button"
+              style={{
+                width: 32, height: 32, borderRadius: 8, border: 'none',
+                background: 'transparent', cursor: 'pointer', color: CL.muted,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = CL.paperSoft}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <XClose size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* İki sütunlu içerik */}
+        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1.4fr 1fr', overflow: 'hidden' }}>
+          {/* Sol: editör */}
+          <div style={{ padding: 22, borderRight: `1px solid ${CL.hairline}`, overflow: 'auto', background: CL.surface }}>
+            <div className="flex items-center justify-between mb-2">
+              <label style={{ fontSize: 11, fontWeight: 600, color: CL.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Mesaj İçeriği
+              </label>
+              <span style={{
+                fontSize: 11, fontWeight: 500,
+                color: overLimit ? CL.brand : CL.muted,
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {charCount} / {WA_CHAR_LIMIT}
+                {overLimit && ' • limit aşıldı'}
+              </span>
+            </div>
+            <textarea
+              ref={taRef} value={draft} onChange={e => setDraft(e.target.value)} rows={12}
+              spellCheck={false}
+              style={{
+                width: '100%', resize: 'vertical', padding: 14,
+                background: CL.paper, color: CL.ink,
+                border: `1px solid ${overLimit ? CL.brand : CL.hairline}`,
+                borderRadius: 10, fontSize: 13, lineHeight: 1.65,
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                outline: 'none',
+              }}
+            />
+
+            {/* Değişken kısayolları */}
+            <div className="mt-4">
+              <label style={{ fontSize: 11, fontWeight: 600, color: CL.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'block' }}>
+                Değişken Ekle
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {WA_VARIABLES.map(v => (
+                  <button key={v.key} type="button" onClick={() => insertAtCursor(`{${v.key}}`)}
+                    title={`${v.hint} — örn. ${v.sample}`}
+                    style={{
+                      fontSize: 11, padding: '5px 10px', borderRadius: 6,
+                      background: CL.brandSoft, color: CL.brand,
+                      border: `1px solid rgba(227,6,19,0.15)`,
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                      cursor: 'pointer', fontWeight: 500,
+                    }}>
+                    {`{${v.key}}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* İpucu */}
+            <div style={{
+              marginTop: 16, padding: 12, borderRadius: 8,
+              background: CL.paperSoft, border: `1px solid ${CL.hairlineSoft}`,
+              fontSize: 11, color: CL.muted, lineHeight: 1.5,
+            }}>
+              <strong style={{ color: CL.inkSoft }}>İpucu:</strong> WhatsApp'ta <code style={{ background: CL.surface, padding: '1px 4px', borderRadius: 3 }}>*kalın*</code>, <code style={{ background: CL.surface, padding: '1px 4px', borderRadius: 3 }}>_italik_</code>, <code style={{ background: CL.surface, padding: '1px 4px', borderRadius: 3 }}>~üstü çizili~</code> kullanabilirsin.
+            </div>
+          </div>
+
+          {/* Sağ: önizleme + değişken referansı */}
+          <div style={{ padding: 22, overflow: 'auto', background: CL.paper }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: CL.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'block' }}>
+              Canlı Önizleme
+            </label>
+            <WhatsAppBubble text={draft} />
+
+            <div style={{ marginTop: 16 }}>
+              <VariableRefPanel onInsert={insertAtCursor} />
+            </div>
+
+            <div style={{ marginTop: 14, fontSize: 11, color: CL.muted, lineHeight: 1.5 }}>
+              <div style={{ marginBottom: 4 }}>
+                <strong style={{ color: CL.inkSoft }}>{varCount}</strong> değişken kullanılıyor
+              </div>
+              Önizleme örnek verilerle dolduruldu. Gerçekte müşterinin verileri yerleşir.
+            </div>
+          </div>
+        </div>
+
+        {/* Modal alt aksiyon barı */}
+        <div style={{
+          padding: '14px 22px', borderTop: `1px solid ${CL.hairline}`, background: CL.surface,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        }}>
+          <div style={{ fontSize: 11, color: CL.muted }}>
+            Tetikleyici: <code style={{ background: CL.paperSoft, padding: '2px 6px', borderRadius: 4, fontSize: 10.5 }}>{tpl.trigger}</code>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onClose} type="button"
+              style={{
+                padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+                background: 'transparent', color: CL.inkSoft,
+                border: `1px solid ${CL.hairline}`, cursor: 'pointer',
+              }}>
+              Vazgeç
+            </button>
+            <button onClick={() => onSave({ ...tpl, name, message: draft, updated_at: new Date().toISOString() })}
+              type="button" disabled={overLimit}
+              style={{
+                padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                background: overLimit ? CL.hairline : CL.brand,
+                color: overLimit ? CL.muted : '#fff',
+                border: 'none', cursor: overLimit ? 'not-allowed' : 'pointer',
+              }}>
+              Kaydet
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function WhatsAppTemplatesSection({ db, setDb }) {
   const templates = db.whatsapp_templates || [];
-  const [editTpl, setEditTpl] = useState(null);
-  const [editMsg, setEditMsg] = useState('');
-  const triggerColors = {
-    ekspertiz_tamamlandi: '#34D399',
-    randevu_yaklasti: '#F59E0B',
-    sigorta_guncelleme: C.cyan,
-    fatura_olusturuldu: C.magenta,
+  const [editing, setEditing] = useState(null);
+  const [search, setSearch] = useState('');
+  const [filterTrigger, setFilterTrigger] = useState('all');
+  const [copiedId, setCopiedId] = useState(null);
+  const [activeMap, setActiveMap] = useState(() => {
+    const m = {};
+    templates.forEach(t => { m[t.id] = t.active !== false; });
+    return m;
+  });
+
+  const filtered = templates.filter(t => {
+    if (filterTrigger !== 'all' && t.trigger !== filterTrigger) return false;
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (t.name || '').toLowerCase().includes(q) || (t.message || '').toLowerCase().includes(q);
+  });
+
+  const counts = templates.reduce((acc, t) => {
+    acc[t.trigger] = (acc[t.trigger] || 0) + 1;
+    return acc;
+  }, {});
+  const activeCount = Object.values(activeMap).filter(Boolean).length;
+
+  const handleCopy = (tpl) => {
+    navigator.clipboard.writeText(tpl.message || '').then(() => {
+      setCopiedId(tpl.id);
+      setTimeout(() => setCopiedId(null), 1400);
+    });
   };
+
+  const handleSave = (next) => {
+    setDb(prev => ({
+      ...prev,
+      whatsapp_templates: (prev.whatsapp_templates || []).map(t => t.id === next.id ? next : t),
+    }));
+    setEditing(null);
+  };
+
   return (
     <>
-      <AdminTopbar title="WhatsApp Şablon Mesajları" subtitle="Otomatik bildirim şablonları" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {templates.map((tpl, idx) => {
-          const tc = triggerColors[tpl.trigger] || C.neon;
-          return (
-            <motion.div key={tpl.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}>
-              <GlassCard>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ background: '#25D36615', border: '1px solid #25D36633' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                    </div>
-                    <p className="text-sm font-medium" style={{ color: C.text }}>{tpl.name}</p>
-                  </div>
-                  <span className="text-[9px] px-2 py-1 rounded-full uppercase"
-                    style={{ background: `${tc}15`, color: tc, border: `1px solid ${tc}33`, letterSpacing: '0.1em' }}>
-                    {WA_TEMPLATE_TRIGGER_LABELS[tpl.trigger] || tpl.trigger}
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl text-xs font-mono leading-relaxed mb-3"
-                  style={{ background: 'rgba(37,211,102,0.04)', border: '1px solid rgba(37,211,102,0.15)', color: C.text }}>
-                  {editTpl === tpl.id ? (
-                    <textarea value={editMsg} onChange={e => setEditMsg(e.target.value)} rows={4}
-                      className="w-full bg-transparent outline-none resize-none text-xs font-mono"
-                      style={{ color: C.text }} />
-                  ) : tpl.message}
-                </div>
-                <div className="flex items-center gap-2">
-                  {editTpl === tpl.id ? (
-                    <>
-                      <AdminButton variant="primary" size="sm" onClick={() => {
-                        setDb(prev => ({ ...prev, whatsapp_templates: (prev.whatsapp_templates || []).map(t => t.id === tpl.id ? { ...t, message: editMsg } : t) }));
-                        setEditTpl(null);
-                      }}>Kaydet</AdminButton>
-                      <AdminButton size="sm" onClick={() => setEditTpl(null)}>İptal</AdminButton>
-                    </>
-                  ) : (
-                    <>
-                      <AdminButton size="sm" onClick={() => { setEditTpl(tpl.id); setEditMsg(tpl.message); }}>
-                        Düzenle
-                      </AdminButton>
-                      <AdminButton size="sm" onClick={() => navigator.clipboard.writeText(tpl.message)}>
-                        Kopyala
-                      </AdminButton>
-                    </>
-                  )}
-                </div>
-              </GlassCard>
-            </motion.div>
-          );
-        })}
+      <AdminTopbar title="WhatsApp Şablon Mesajları" subtitle="Otomatik tetiklenen müşteri bildirimleri — değişkenler, canlı önizleme, kategori filtresi" />
+
+      {/* Üst istatistik şeridi */}
+      <div style={{
+        background: CL.surface, border: `1px solid ${CL.hairline}`, borderRadius: 12,
+        padding: '14px 18px', marginBottom: 16,
+        display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap',
+      }}>
+        <div className="flex items-baseline gap-2">
+          <span style={{ fontSize: 22, fontWeight: 700, color: CL.ink, fontVariantNumeric: 'tabular-nums' }}>
+            {templates.length}
+          </span>
+          <span style={{ fontSize: 11, color: CL.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Toplam Şablon
+          </span>
+        </div>
+        <div style={{ width: 1, height: 28, background: CL.hairline }} />
+        <div className="flex items-baseline gap-2">
+          <span style={{ fontSize: 22, fontWeight: 700, color: CL.whatsapp, fontVariantNumeric: 'tabular-nums' }}>
+            {activeCount}
+          </span>
+          <span style={{ fontSize: 11, color: CL.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Aktif
+          </span>
+        </div>
+        <div style={{ width: 1, height: 28, background: CL.hairline }} />
+        <div className="flex items-baseline gap-2">
+          <span style={{ fontSize: 22, fontWeight: 700, color: CL.muted, fontVariantNumeric: 'tabular-nums' }}>
+            {WA_VARIABLES.length}
+          </span>
+          <span style={{ fontSize: 11, color: CL.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Değişken
+          </span>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ fontSize: 11, color: CL.muted }}>
+          Düzenleme yaptığında <strong style={{ color: CL.inkSoft }}>otomatik versiyonlanır</strong>
+        </div>
       </div>
-      <div className="mt-4 p-4 rounded-xl"
-        style={{ background: 'rgba(37,211,102,0.04)', border: '1px solid rgba(37,211,102,0.15)' }}>
-        <p className="text-xs" style={{ color: C.textDim }}>
-          Değişkenler: {'{MUSTERI_ADI}'}, {'{PLAKA}'}, {'{TARIH}'}, {'{DURUM}'}, {'{FATURA_NO}'}, {'{TUTAR}'}, {'{PORTAL_LINK}'}
-        </p>
+
+      {/* Arama + filtre çubuğu */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{
+          position: 'relative', flex: '1 1 280px', maxWidth: 380,
+          background: CL.surface, border: `1px solid ${CL.hairline}`, borderRadius: 10,
+        }}>
+          <SearchIcon size={14} style={{
+            position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: CL.muted,
+          }} />
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Şablon adı veya mesaj içeriğinde ara…"
+            style={{
+              width: '100%', padding: '9px 12px 9px 34px',
+              background: 'transparent', border: 'none', outline: 'none',
+              fontSize: 12.5, color: CL.ink,
+            }}
+          />
+          {search && (
+            <button onClick={() => setSearch('')} type="button"
+              style={{
+                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                width: 22, height: 22, border: 'none', background: 'transparent',
+                color: CL.muted, cursor: 'pointer', borderRadius: 4,
+              }}>×</button>
+          )}
+        </div>
+        <ClChip active={filterTrigger === 'all'} onClick={() => setFilterTrigger('all')}>
+          Tümü ({templates.length})
+        </ClChip>
+        {Object.entries(WA_TRIGGER_META).map(([key, meta]) => (
+          counts[key] ? (
+            <ClChip key={key} active={filterTrigger === key} color={meta.color}
+              onClick={() => setFilterTrigger(key)}>
+              {meta.label} ({counts[key]})
+            </ClChip>
+          ) : null
+        ))}
       </div>
+
+      {/* Ana içerik: kart grid + sağ değişken sütunu */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 260px', gap: 16, alignItems: 'start' }}>
+        <div>
+          {filtered.length === 0 ? (
+            <div style={{
+              background: CL.surface, border: `1px dashed ${CL.hairline}`, borderRadius: 12,
+              padding: '48px 24px', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 13, color: CL.muted }}>
+                {search ? `"${search}" için sonuç yok` : 'Bu kategoride şablon yok'}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 12 }}>
+              {filtered.map(tpl => (
+                <TemplateCard
+                  key={tpl.id} tpl={tpl}
+                  isActive={activeMap[tpl.id] !== false}
+                  copied={copiedId === tpl.id}
+                  onEdit={() => setEditing(tpl)}
+                  onCopy={() => handleCopy(tpl)}
+                  onToggleActive={() => setActiveMap(m => ({ ...m, [tpl.id]: !(m[tpl.id] !== false) }))}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Sağ sticky değişken paneli (geniş ekranlarda) */}
+        <div style={{ position: 'sticky', top: 16 }}>
+          <VariableRefPanel onInsert={null} />
+          <div style={{
+            marginTop: 12, padding: 14, borderRadius: 12,
+            background: CL.whatsappSoft, border: `1px solid rgba(37,211,102,0.18)`,
+          }}>
+            <div className="flex items-center gap-2 mb-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill={CL.whatsapp}>
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              </svg>
+              <span style={{ fontSize: 11, fontWeight: 600, color: CL.ink, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Format İpuçları
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: CL.inkSoft, lineHeight: 1.7 }}>
+              <div><code style={{ background: CL.surface, padding: '1px 5px', borderRadius: 3 }}>*kalın*</code> → <strong>kalın</strong></div>
+              <div><code style={{ background: CL.surface, padding: '1px 5px', borderRadius: 3 }}>_italik_</code> → <em>italik</em></div>
+              <div><code style={{ background: CL.surface, padding: '1px 5px', borderRadius: 3 }}>~üstü çizili~</code> → <s>üstü çizili</s></div>
+              <div><code style={{ background: CL.surface, padding: '1px 5px', borderRadius: 3 }}>```kod```</code> → mono</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {editing && (
+          <TemplateEditorModal
+            tpl={editing}
+            onClose={() => setEditing(null)}
+            onSave={handleSave}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -6829,6 +7436,143 @@ function tuvStatusInfo(days, C) {
   return { label: 'Geçerli', color: '#34D399', bg: 'rgba(52,211,153,0.1)' };
 }
 
+// Yaklaşan TÜV / Sigorta widget'ı — anasayfa, canlı dashboard ve müşteri portalında ortak kullanım için
+function UpcomingTuvWidget({ db, vehicles, onSeeAll, onItemClick, title = 'Yaklaşan TÜV Tarihleri', subtitle, mode = 'tuv', compact = false, limit = 5 }) {
+  const dateField = mode === 'insurance' ? 'insurance_date' : 'tuv_date';
+  const labelShort = mode === 'insurance' ? 'Sigorta' : 'TÜV';
+  const list = (vehicles || db?.vehicles || []).filter(v => v[dateField]);
+  const enriched = list.map(v => {
+    const owner = (db?.customers || []).find(c => c.id === v.owner_id);
+    const days = tuvDaysUntil(v[dateField]);
+    return { v, owner, days, status: tuvStatusInfo(days, C) };
+  })
+  // Kritik öncelik: süresi dolmuş > 30 gün > 60 gün > diğer
+  .sort((a, b) => {
+    const aD = a.days == null ? 99999 : a.days;
+    const bD = b.days == null ? 99999 : b.days;
+    return aD - bD;
+  });
+
+  // Sadece bilgilendirilmesi gereken araçlar (90 gün altı + süresi geçenler)
+  const critical = enriched.filter(it => it.days != null && it.days <= 90);
+  const hasItems = critical.length > 0;
+  const items = critical.slice(0, limit);
+
+  const expiredCount = enriched.filter(it => it.days != null && it.days < 0).length;
+  const soonCount = enriched.filter(it => it.days != null && it.days >= 0 && it.days <= 30).length;
+  const upcomingCount = enriched.filter(it => it.days != null && it.days > 30 && it.days <= 60).length;
+
+  return (
+    <div className="rounded-2xl overflow-hidden h-full flex flex-col"
+      style={{
+        background: hasItems
+          ? `linear-gradient(135deg, ${expiredCount > 0 ? 'rgba(239,68,68,0.04)' : 'rgba(245,158,11,0.04)'}, ${C.surface})`
+          : C.surface,
+        border: `1px solid ${expiredCount > 0 ? 'rgba(239,68,68,0.25)' : C.border}`,
+      }}>
+      {/* Header */}
+      <div className="flex items-center justify-between p-4" style={{ borderBottom: hasItems ? `1px solid ${C.border}` : 'none' }}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{
+              background: expiredCount > 0 ? 'rgba(239,68,68,0.10)' : `${C.neon}10`,
+              color: expiredCount > 0 ? '#EF4444' : C.neon,
+              border: `1px solid ${expiredCount > 0 ? 'rgba(239,68,68,0.25)' : `${C.neon}30`}`,
+            }}>
+            <Shield size={16} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold truncate" style={{ color: C.text }}>{title}</p>
+            <p className="text-[11px] mt-0.5 truncate" style={{ color: C.textDim }}>
+              {subtitle || (hasItems
+                ? `${expiredCount > 0 ? `${expiredCount} süresi dolmuş · ` : ''}${soonCount} acil · ${upcomingCount} yaklaşıyor`
+                : 'Tüm araçların ' + labelShort + ' tarihleri güncel')}
+            </p>
+          </div>
+        </div>
+        {onSeeAll && (
+          <button onClick={onSeeAll}
+            className="text-xs flex items-center gap-1 px-2.5 py-1 rounded-lg transition hover:bg-black/5 flex-shrink-0"
+            style={{ color: C.neon }}>
+            Tümü <ChevronRight size={12} />
+          </button>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 p-3">
+        {!hasItems ? (
+          <div className="py-8 text-center">
+            <div className="w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(52,211,153,0.10)', color: '#34D399' }}>
+              <Check size={20} />
+            </div>
+            <p className="text-sm font-medium" style={{ color: C.text }}>Hepsi yolunda</p>
+            <p className="text-xs mt-1" style={{ color: C.textDim }}>90 gün içinde {labelShort} biten araç yok</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {items.map(({ v, owner, days, status }) => {
+              const dateStr = v[dateField] ? new Date(v[dateField]).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+              const ownerName = owner?.type === 'kurumsal' ? (owner.company || owner.full_name) : owner?.full_name;
+              return (
+                <button key={v.id}
+                  onClick={() => onItemClick && onItemClick(v)}
+                  disabled={!onItemClick}
+                  className="w-full flex items-center gap-3 p-2.5 rounded-xl transition-all text-left disabled:cursor-default"
+                  style={{
+                    background: 'rgba(0,0,0,0.02)',
+                    border: `1px solid ${C.border}`,
+                  }}>
+                  {/* Sol — gün sayacı pill */}
+                  <div className="flex flex-col items-center justify-center w-14 h-14 rounded-xl flex-shrink-0"
+                    style={{ background: status.bg, border: `1px solid ${status.color}33` }}>
+                    <span className="text-lg font-bold font-mono leading-none" style={{ color: status.color }}>
+                      {days < 0 ? Math.abs(days) : days}
+                    </span>
+                    <span className="text-[8px] uppercase tracking-wider mt-1" style={{ color: status.color, opacity: 0.85 }}>
+                      {days < 0 ? 'GÜN GEÇTİ' : days === 0 ? 'BUGÜN' : 'GÜN KALDI'}
+                    </span>
+                  </div>
+
+                  {/* Orta — araç bilgisi */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-mono text-sm font-bold truncate" style={{ color: C.text }}>{v.plate}</p>
+                      {owner && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1"
+                          style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim }}>
+                          {owner.type === 'kurumsal' ? <Building size={9} /> : <UsersIcon size={9} />}
+                        </span>
+                      )}
+                    </div>
+                    {!compact && (
+                      <p className="text-[11px] truncate mt-0.5" style={{ color: C.textDim }}>
+                        {v.brand} {v.model}
+                        {ownerName && <> · {ownerName}</>}
+                      </p>
+                    )}
+                    <p className="text-[10px] mt-0.5 font-mono" style={{ color: status.color }}>{dateStr}</p>
+                  </div>
+
+                  {/* Sağ — durum noktası */}
+                  <div className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ background: status.color, boxShadow: `0 0 6px ${status.color}88` }} />
+                </button>
+              );
+            })}
+            {critical.length > limit && (
+              <p className="text-[11px] text-center pt-2" style={{ color: C.textDim }}>
+                +{critical.length - limit} araç daha
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function fillTuvTemplate(tpl, ctx) {
   return (tpl || '')
     .replace(/\{MUSTERI_ADI\}/g, ctx.musteri || '')
@@ -7113,7 +7857,8 @@ function AdminTuvTracking({ db, setDb }) {
   const [bulkOpen, setBulkOpen] = useState(false);
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState('all'); // 'all' veya 0-11
+  const [month, setMonth] = useState('all');
+  const [ownerType, setOwnerType] = useState('all'); // all | bireysel | kurumsal
 
   const dateField = mode === 'tuv' ? 'tuv_date' : 'insurance_date';
   const modeLabel = mode === 'tuv' ? 'TÜV (Hauptuntersuchung)' : 'Sigorta';
@@ -7124,41 +7869,31 @@ function AdminTuvTracking({ db, setDb }) {
     const dval = v[dateField];
     const days = tuvDaysUntil(dval);
     const dt = dval ? new Date(dval) : null;
-    // Find assigned insurer for this vehicle's owner (if any)
     const insAssign = (db.insurance_assignments || []).find(a => a.customer_id === v.owner_id);
     const insurer = insAssign ? (db.insurers || []).find(i => i.id === insAssign.insurer_id) : null;
     return { v, owner, days, year: dt?.getFullYear(), month: dt?.getMonth(), insurer };
   });
 
-  // Yıl çevresindeki tüm yıllar (tarihsel verisi olanlar) — yıl seçici dropdown için
   const allYears = Array.from(new Set(rows.map(r => r.year).filter(Boolean))).sort();
   if (!allYears.includes(today.getFullYear())) allYears.push(today.getFullYear());
   if (!allYears.includes(today.getFullYear() + 1)) allYears.push(today.getFullYear() + 1);
   allYears.sort();
 
-  // Yıla göre ay sayımları (12 ay)
   const monthCounts = Array.from({ length: 12 }, () => 0);
-  rows.forEach(r => {
-    if (r.year === year && r.month != null) monthCounts[r.month]++;
-  });
+  rows.forEach(r => { if (r.year === year && r.month != null) monthCounts[r.month]++; });
   const yearTotal = monthCounts.reduce((a, b) => a + b, 0);
 
   const filtered = rows.filter(({ v, owner, days, year: ry, month: rm, insurer }) => {
+    if (ownerType !== 'all' && owner?.type !== ownerType) return false;
     const q = search.trim().toLowerCase();
     if (q) {
       const hay = `${v.plate} ${v.brand} ${v.model} ${owner?.full_name || owner?.company || ''} ${insurer?.company || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     const dv = v[dateField];
-    if (filter !== 'unset') {
-      if (dv) {
-        if (ry !== year) return false;
-        if (month !== 'all' && rm !== month) return false;
-      } else if (filter !== 'all') {
-        return false;
-      } else if (year !== today.getFullYear() || month !== 'all') {
-        return false;
-      }
+    if (filter !== 'unset' && dv) {
+      if (ry !== year) return false;
+      if (month !== 'all' && rm !== month) return false;
     }
     if (filter === 'all') return true;
     if (filter === 'unset') return dv == null || dv === '';
@@ -7183,6 +7918,12 @@ function AdminTuvTracking({ db, setDb }) {
     unset: rows.filter(r => !r.v[dateField]).length,
   };
 
+  // Sağlık skoru — geçerli oranı (0-100)
+  const valid = counts.ok;
+  const tracked = counts.all - counts.unset;
+  const healthScore = tracked > 0 ? Math.round((valid / tracked) * 100) : 0;
+  const healthColor = healthScore >= 80 ? '#34D399' : healthScore >= 50 ? '#F59E0B' : '#EF4444';
+
   const saveEditDate = () => {
     if (!editVehicle) return;
     setDb(prev => ({
@@ -7193,267 +7934,367 @@ function AdminTuvTracking({ db, setDb }) {
     setEditDate('');
   };
 
+  const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  const monthShort = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+  const isCurrentMonth = (m) => year === today.getFullYear() && m === today.getMonth();
+
   const filterChips = [
-    { key: 'all',     label: 'Tümü',           color: C.text },
-    { key: 'expired', label: 'Süresi Dolmuş',  color: '#EF4444' },
-    { key: '30',      label: '≤ 30 gün',       color: '#F59E0B' },
-    { key: '60',      label: '≤ 60 gün',       color: '#FBBF24' },
-    { key: 'ok',      label: 'Geçerli',        color: '#34D399' },
-    { key: 'unset',   label: 'Tarih Girilmemiş', color: C.textDim },
+    { key: 'all',     label: 'Tümü',           color: C.text,     count: counts.all },
+    { key: 'expired', label: 'Süresi Dolmuş',  color: '#EF4444',  count: counts.expired },
+    { key: '30',      label: '≤ 30 gün',       color: '#F59E0B',  count: counts['30'] },
+    { key: '60',      label: '≤ 60 gün',       color: '#FBBF24',  count: counts['60'] },
+    { key: 'ok',      label: 'Geçerli',        color: '#34D399',  count: counts.ok },
+    { key: 'unset',   label: 'Tarihsiz',       color: C.textDim,  count: counts.unset },
   ];
 
-  const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-  const monthShort = ['OCA', 'ŞUB', 'MAR', 'NİS', 'MAY', 'HAZ', 'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
-  const monthIntensity = (count) => {
-    if (count === 0) return { bg: 'rgba(0,0,0,0.03)', border: C.border, color: C.textDim };
-    if (count <= 2) return { bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.30)', color: '#34D399' };
-    if (count <= 5) return { bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.30)', color: '#FBBF24' };
-    if (count <= 10) return { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.30)', color: '#F59E0B' };
-    return { bg: 'rgba(239,68,68,0.10)', border: 'rgba(239,68,68,0.30)', color: '#EF4444' };
-  };
-  const isCurrentMonth = (m) => year === today.getFullYear() && m === today.getMonth();
+  // Plaka format
+  const formatPlate = (p) => p || '—';
 
   return (
     <>
       <AdminTopbar
-        title={mode === 'tuv' ? 'TÜF Takip' : 'Sigorta Takip'}
-        subtitle={mode === 'tuv' ? 'Hauptuntersuchung tarihleri ve otomatik bilgilendirme' : 'Sigorta poliçe son tarihleri ve otomatik bilgilendirme'}
+        title={`${modeShort} Takip`}
+        subtitle="Müşteri kayıtlarındaki araçların TÜV/Sigorta tarihlerini canlı takip et"
         action={
-          <AdminButton variant="primary" onClick={() => setBulkOpen(true)} disabled={filtered.filter(r => r.v[dateField]).length === 0}>
-            <MailIcon size={14} /> Toplu Bildirim ({filtered.filter(r => r.v[dateField]).length})
-          </AdminButton>
+          <div className="flex items-center gap-2">
+            <AdminButton variant="primary" onClick={() => setBulkOpen(true)} disabled={filtered.filter(r => r.v[dateField]).length === 0}>
+              <MailIcon size={14} /> Toplu Bildirim ({filtered.filter(r => r.v[dateField]).length})
+            </AdminButton>
+          </div>
         } />
 
-      {/* Mode toggle: TÜV / Sigorta */}
-      <div className="mb-5 inline-flex rounded-full p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
-        {[
-          { k: 'tuv',       l: 'TÜV (Hauptuntersuchung)', icon: Shield,     color: C.neon },
-          { k: 'insurance', l: 'Sigorta',                  icon: ShieldIcon, color: '#B0050F' },
-        ].map(t => {
-          const active = mode === t.k;
-          return (
-            <button key={t.k} type="button" onClick={() => { setMode(t.k); setFilter('all'); setMonth('all'); }}
-              className="flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all"
-              style={{
-                background: active ? `linear-gradient(135deg, ${t.color}, ${t.color}cc)` : 'transparent',
-                color: active ? '#FFFFFF' : C.textDim,
-              }}>
-              <t.icon size={14} />
-              {t.l}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Year Selector + Month Strip */}
-      <div className="rounded-2xl mb-5 overflow-hidden"
-        style={{ background: `linear-gradient(135deg, rgba(227,6,19,0.05), rgba(227,6,19,0.03))`,
-          border: `1px solid ${C.border}` }}>
-        {/* Year header */}
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${C.border}` }}>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: `${C.neon}15`, border: `1px solid ${C.neon}30` }}>
-              <Shield size={16} style={{ color: C.neon }} />
+      {/* HERO — sağlık skoru + uyarı banner'ı */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        {/* Sol: sağlık skoru */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-3xl p-6 relative overflow-hidden lg:col-span-1"
+          style={{ background: `linear-gradient(135deg, ${healthColor}10, ${C.surface})`, border: `1px solid ${C.border}` }}>
+          <div className="absolute top-0 right-0 w-40 h-40 rounded-full"
+            style={{ background: `radial-gradient(circle, ${healthColor}22, transparent 70%)`, filter: 'blur(40px)' }} />
+          <div className="relative flex items-center gap-5">
+            {/* Donut chart */}
+            <div className="relative w-24 h-24 flex-shrink-0">
+              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth="8" />
+                <motion.circle cx="50" cy="50" r="42" fill="none" stroke={healthColor} strokeWidth="8" strokeLinecap="round"
+                  initial={{ strokeDasharray: '0 264' }}
+                  animate={{ strokeDasharray: `${(healthScore / 100) * 264} 264` }}
+                  transition={{ duration: 1.2, ease: 'easeOut' }}
+                  style={{ filter: `drop-shadow(0 0 6px ${healthColor}66)` }} />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold font-mono" style={{ color: healthColor }}>{healthScore}</span>
+                <span className="text-[9px] uppercase tracking-widest" style={{ color: C.textDim }}>%</span>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-widest" style={{ color: C.textDim }}>Takvim Görünümü</p>
-              <p className="text-sm font-semibold" style={{ color: C.text }}>
-                {year} yılı için <span style={{ color: C.neon }}>{yearTotal}</span> {modeShort} tarihi planlandı
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] uppercase tracking-widest" style={{ color: C.textDim }}>Filo Sağlık Skoru</p>
+              <p className="text-lg font-bold mt-1" style={{ color: C.text }}>{modeShort} Takip Durumu</p>
+              <p className="text-xs mt-1" style={{ color: C.textDim }}>
+                {valid} / {tracked} araç geçerli
+                {counts.unset > 0 && <span style={{ color: '#F59E0B' }}> · {counts.unset} tarihsiz</span>}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setYear(y => y - 1)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition hover:bg-black/5"
-              style={{ color: C.textDim, border: `1px solid ${C.border}` }}>‹</button>
-            <select value={year} onChange={(e) => setYear(parseInt(e.target.value))}
-              className="px-4 py-1.5 rounded-lg text-sm font-mono font-bold outline-none cursor-pointer"
-              style={{ background: `rgba(227,6,19,0.07)`, color: C.text, border: `1px solid ${C.neon}40` }}>
-              {allYears.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-            <button onClick={() => setYear(y => y + 1)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center transition hover:bg-black/5"
-              style={{ color: C.textDim, border: `1px solid ${C.border}` }}>›</button>
-            <button onClick={() => { setYear(today.getFullYear()); setMonth('all'); }}
-              className="ml-2 px-3 py-1.5 rounded-lg text-xs transition hover:bg-black/5"
-              style={{ color: C.cyan, background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.10)' }}>
-              Bugün
-            </button>
-          </div>
-        </div>
+        </motion.div>
 
-        {/* Month grid */}
-        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2 p-4">
-          <button onClick={() => setMonth('all')}
-            className="flex flex-col items-center justify-center py-3 rounded-xl transition-all"
-            style={{
-              background: month === 'all' ? `linear-gradient(135deg, ${C.neon}, ${C.magenta})` : 'rgba(0,0,0,0.03)',
-              border: `1px solid ${month === 'all' ? 'transparent' : C.border}`,
-              color: month === 'all' ? '#FFFFFF' : C.text,
-              fontWeight: month === 'all' ? 600 : 400,
-            }}>
-            <span className="text-[9px] uppercase tracking-widest" style={{ opacity: 0.7 }}>Tümü</span>
-            <span className="text-lg font-mono font-bold mt-0.5">{yearTotal}</span>
-          </button>
-          {monthNames.map((m, i) => {
-            const count = monthCounts[i];
-            const intensity = monthIntensity(count);
-            const active = month === i;
-            const current = isCurrentMonth(i);
+        {/* Sağ: Kritik uyarı kartları */}
+        <div className="lg:col-span-2 grid grid-cols-3 gap-3">
+          {[
+            { label: 'Süresi Dolmuş', value: counts.expired, color: '#EF4444', icon: AlertTriangle, key: 'expired' },
+            { label: '30 Gün İçinde', value: counts['30'], color: '#F59E0B', icon: ClockIcon, key: '30' },
+            { label: '60 Gün İçinde', value: counts['60'], color: '#FBBF24', icon: BellIcon, key: '60' },
+          ].map((s, i) => (
+            <motion.button key={s.key}
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 * i }}
+              onClick={() => setFilter(filter === s.key ? 'all' : s.key)}
+              className="rounded-3xl p-5 text-left transition-all hover:-translate-y-0.5 relative overflow-hidden"
+              style={{
+                background: filter === s.key
+                  ? `linear-gradient(135deg, ${s.color}20, ${s.color}08)`
+                  : C.surface,
+                border: `1px solid ${filter === s.key ? s.color : C.border}`,
+                boxShadow: filter === s.key ? `0 8px 24px ${s.color}25` : 'none',
+              }}>
+              {s.value > 0 && (
+                <div className="absolute top-0 right-0 w-20 h-20 rounded-full"
+                  style={{ background: `radial-gradient(circle, ${s.color}30, transparent 70%)`, filter: 'blur(24px)' }} />
+              )}
+              <div className="relative">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                    style={{ background: `${s.color}15`, color: s.color, border: `1px solid ${s.color}30` }}>
+                    <s.icon size={16} />
+                  </div>
+                  {s.value > 0 && filter !== s.key && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase"
+                      style={{ background: s.color, color: '#fff' }}>!</span>
+                  )}
+                </div>
+                <p className="text-3xl font-bold font-mono" style={{ color: s.value > 0 ? s.color : C.text }}>{s.value}</p>
+                <p className="text-[11px] uppercase tracking-wider mt-1" style={{ color: C.textDim }}>{s.label}</p>
+              </div>
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      {/* Mode + Owner Type Toggle Row */}
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        {/* Mode toggle */}
+        <div className="inline-flex rounded-xl p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
+          {[
+            { k: 'tuv',       l: 'TÜV', icon: Shield },
+            { k: 'insurance', l: 'Sigorta', icon: ShieldIcon },
+          ].map(t => {
+            const active = mode === t.k;
             return (
-              <button key={i} onClick={() => setMonth(month === i ? 'all' : i)}
-                className="relative flex flex-col items-center justify-center py-3 rounded-xl transition-all"
+              <button key={t.k} type="button" onClick={() => { setMode(t.k); setFilter('all'); setMonth('all'); }}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
                 style={{
-                  background: active ? `linear-gradient(135deg, ${intensity.color}, ${intensity.color}cc)` : intensity.bg,
-                  border: `1px solid ${active ? 'transparent' : intensity.border}`,
-                  color: active ? '#FFFFFF' : intensity.color,
-                  transform: active ? 'translateY(-2px)' : 'none',
-                  boxShadow: active ? `0 8px 20px ${intensity.color}44` : 'none',
+                  background: active ? C.text : 'transparent',
+                  color: active ? C.surface : C.textDim,
                 }}>
-                {current && !active && (
-                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full"
-                    style={{ background: C.neon, boxShadow: `0 0 8px ${C.neon}` }} />
-                )}
-                <span className="text-[10px] uppercase tracking-widest font-medium" style={{ opacity: active ? 0.7 : 1 }}>
-                  <span className="lg:hidden">{monthShort[i]}</span>
-                  <span className="hidden lg:inline">{m.slice(0, 3)}</span>
-                </span>
-                <span className="text-xl font-mono font-bold mt-0.5" style={{ color: active ? '#FFFFFF' : (count > 0 ? intensity.color : C.text) }}>
-                  {count}
-                </span>
+                <t.icon size={13} />{t.l}
               </button>
             );
           })}
         </div>
 
-        {/* Legend */}
-        <div className="px-5 py-3 flex items-center justify-between flex-wrap gap-3 text-[10px]"
-          style={{ borderTop: `1px solid ${C.border}`, color: C.textDim }}>
-          <div className="flex items-center gap-3">
-            <span className="uppercase tracking-widest">Yoğunluk:</span>
-            {[
-              { l: '0', c: { bg: 'rgba(0,0,0,0.03)', color: C.textDim, border: C.border } },
-              { l: '1-2', c: monthIntensity(1) },
-              { l: '3-5', c: monthIntensity(3) },
-              { l: '6-10', c: monthIntensity(6) },
-              { l: '10+', c: monthIntensity(11) },
-            ].map((x, i) => (
-              <span key={i} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full"
-                style={{ background: x.c.bg, border: `1px solid ${x.c.border}`, color: x.c.color }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: x.c.color }} /> {x.l}
-              </span>
-            ))}
-          </div>
-          {month !== 'all' && (
-            <span style={{ color: C.neon }}>
-              Filtre aktif: <strong>{monthNames[month]} {year}</strong> · {monthCounts[month]} araç
-            </span>
-          )}
+        {/* Owner type toggle */}
+        <div className="inline-flex rounded-xl p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
+          {[
+            { k: 'all',      l: 'Tüm Müşteriler', icon: UsersGroupIcon },
+            { k: 'bireysel', l: 'Bireysel',       icon: UsersIcon },
+            { k: 'kurumsal', l: 'Kurumsal',       icon: Building },
+          ].map(t => {
+            const active = ownerType === t.k;
+            return (
+              <button key={t.k} type="button" onClick={() => setOwnerType(t.k)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{
+                  background: active ? `${C.neon}15` : 'transparent',
+                  color: active ? C.neon : C.textDim,
+                  border: active ? `1px solid ${C.neon}40` : '1px solid transparent',
+                }}>
+                <t.icon size={12} />{t.l}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search */}
+        <div className="flex-1 min-w-[220px] relative">
+          <SearchIcon size={14} style={{ color: C.textDim, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Plaka, marka, müşteri, sigorta şirketi ara..."
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
+            style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }} />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-5">
+      {/* Mini Takvim — kompakt yıl + ay strip */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+        className="rounded-2xl mb-5 overflow-hidden"
+        style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+        <div className="px-4 py-2.5 flex items-center justify-between flex-wrap gap-2" style={{ borderBottom: `1px solid ${C.border}` }}>
+          <div className="flex items-center gap-2">
+            <CalendarIcon size={14} style={{ color: C.neon }} />
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.text }}>{year} Yılı</span>
+            <span className="text-xs" style={{ color: C.textDim }}>· {yearTotal} {modeShort} tarihi</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setYear(y => y - 1)} className="w-7 h-7 rounded-lg flex items-center justify-center transition hover:bg-black/5"
+              style={{ color: C.textDim }}><ArrowLeft size={12} /></button>
+            <select value={year} onChange={(e) => setYear(parseInt(e.target.value))}
+              className="px-3 py-1 rounded-lg text-xs font-mono font-bold outline-none cursor-pointer"
+              style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }}>
+              {allYears.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <button onClick={() => setYear(y => y + 1)} className="w-7 h-7 rounded-lg flex items-center justify-center transition hover:bg-black/5"
+              style={{ color: C.textDim }}><ArrowRight size={12} /></button>
+            <button onClick={() => { setYear(today.getFullYear()); setMonth('all'); }}
+              className="ml-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition hover:bg-black/5"
+              style={{ color: C.neon, background: `${C.neon}10`, border: `1px solid ${C.neon}30` }}>Bugün</button>
+          </div>
+        </div>
+
+        <div className="p-3 grid grid-cols-7 md:grid-cols-[repeat(13,minmax(0,1fr))] gap-1.5">
+          <button onClick={() => setMonth('all')}
+            className="flex flex-col items-center justify-center py-2 rounded-lg transition-all"
+            style={{
+              background: month === 'all' ? C.text : 'rgba(0,0,0,0.03)',
+              color: month === 'all' ? C.surface : C.textDim,
+              border: `1px solid ${month === 'all' ? C.text : 'transparent'}`,
+            }}>
+            <span className="text-[9px] uppercase font-medium tracking-wider" style={{ opacity: 0.7 }}>Tümü</span>
+            <span className="text-base font-mono font-bold mt-0.5">{yearTotal}</span>
+          </button>
+          {monthNames.map((m, i) => {
+            const count = monthCounts[i];
+            const active = month === i;
+            const current = isCurrentMonth(i);
+            const intensity = count === 0 ? 0 : Math.min(1, count / 5);
+            return (
+              <button key={i} onClick={() => setMonth(month === i ? 'all' : i)}
+                className="relative flex flex-col items-center justify-center py-2 rounded-lg transition-all"
+                style={{
+                  background: active ? C.neon : count > 0 ? `rgba(227,6,19,${0.04 + intensity * 0.10})` : 'rgba(0,0,0,0.02)',
+                  color: active ? '#fff' : count > 0 ? C.text : C.textDim,
+                  border: `1px solid ${active ? C.neon : count > 0 ? `${C.neon}20` : 'transparent'}`,
+                }}>
+                {current && !active && (
+                  <span className="absolute top-1 right-1 w-1 h-1 rounded-full"
+                    style={{ background: C.neon, boxShadow: `0 0 6px ${C.neon}` }} />
+                )}
+                <span className="text-[9px] uppercase font-medium tracking-wider" style={{ opacity: 0.85 }}>{monthShort[i]}</span>
+                <span className="text-base font-mono font-bold mt-0.5">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </motion.div>
+
+      {/* Filtre chip strip */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
         {filterChips.map(c => {
           const active = filter === c.key;
           return (
             <button key={c.key} onClick={() => setFilter(c.key)}
-              className="px-3 py-3 rounded-xl text-left transition-all"
+              className="px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5"
               style={{
                 background: active ? `${c.color}15` : 'rgba(0,0,0,0.03)',
                 border: `1px solid ${active ? c.color : C.border}`,
                 color: active ? c.color : C.textDim,
               }}>
-              <p className="text-[10px] uppercase tracking-wider">{c.label}</p>
-              <p className="font-mono text-2xl mt-1" style={{ color: active ? c.color : C.text }}>{counts[c.key]}</p>
+              {c.label}
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                style={{ background: active ? c.color : 'rgba(0,0,0,0.05)', color: active ? '#fff' : C.text }}>
+                {c.count}
+              </span>
             </button>
           );
         })}
+        {(month !== 'all' || ownerType !== 'all' || search) && (
+          <button onClick={() => { setMonth('all'); setOwnerType('all'); setSearch(''); }}
+            className="px-3 py-1.5 rounded-full text-xs flex items-center gap-1"
+            style={{ color: C.neon, background: `${C.neon}10`, border: `1px solid ${C.neon}30` }}>
+            <XClose size={11} /> Filtreleri sıfırla
+          </button>
+        )}
       </div>
 
-      <div className="mb-4">
-        <input value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Plaka, marka veya müşteri ara..."
-          className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-          style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }} />
-      </div>
-
-      <GlassCard>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                <th className="text-left py-3 px-2 text-xs uppercase tracking-wider" style={{ color: C.textDim }}>Plaka</th>
-                <th className="text-left py-3 px-2 text-xs uppercase tracking-wider" style={{ color: C.textDim }}>Araç</th>
-                <th className="text-left py-3 px-2 text-xs uppercase tracking-wider" style={{ color: C.textDim }}>Sahip</th>
-                <th className="text-left py-3 px-2 text-xs uppercase tracking-wider" style={{ color: C.textDim }}>{mode === 'tuv' ? 'TÜV Tarihi' : 'Sigorta Bitiş'}</th>
-                {mode === 'insurance' && <th className="text-left py-3 px-2 text-xs uppercase tracking-wider" style={{ color: C.textDim }}>Sigorta Şirketi</th>}
-                <th className="text-left py-3 px-2 text-xs uppercase tracking-wider" style={{ color: C.textDim }}>Durum</th>
-                <th className="text-right py-3 px-2 text-xs uppercase tracking-wider" style={{ color: C.textDim }}>İşlem</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(({ v, owner, days, insurer }) => {
-                const status = tuvStatusInfo(days, C);
-                const dval = v[dateField];
-                return (
-                  <tr key={v.id} style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <td className="py-3 px-2 font-mono" style={{ color: C.text }}>{v.plate}</td>
-                    <td className="py-3 px-2" style={{ color: C.text }}>
-                      <p className="text-sm">{v.brand} {v.model}</p>
-                      <p className="text-xs" style={{ color: C.textDim }}>{v.year}</p>
-                    </td>
-                    <td className="py-3 px-2" style={{ color: C.text }}>
-                      <p className="text-sm">{owner?.full_name || owner?.company || '—'}</p>
-                      <p className="text-xs" style={{ color: C.textDim }}>{owner?.phone || ''}</p>
-                    </td>
-                    <td className="py-3 px-2 font-mono" style={{ color: C.text }}>
-                      {dval ? new Date(dval).toLocaleDateString('tr-TR') : <span style={{ color: C.textDim }}>—</span>}
-                      {days != null && (
-                        <p className="text-[10px] mt-1" style={{ color: status.color }}>
-                          {days < 0 ? `${Math.abs(days)} gün geçti` : days === 0 ? 'Bugün' : `${days} gün kaldı`}
-                        </p>
-                      )}
-                    </td>
-                    {mode === 'insurance' && (
-                      <td className="py-3 px-2" style={{ color: C.text }}>
-                        {insurer ? (
-                          <div className="flex items-center gap-2">
-                            <ShieldIcon size={12} style={{ color: '#B0050F' }} />
-                            <span className="text-xs">{insurer.company}</span>
-                          </div>
-                        ) : <span className="text-xs" style={{ color: C.textDim }}>Atanmamış</span>}
-                      </td>
-                    )}
-                    <td className="py-3 px-2">
-                      <span className="text-xs px-2 py-1 rounded-full" style={{ background: status.bg, color: status.color }}>
-                        {status.label}
-                      </span>
-                    </td>
-                    <td className="py-3 px-2 text-right">
-                      <div className="inline-flex gap-2">
-                        <AdminButton size="sm" onClick={() => { setEditVehicle(v); setEditDate(dval || ''); }}>
-                          <EditIcon size={12} /> Tarih
-                        </AdminButton>
-                        <AdminButton size="sm" variant="primary" onClick={() => setNotifyVehicle(v)} disabled={!dval}>
-                          <MessageIcon size={12} /> Bildir
-                        </AdminButton>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={mode === 'insurance' ? 7 : 6} className="py-12 text-center text-sm" style={{ color: C.textDim }}>
-                    Kayıt bulunamadı.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {/* Araç kart liste */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-20 rounded-3xl" style={{ background: C.surface, border: `2px dashed ${C.border}` }}>
+          <div className="w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center" style={{ background: `${C.neon}10` }}>
+            <Shield size={28} style={{ color: C.neon }} />
+          </div>
+          <p className="text-base font-semibold mb-1" style={{ color: C.text }}>Bu filtre için araç bulunamadı</p>
+          <p className="text-xs" style={{ color: C.textDim }}>
+            Müşteri kartlarına araç eklediğinde TÜV/Sigorta tarihleri burada otomatik gözükür
+          </p>
         </div>
-      </GlassCard>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filtered.map(({ v, owner, days, insurer }, idx) => {
+            const status = tuvStatusInfo(days, C);
+            const dval = v[dateField];
+            const ownerName = owner?.type === 'kurumsal' ? (owner.company || owner.full_name) : owner?.full_name;
+            const dateStr = dval ? new Date(dval).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' }) : null;
+
+            return (
+              <motion.div key={v.id}
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(idx, 8) * 0.03 }}
+                className="rounded-2xl p-4 relative overflow-hidden transition-all hover:-translate-y-0.5"
+                style={{
+                  background: C.surface,
+                  border: `1px solid ${days != null && days < 0 ? 'rgba(239,68,68,0.30)' : C.border}`,
+                  boxShadow: days != null && days < 0 ? '0 4px 16px rgba(239,68,68,0.10)' : 'none',
+                }}>
+                {/* Sol şerit — durum rengi */}
+                <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: status.color }} />
+
+                {/* Üst satır: plaka + countdown */}
+                <div className="flex items-start justify-between gap-3 mb-3 pl-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-mono text-lg font-bold tracking-wider" style={{ color: C.text }}>{formatPlate(v.plate)}</p>
+                      {owner && (
+                        <span className="px-1.5 py-0.5 rounded-md text-[9px] uppercase tracking-wider flex items-center gap-0.5"
+                          style={{
+                            background: owner.type === 'kurumsal' ? '#3B82F615' : '#10B98115',
+                            color: owner.type === 'kurumsal' ? '#3B82F6' : '#10B981',
+                          }}>
+                          {owner.type === 'kurumsal' ? <Building size={9} /> : <UsersIcon size={9} />}
+                          {owner.type === 'kurumsal' ? 'Firma' : 'Bireysel'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs truncate" style={{ color: C.textDim }}>{v.brand} {v.model} · {v.year}</p>
+                  </div>
+
+                  {/* Countdown badge */}
+                  {days != null ? (
+                    <div className="flex flex-col items-center justify-center px-3 py-1.5 rounded-xl flex-shrink-0"
+                      style={{ background: status.bg, border: `1px solid ${status.color}33` }}>
+                      <span className="text-base font-bold font-mono leading-none" style={{ color: status.color }}>
+                        {days < 0 ? Math.abs(days) : days}
+                      </span>
+                      <span className="text-[8px] uppercase tracking-wider mt-0.5" style={{ color: status.color, opacity: 0.85 }}>
+                        {days < 0 ? 'gün geçti' : days === 0 ? 'bugün' : 'gün kaldı'}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider flex-shrink-0"
+                      style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim, border: `1px solid ${C.border}` }}>
+                      Tarihsiz
+                    </div>
+                  )}
+                </div>
+
+                {/* Detay grid */}
+                <div className="space-y-1.5 pl-2 mb-3 text-[11px]">
+                  {ownerName && (
+                    <div className="flex items-center gap-1.5" style={{ color: C.text }}>
+                      <UsersIcon size={11} style={{ color: C.textDim }} />
+                      <span className="truncate">{ownerName}</span>
+                      {owner?.phone && <span style={{ color: C.textDim }}>· {owner.phone}</span>}
+                    </div>
+                  )}
+                  {dateStr && (
+                    <div className="flex items-center gap-1.5" style={{ color: C.textDim }}>
+                      <CalendarIcon size={11} />
+                      <span>{modeShort}: <strong style={{ color: C.text }}>{dateStr}</strong></span>
+                    </div>
+                  )}
+                  {mode === 'insurance' && insurer && (
+                    <div className="flex items-center gap-1.5" style={{ color: C.textDim }}>
+                      <ShieldIcon size={11} style={{ color: '#B0050F' }} />
+                      <span>{insurer.company}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Aksiyon barı */}
+                <div className="flex items-center gap-1.5 pl-2 pt-2" style={{ borderTop: `1px solid ${C.border}` }}>
+                  <button onClick={() => { setEditVehicle(v); setEditDate(dval || ''); }}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:bg-black/5"
+                    style={{ background: 'rgba(0,0,0,0.03)', color: C.text, border: `1px solid ${C.border}` }}>
+                    <EditIcon size={11} /> Tarih
+                  </button>
+                  <button onClick={() => setNotifyVehicle(v)}
+                    disabled={!dval}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-40"
+                    style={{ background: `${C.neon}10`, color: C.neon, border: `1px solid ${C.neon}30` }}>
+                    <MessageIcon size={11} /> Bildir
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Edit date modal */}
       <GecitKfzModal open={!!editVehicle} onClose={() => setEditVehicle(null)}
@@ -7490,7 +8331,7 @@ function AdminTuvTracking({ db, setDb }) {
 }
 
 // ─── Live Dashboard (Canlı İş Takibi) ───────────
-function AdminLiveDashboard({ db, setDb }) {
+function AdminLiveDashboard({ db, setDb, setSection }) {
   const [feedModal, setFeedModal] = useState(false);
   const [feedForm, setFeedForm] = useState({ type: 'gelen', text: '', status: 'bekliyor' });
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -7552,6 +8393,26 @@ function AdminLiveDashboard({ db, setDb }) {
           </motion.div>
         ))}
       </div>
+
+      {/* Yaklaşan TÜV / Sigorta — kritik durum widget'ı */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.4 }}
+        className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <UpcomingTuvWidget
+          db={db}
+          mode="tuv"
+          title="Yaklaşan TÜV / HU"
+          subtitle="Kritik araçlar — anında bildirim için tıkla"
+          onSeeAll={setSection ? () => setSection('tuv') : undefined}
+        />
+        <UpcomingTuvWidget
+          db={db}
+          mode="insurance"
+          title="Yaklaşan Sigorta Süresi"
+          subtitle="Poliçe bitiş tarihleri"
+          onSeeAll={setSection ? () => setSection('tuv') : undefined}
+        />
+      </motion.div>
 
       {/* Live Feed */}
       <GlassCard>
@@ -7655,58 +8516,185 @@ function AdminLiveDashboard({ db, setDb }) {
 
 // ─── Reminders & Push Notifications ─────────────
 // ─── Admin Gallery ─────────────────────────────
+// Galeri kategori paleti — kreatif renk kodlaması ile foto sınıflandırma
+const GALLERY_CATEGORIES = [
+  { key: 'damage_before', label: 'Hasar Öncesi', color: '#F59E0B', emoji: '📸' },
+  { key: 'damage_after',  label: 'Hasar Sonrası', color: '#EF4444', emoji: '🚗' },
+  { key: 'document',      label: 'Belge / Evrak', color: '#3B82F6', emoji: '📄' },
+  { key: 'service',       label: 'Servis / Tamir', color: '#10B981', emoji: '🔧' },
+  { key: 'lawyer_court',  label: 'Avukat / Mahkeme', color: '#8B5CF6', emoji: '⚖️' },
+  { key: 'general',       label: 'Genel', color: '#6B7280', emoji: '🗂️' },
+];
+const GALLERY_CAT_MAP = Object.fromEntries(GALLERY_CATEGORIES.map(c => [c.key, c]));
+
 function AdminGallery({ db, setDb }) {
-  const [photos, setPhotos] = useState(db.gallery || []);
   const [viewPhoto, setViewPhoto] = useState(null);
-  const [viewMode, setViewMode] = useState('grid'); // grid | list
+  const [viewMode, setViewMode] = useState('grid'); // grid | list | folders
   const [search, setSearch] = useState('');
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [selectedDate, setSelectedDate] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCustomer, setSelectedCustomer] = useState('all');
+  const [selectedLawyer, setSelectedLawyer] = useState('all');
+  const [selectedIds, setSelectedIds] = useState([]); // bulk selection
+  const [pendingUploads, setPendingUploads] = useState([]); // upload tagging modal
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [expandedFolders, setExpandedFolders] = useState({});
   const fileRef = useRef(null);
+  const dragCountRef = useRef(0);
 
-  useEffect(() => { setPhotos(db.gallery || []); }, [db.gallery]);
+  const photos = db.gallery || [];
+  const customers = db.customers || [];
+  const lawyers = db.lawyers || [];
 
   const uid = () => Math.random().toString(36).slice(2, 10);
 
-  const handleUpload = (e) => {
-    const files = Array.from(e.target.files || []);
+  const customerLabel = (c) => {
+    if (!c) return 'Müşterisiz';
+    return c.type === 'kurumsal' ? (c.company || c.full_name || 'Kurumsal') : (c.full_name || 'Müşteri');
+  };
+  const findCustomer = (id) => customers.find(c => c.id === id);
+  const findLawyer = (id) => lawyers.find(l => l.id === id);
+
+  // Dosya okuma — base64'e çevir, modal için bekleme listesine ekle
+  const readFiles = (fileList) => {
+    const files = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
     if (!files.length) return;
-    files.forEach(file => {
-      if (!file.type.startsWith('image/')) return;
+    const reads = files.map(file => new Promise(resolve => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const photo = {
-          id: 'ph' + uid(),
-          name: file.name,
-          data: reader.result,
-          size: file.size,
-          mime: file.type,
-          note: '',
-          tags: [],
-          uploaded_at: new Date().toISOString(),
-          date: new Date().toISOString().slice(0, 10),
-        };
-        setDb(prev => ({ ...prev, gallery: [...(prev.gallery || []), photo] }));
-      };
+      reader.onload = () => resolve({
+        tmpId: 'tmp' + uid(),
+        name: file.name,
+        data: reader.result,
+        size: file.size,
+        mime: file.type,
+      });
       reader.readAsDataURL(file);
+    }));
+    Promise.all(reads).then(loaded => {
+      setPendingUploads({
+        files: loaded,
+        meta: { customer_id: '', lawyer_id: '', category: 'general', note: '', tags: '' },
+      });
     });
+  };
+
+  const handleUpload = (e) => {
+    readFiles(e.target.files);
     e.target.value = '';
+  };
+
+  // Drag & drop sürükle-bırak
+  const onDragEnter = (e) => {
+    e.preventDefault();
+    if (e.dataTransfer?.types?.includes('Files')) {
+      dragCountRef.current += 1;
+      setIsDragOver(true);
+    }
+  };
+  const onDragLeave = (e) => {
+    e.preventDefault();
+    dragCountRef.current = Math.max(0, dragCountRef.current - 1);
+    if (dragCountRef.current === 0) setIsDragOver(false);
+  };
+  const onDragOver = (e) => { e.preventDefault(); };
+  const onDrop = (e) => {
+    e.preventDefault();
+    dragCountRef.current = 0;
+    setIsDragOver(false);
+    readFiles(e.dataTransfer?.files);
+  };
+
+  // Bekleyen yüklemeleri DB'ye işle
+  const commitPendingUploads = () => {
+    if (!pendingUploads || !pendingUploads.files?.length) return;
+    const meta = pendingUploads.meta;
+    const tagsList = (meta.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+    const newPhotos = pendingUploads.files.map(f => ({
+      id: 'ph' + uid(),
+      name: f.name,
+      data: f.data,
+      size: f.size,
+      mime: f.mime,
+      note: meta.note || '',
+      tags: tagsList,
+      category: meta.category || 'general',
+      customer_id: meta.customer_id || null,
+      lawyer_id: meta.lawyer_id || null,
+      uploaded_at: new Date().toISOString(),
+      date: new Date().toISOString().slice(0, 10),
+    }));
+    setDb(prev => ({ ...prev, gallery: [...(prev.gallery || []), ...newPhotos] }));
+    setPendingUploads([]);
+  };
+
+  const skipTaggingAndCommit = () => {
+    if (!pendingUploads?.files?.length) { setPendingUploads([]); return; }
+    const newPhotos = pendingUploads.files.map(f => ({
+      id: 'ph' + uid(),
+      name: f.name,
+      data: f.data,
+      size: f.size,
+      mime: f.mime,
+      note: '',
+      tags: [],
+      category: 'general',
+      customer_id: null,
+      lawyer_id: null,
+      uploaded_at: new Date().toISOString(),
+      date: new Date().toISOString().slice(0, 10),
+    }));
+    setDb(prev => ({ ...prev, gallery: [...(prev.gallery || []), ...newPhotos] }));
+    setPendingUploads([]);
   };
 
   const deletePhoto = (id) => {
     setDb(prev => ({ ...prev, gallery: (prev.gallery || []).filter(p => p.id !== id) }));
     if (viewPhoto?.id === id) setViewPhoto(null);
+    setSelectedIds(prev => prev.filter(x => x !== id));
   };
 
-  const updateNote = (id, note) => {
+  const updatePhoto = (id, patch) => {
     setDb(prev => ({
       ...prev,
-      gallery: (prev.gallery || []).map(p => p.id === id ? { ...p, note } : p),
+      gallery: (prev.gallery || []).map(p => p.id === id ? { ...p, ...patch } : p),
     }));
+    if (viewPhoto?.id === id) setViewPhoto(prev => prev ? { ...prev, ...patch } : prev);
   };
 
-  // Group by year / month / date
+  // Toplu işlemler
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const selectAllVisible = () => setSelectedIds(filtered.map(p => p.id));
+  const clearSelection = () => setSelectedIds([]);
+  const bulkDelete = () => {
+    if (!selectedIds.length) return;
+    if (!confirm(`${selectedIds.length} fotoğraf silinecek. Emin misin?`)) return;
+    setDb(prev => ({ ...prev, gallery: (prev.gallery || []).filter(p => !selectedIds.includes(p.id)) }));
+    setSelectedIds([]);
+  };
+  const bulkDownload = () => {
+    selectedIds.forEach(id => {
+      const p = photos.find(x => x.id === id);
+      if (!p) return;
+      const a = document.createElement('a');
+      a.href = p.data;
+      a.download = p.name;
+      a.click();
+    });
+  };
+  const applyBulkAssign = (patch) => {
+    setDb(prev => ({
+      ...prev,
+      gallery: (prev.gallery || []).map(p => selectedIds.includes(p.id) ? { ...p, ...patch } : p),
+    }));
+    setBulkAssignOpen(false);
+  };
+
+  // Filtre + arama + tarih grupları
   const TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
   const years = [...new Set(photos.map(p => p.date?.slice(0, 4)).filter(Boolean))].sort().reverse();
   const months = [...new Set(
@@ -7722,14 +8710,37 @@ function AdminGallery({ db, setDb }) {
       .map(p => p.date)
       .filter(Boolean)
   )].sort().reverse();
+
   const filtered = photos
     .filter(p => selectedYear === 'all' || p.date?.startsWith(selectedYear + '-'))
     .filter(p => selectedMonth === 'all' || p.date?.startsWith(selectedMonth + '-'))
     .filter(p => selectedDate === 'all' || p.date === selectedDate)
-    .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.note || '').toLowerCase().includes(search.toLowerCase()))
+    .filter(p => selectedCategory === 'all' || (p.category || 'general') === selectedCategory)
+    .filter(p => {
+      if (selectedCustomer === 'all') return true;
+      if (selectedCustomer === 'none') return !p.customer_id;
+      return p.customer_id === selectedCustomer;
+    })
+    .filter(p => {
+      if (selectedLawyer === 'all') return true;
+      if (selectedLawyer === 'none') return !p.lawyer_id;
+      return p.lawyer_id === selectedLawyer;
+    })
+    .filter(p => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      const cust = findCustomer(p.customer_id);
+      const law = findLawyer(p.lawyer_id);
+      return p.name?.toLowerCase().includes(q)
+        || (p.note || '').toLowerCase().includes(q)
+        || (p.tags || []).join(' ').toLowerCase().includes(q)
+        || customerLabel(cust).toLowerCase().includes(q)
+        || (law?.name || '').toLowerCase().includes(q);
+    })
     .sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at));
 
   const formatDate = (d) => {
+    if (!d) return '—';
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     if (d === today) return 'Bugün';
@@ -7759,12 +8770,17 @@ function AdminGallery({ db, setDb }) {
       setSelectedMonth(val.slice(0, 7));
     }
   };
-  const clearDateFilters = () => {
+  const clearAllFilters = () => {
     setSelectedYear('all');
     setSelectedMonth('all');
     setSelectedDate('all');
+    setSelectedCategory('all');
+    setSelectedCustomer('all');
+    setSelectedLawyer('all');
+    setSearch('');
   };
-  const hasDateFilter = selectedYear !== 'all' || selectedMonth !== 'all' || selectedDate !== 'all';
+  const hasAnyFilter = selectedYear !== 'all' || selectedMonth !== 'all' || selectedDate !== 'all'
+    || selectedCategory !== 'all' || selectedCustomer !== 'all' || selectedLawyer !== 'all' || !!search;
 
   const formatSize = (bytes) => {
     if (bytes < 1024) return bytes + ' B';
@@ -7772,188 +8788,629 @@ function AdminGallery({ db, setDb }) {
     return (bytes / 1048576).toFixed(1) + ' MB';
   };
 
+  // Üst istatistik kartları
+  const thisMonthKey = new Date().toISOString().slice(0, 7);
+  const stats = {
+    total: photos.length,
+    thisMonth: photos.filter(p => p.date?.startsWith(thisMonthKey)).length,
+    customerLinked: photos.filter(p => p.customer_id).length,
+    categorized: photos.filter(p => p.category && p.category !== 'general').length,
+    storage: photos.reduce((s, p) => s + (p.size || 0), 0),
+  };
+
+  // Kategori bazlı sayım — chip filter için
+  const catCounts = GALLERY_CATEGORIES.reduce((acc, c) => {
+    acc[c.key] = photos.filter(p => (p.category || 'general') === c.key).length;
+    return acc;
+  }, {});
+
+  // Müşteri klasörü görünümü — gruplama
+  const customerGroups = (() => {
+    const groups = new Map();
+    filtered.forEach(p => {
+      const key = p.customer_id || '__none__';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(p);
+    });
+    return Array.from(groups.entries())
+      .map(([cid, items]) => ({
+        id: cid,
+        customer: cid === '__none__' ? null : findCustomer(cid),
+        photos: items.sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at)),
+      }))
+      .sort((a, b) => {
+        if (a.id === '__none__') return 1;
+        if (b.id === '__none__') return -1;
+        return b.photos.length - a.photos.length;
+      });
+  })();
+
+  // Lightbox — önceki/sonraki navigasyon
+  const currentIdx = viewPhoto ? filtered.findIndex(p => p.id === viewPhoto.id) : -1;
+  const goPrev = () => {
+    if (currentIdx > 0) setViewPhoto(filtered[currentIdx - 1]);
+  };
+  const goNext = () => {
+    if (currentIdx >= 0 && currentIdx < filtered.length - 1) setViewPhoto(filtered[currentIdx + 1]);
+  };
+
+  // Klavye kısayolları (lightbox açıkken)
+  useEffect(() => {
+    if (!viewPhoto) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setViewPhoto(null);
+      else if (e.key === 'ArrowLeft') goPrev();
+      else if (e.key === 'ArrowRight') goNext();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [viewPhoto, currentIdx, filtered.length]);
+
+  // Tek foto kart bileşeni — birden çok yerde kullanılıyor
+  const PhotoCard = ({ photo }) => {
+    const cat = GALLERY_CAT_MAP[photo.category || 'general'];
+    const cust = findCustomer(photo.customer_id);
+    const isSel = selectedIds.includes(photo.id);
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
+        className="group relative rounded-2xl overflow-hidden cursor-pointer aspect-square"
+        style={{
+          background: C.surface,
+          border: isSel ? `2px solid ${C.neon}` : `1px solid ${C.border}`,
+          boxShadow: isSel ? `0 8px 24px ${C.neon}30` : 'none',
+        }}
+        onClick={() => setViewPhoto(photo)}>
+        <img src={photo.data} alt={photo.name}
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+
+        {/* Kategori şeridi — sol üst */}
+        <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
+          style={{ background: `${cat.color}E0`, color: '#fff', backdropFilter: 'blur(8px)' }}>
+          <span>{cat.emoji}</span><span className="hidden sm:inline">{cat.label}</span>
+        </div>
+
+        {/* Seçim checkbox — sağ üst, hover'da */}
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleSelect(photo.id); }}
+          className="absolute top-2 right-2 w-6 h-6 rounded-md flex items-center justify-center transition-all"
+          style={{
+            background: isSel ? C.neon : 'rgba(0,0,0,0.5)',
+            border: `1.5px solid ${isSel ? C.neon : 'rgba(255,255,255,0.6)'}`,
+            opacity: isSel ? 1 : 0,
+            backdropFilter: 'blur(4px)',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = isSel ? 1 : 0}
+          title={isSel ? 'Seçimi kaldır' : 'Seç'}>
+          {isSel && <Check size={14} style={{ color: '#fff' }} />}
+        </button>
+
+        {/* Alt info overlay */}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          {cust && (
+            <div className="flex items-center gap-1 mb-1">
+              {cust.type === 'kurumsal' ? <Building size={10} style={{ color: '#fff' }} /> : <UsersIcon size={10} style={{ color: '#fff' }} />}
+              <p className="text-[10px] font-medium truncate" style={{ color: '#fff' }}>{customerLabel(cust)}</p>
+            </div>
+          )}
+          <p className="text-xs font-medium truncate" style={{ color: '#fff' }}>{photo.name}</p>
+          <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{formatDate(photo.date)} · {formatSize(photo.size)}</p>
+        </div>
+
+        {/* Not göstergesi */}
+        {photo.note && (
+          <div className="absolute bottom-2 right-2 opacity-90">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(4px)' }}>
+              <MessageIcon size={10} style={{ color: cat.color }} />
+            </div>
+          </div>
+        )}
+      </motion.div>
+    );
+  };
+
   return (
-    <div>
+    <div onDragEnter={onDragEnter} onDragLeave={onDragLeave} onDragOver={onDragOver} onDrop={onDrop} className="relative">
       <input type="file" ref={fileRef} className="hidden" accept="image/*" multiple onChange={handleUpload} />
 
+      {/* Drag & drop overlay */}
+      <AnimatePresence>
+        {isDragOver && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
+            style={{ background: 'rgba(227,6,19,0.08)', backdropFilter: 'blur(4px)' }}>
+            <div className="px-8 py-6 rounded-3xl text-center"
+              style={{ background: C.surface, border: `2px dashed ${C.neon}`, boxShadow: `0 20px 60px ${C.neon}40` }}>
+              <UploadIcon size={48} style={{ color: C.neon, margin: '0 auto 12px' }} />
+              <p className="text-lg font-bold" style={{ color: C.text }}>Fotoğrafları buraya bırak</p>
+              <p className="text-xs mt-1" style={{ color: C.textDim }}>Bir veya daha fazla resim dosyası</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-3" style={{ color: C.text }}>
             <CameraIcon size={24} style={{ color: C.neon }} /> Galeri
           </h1>
           <p className="text-sm mt-1" style={{ color: C.textDim }}>
-            Gün içi çekimler ve fotoğraflar — {photos.length} fotoğraf
+            Müşteri ve avukatlarla paylaşılabilir fotoğraf arşivi · sürükle-bırak destekli
           </p>
         </div>
-        <AdminButton icon={CameraIcon} onClick={() => fileRef.current?.click()}>
-          Fotoğraf Yükle
-        </AdminButton>
+        <div className="flex items-center gap-2">
+          <AdminButton variant="primary" onClick={() => fileRef.current?.click()}>
+            <UploadIcon size={16} /> Fotoğraf Yükle
+          </AdminButton>
+        </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <div className="flex-1 min-w-[200px]">
-          <TextInput placeholder="Fotoğraf ara..." value={search} onChange={e => setSearch(e.target.value)} />
+      {/* İstatistik kartları */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-6">
+        {[
+          { label: 'Toplam', value: stats.total, icon: ImageIcon, color: C.neon },
+          { label: 'Bu Ay', value: stats.thisMonth, icon: CalendarIcon, color: '#10B981' },
+          { label: 'Müşteri Atanmış', value: stats.customerLinked, icon: UsersIcon, color: '#3B82F6' },
+          { label: 'Kategorize', value: stats.categorized, icon: FolderCheckIcon, color: '#8B5CF6' },
+          { label: 'Depolama', value: formatSize(stats.storage), icon: Database, color: '#F59E0B' },
+        ].map((s, i) => (
+          <div key={i} className="p-4 rounded-2xl flex items-center gap-3"
+            style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: `${s.color}15`, color: s.color }}>
+              <s.icon size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider truncate" style={{ color: C.textDim }}>{s.label}</p>
+              <p className="text-lg font-bold truncate" style={{ color: C.text }}>{s.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Kategori chip filtresi */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <button onClick={() => setSelectedCategory('all')}
+          className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          style={{
+            background: selectedCategory === 'all' ? C.text : 'rgba(0,0,0,0.04)',
+            color: selectedCategory === 'all' ? C.surface : C.textDim,
+            border: `1px solid ${selectedCategory === 'all' ? C.text : C.border}`,
+          }}>
+          Tümü <span className="ml-1 opacity-70">{photos.length}</span>
+        </button>
+        {GALLERY_CATEGORIES.map(c => {
+          const active = selectedCategory === c.key;
+          return (
+            <button key={c.key} onClick={() => setSelectedCategory(active ? 'all' : c.key)}
+              className="px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5"
+              style={{
+                background: active ? `${c.color}20` : 'rgba(0,0,0,0.04)',
+                color: active ? c.color : C.textDim,
+                border: `1px solid ${active ? c.color : C.border}`,
+              }}>
+              <span>{c.emoji}</span>
+              <span>{c.label}</span>
+              <span className="opacity-70">{catCounts[c.key]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Üst toolbar — arama + filtreler + view mode */}
+      <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-2xl"
+        style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+        <div className="flex-1 min-w-[200px] relative">
+          <SearchIcon size={14} style={{ color: C.textDim, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Foto, müşteri, avukat, etiket veya not ara..."
+            className="w-full pl-9 pr-3 py-2 rounded-xl text-sm outline-none"
+            style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
         </div>
-        <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-          <button onClick={() => setViewMode('grid')} className="px-3 py-1.5 rounded-lg text-xs transition-all"
-            style={{ background: viewMode === 'grid' ? `${C.neon}20` : 'transparent', color: viewMode === 'grid' ? C.neon : C.textDim, border: viewMode === 'grid' ? `1px solid ${C.neon}40` : '1px solid transparent' }}>
-            <GridIcon size={16} />
-          </button>
-          <button onClick={() => setViewMode('list')} className="px-3 py-1.5 rounded-lg text-xs transition-all"
-            style={{ background: viewMode === 'list' ? `${C.neon}20` : 'transparent', color: viewMode === 'list' ? C.neon : C.textDim, border: viewMode === 'list' ? `1px solid ${C.neon}40` : '1px solid transparent' }}>
-            ☰
-          </button>
-        </div>
+
+        <select value={selectedCustomer} onChange={e => setSelectedCustomer(e.target.value)}
+          className="px-3 py-2 rounded-xl text-sm outline-none cursor-pointer"
+          style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text, maxWidth: 180 }}
+          title="Müşteri filtresi">
+          <option value="all">👤 Tüm Müşteriler</option>
+          <option value="none">— Müşterisiz —</option>
+          {customers.map(c => <option key={c.id} value={c.id}>{customerLabel(c)}</option>)}
+        </select>
+
+        <select value={selectedLawyer} onChange={e => setSelectedLawyer(e.target.value)}
+          className="px-3 py-2 rounded-xl text-sm outline-none cursor-pointer"
+          style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text, maxWidth: 160 }}
+          title="Avukat filtresi">
+          <option value="all">⚖️ Tüm Avukatlar</option>
+          <option value="none">— Avukatsız —</option>
+          {lawyers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+        </select>
+
         <select value={selectedYear} onChange={e => onYearChange(e.target.value)}
-          className="px-3 py-2 rounded-xl text-sm outline-none"
-          style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text }}
+          className="px-3 py-2 rounded-xl text-sm outline-none cursor-pointer"
+          style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}
           title="Yıl">
           <option value="all">Tüm Yıllar</option>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
         <select value={selectedMonth} onChange={e => onMonthChange(e.target.value)}
-          className="px-3 py-2 rounded-xl text-sm outline-none"
-          style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text }}
-          title="Ay"
-          disabled={months.length === 0}>
+          className="px-3 py-2 rounded-xl text-sm outline-none cursor-pointer disabled:opacity-50"
+          style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}
+          title="Ay" disabled={months.length === 0}>
           <option value="all">Tüm Aylar</option>
           {months.map(m => <option key={m} value={m}>{formatMonth(m)}</option>)}
         </select>
         <select value={selectedDate} onChange={e => onDateChange(e.target.value)}
-          className="px-3 py-2 rounded-xl text-sm outline-none"
-          style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.text }}
-          title="Gün"
-          disabled={dates.length === 0}>
+          className="px-3 py-2 rounded-xl text-sm outline-none cursor-pointer disabled:opacity-50"
+          style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}
+          title="Gün" disabled={dates.length === 0}>
           <option value="all">Tüm Günler</option>
           {dates.map(d => <option key={d} value={d}>{formatDate(d)}</option>)}
         </select>
-        {hasDateFilter && (
-          <button onClick={clearDateFilters}
-            className="px-3 py-2 rounded-xl text-xs font-medium transition-all"
-            style={{ background: `${C.neon}15`, border: `1px solid ${C.neon}40`, color: C.neon }}
-            title="Tarih filtrelerini temizle">
-            Temizle
+
+        {hasAnyFilter && (
+          <button onClick={clearAllFilters}
+            className="px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1"
+            style={{ background: `${C.neon}15`, border: `1px solid ${C.neon}40`, color: C.neon }}>
+            <XClose size={12} /> Temizle
           </button>
         )}
+
+        {/* View mode switcher */}
+        <div className="flex items-center gap-1 p-1 rounded-xl ml-auto" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
+          {[
+            { k: 'grid', icon: GridIcon, title: 'Izgara' },
+            { k: 'list', icon: ImageIcon, title: 'Liste' },
+            { k: 'folders', icon: FolderIcon, title: 'Müşteri Klasörleri' },
+          ].map(v => (
+            <button key={v.k} onClick={() => setViewMode(v.k)}
+              className="px-2.5 py-1.5 rounded-lg text-xs transition-all"
+              style={{
+                background: viewMode === v.k ? C.neon : 'transparent',
+                color: viewMode === v.k ? '#fff' : C.textDim,
+              }}
+              title={v.title}>
+              <v.icon size={14} />
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* Toplu işlem barı — seçim varsa */}
+      <AnimatePresence>
+        {selectedIds.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-2xl"
+            style={{ background: `${C.neon}10`, border: `1px solid ${C.neon}40` }}>
+            <div className="flex items-center gap-2">
+              <CheckSquare size={16} style={{ color: C.neon }} />
+              <span className="text-sm font-medium" style={{ color: C.text }}>{selectedIds.length} fotoğraf seçildi</span>
+            </div>
+            <div className="flex items-center gap-2 ml-auto flex-wrap">
+              <button onClick={selectAllVisible}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                Görünenleri Seç ({filtered.length})
+              </button>
+              <button onClick={() => setBulkAssignOpen(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1"
+                style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                <UserPlusIcon size={12} /> Müşteri / Kategori Ata
+              </button>
+              <button onClick={bulkDownload}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1"
+                style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                <DownloadIcon size={12} /> İndir
+              </button>
+              <button onClick={bulkDelete}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1"
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444' }}>
+                <TrashIcon size={12} /> Sil
+              </button>
+              <button onClick={clearSelection}
+                className="px-3 py-1.5 rounded-lg text-xs"
+                style={{ color: C.textDim }}>
+                Temizle
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div className="text-center py-20 rounded-2xl" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-          <CameraIcon size={48} style={{ color: C.textDim, margin: '0 auto 16px' }} />
-          <p className="text-lg font-medium mb-2" style={{ color: C.text }}>Henüz fotoğraf yok</p>
-          <p className="text-sm mb-6" style={{ color: C.textDim }}>Gün içi çekimlerinizi buraya yükleyin</p>
-          <AdminButton icon={CameraIcon} onClick={() => fileRef.current?.click()}>İlk Fotoğrafı Yükle</AdminButton>
+        <div className="text-center py-20 rounded-3xl"
+          style={{ background: C.surface, border: `2px dashed ${C.border}` }}>
+          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ background: `${C.neon}10` }}>
+            <CameraIcon size={36} style={{ color: C.neon }} />
+          </div>
+          <p className="text-xl font-bold mb-2" style={{ color: C.text }}>
+            {photos.length === 0 ? 'Henüz fotoğraf yok' : 'Filtreyle eşleşen fotoğraf yok'}
+          </p>
+          <p className="text-sm mb-6 max-w-md mx-auto" style={{ color: C.textDim }}>
+            {photos.length === 0
+              ? 'Müşteri çalışmalarını, hasar tespitlerini, belgeleri ve avukat dosyalarını organize etmek için fotoğraf yükle. Sürükle-bırak da destekleniyor.'
+              : 'Filtre kriterlerini değiştir veya temizle.'}
+          </p>
+          {photos.length === 0 ? (
+            <AdminButton variant="primary" onClick={() => fileRef.current?.click()}>
+              <UploadIcon size={16} /> İlk Fotoğrafı Yükle
+            </AdminButton>
+          ) : (
+            <AdminButton onClick={clearAllFilters}>
+              <XClose size={16} /> Filtreleri Temizle
+            </AdminButton>
+          )}
         </div>
       )}
 
       {/* Grid view */}
       {filtered.length > 0 && viewMode === 'grid' && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {filtered.map(photo => (
-            <motion.div key={photo.id}
-              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-              className="group relative rounded-2xl overflow-hidden cursor-pointer aspect-square"
-              style={{ background: C.surface, border: `1px solid ${C.border}` }}
-              onClick={() => setViewPhoto(photo)}>
-              <img src={photo.data} alt={photo.name}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <p className="text-xs font-medium truncate" style={{ color: '#fff' }}>{photo.name}</p>
-                <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>{formatDate(photo.date)} · {formatSize(photo.size)}</p>
-              </div>
-              {photo.note && (
-                <div className="absolute top-2 right-2">
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: `${C.neon}30`, backdropFilter: 'blur(4px)' }}>
-                    <MessageIcon size={10} style={{ color: C.neon }} />
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          ))}
+          {filtered.map(photo => <PhotoCard key={photo.id} photo={photo} />)}
         </div>
       )}
 
       {/* List view */}
       {filtered.length > 0 && viewMode === 'list' && (
         <div className="space-y-2">
-          {filtered.map(photo => (
-            <motion.div key={photo.id}
-              initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-4 p-3 rounded-xl cursor-pointer hover:scale-[1.01] transition-all"
-              style={{ background: C.surface, border: `1px solid ${C.border}` }}
-              onClick={() => setViewPhoto(photo)}>
-              <img src={photo.data} alt={photo.name}
-                className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: C.text }}>{photo.name}</p>
-                {photo.note && <p className="text-xs truncate mt-0.5" style={{ color: C.textDim }}>{photo.note}</p>}
-                <p className="text-[11px] mt-1" style={{ color: C.textDim }}>{formatDate(photo.date)} · {formatSize(photo.size)}</p>
-              </div>
-              <button onClick={(e) => { e.stopPropagation(); deletePhoto(photo.id); }}
-                className="p-2 rounded-lg hover:bg-red-500/10 transition-colors" style={{ color: '#EF4444' }}>
-                <TrashIcon size={16} />
-              </button>
-            </motion.div>
-          ))}
+          {filtered.map(photo => {
+            const cat = GALLERY_CAT_MAP[photo.category || 'general'];
+            const cust = findCustomer(photo.customer_id);
+            const law = findLawyer(photo.lawyer_id);
+            const isSel = selectedIds.includes(photo.id);
+            return (
+              <motion.div key={photo.id}
+                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all hover:translate-x-1"
+                style={{
+                  background: C.surface,
+                  border: isSel ? `2px solid ${C.neon}` : `1px solid ${C.border}`,
+                }}
+                onClick={() => setViewPhoto(photo)}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleSelect(photo.id); }}
+                  className="w-5 h-5 rounded-md flex-shrink-0 flex items-center justify-center"
+                  style={{
+                    background: isSel ? C.neon : 'transparent',
+                    border: `1.5px solid ${isSel ? C.neon : C.border}`,
+                  }}>
+                  {isSel && <Check size={12} style={{ color: '#fff' }} />}
+                </button>
+                <img src={photo.data} alt={photo.name}
+                  className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                      style={{ background: `${cat.color}15`, color: cat.color }}>
+                      {cat.emoji} {cat.label}
+                    </span>
+                    <p className="text-sm font-medium truncate" style={{ color: C.text }}>{photo.name}</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]" style={{ color: C.textDim }}>
+                    {cust && <span className="flex items-center gap-1">{cust.type === 'kurumsal' ? <Building size={10}/> : <UsersIcon size={10}/>} {customerLabel(cust)}</span>}
+                    {law && <span className="flex items-center gap-1"><ScaleIcon size={10}/> {law.name}</span>}
+                    <span>{formatDate(photo.date)}</span>
+                    <span>·</span>
+                    <span>{formatSize(photo.size)}</span>
+                  </div>
+                  {photo.note && <p className="text-xs truncate mt-1 italic" style={{ color: C.textDim }}>"{photo.note}"</p>}
+                </div>
+                <a href={photo.data} download={photo.name} onClick={(e) => e.stopPropagation()}
+                  className="p-2 rounded-lg" style={{ color: C.textDim }} title="İndir">
+                  <DownloadIcon size={14} />
+                </a>
+                <button onClick={(e) => { e.stopPropagation(); deletePhoto(photo.id); }}
+                  className="p-2 rounded-lg hover:bg-red-500/10" style={{ color: '#EF4444' }} title="Sil">
+                  <TrashIcon size={14} />
+                </button>
+              </motion.div>
+            );
+          })}
         </div>
       )}
 
-      {/* Photo viewer modal */}
+      {/* Folders view — müşteri bazlı klasör görünümü */}
+      {filtered.length > 0 && viewMode === 'folders' && (
+        <div className="space-y-3">
+          {customerGroups.map(group => {
+            const isOpen = expandedFolders[group.id] !== false; // varsayılan açık
+            const cust = group.customer;
+            return (
+              <div key={group.id} className="rounded-2xl overflow-hidden"
+                style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+                <button onClick={() => setExpandedFolders(prev => ({ ...prev, [group.id]: !isOpen }))}
+                  className="w-full flex items-center gap-3 p-4 transition-all hover:bg-black/[0.02]">
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: cust ? (cust.type === 'kurumsal' ? '#3B82F615' : '#10B98115') : `${C.textDim}15`,
+                      color: cust ? (cust.type === 'kurumsal' ? '#3B82F6' : '#10B981') : C.textDim,
+                    }}>
+                    {cust ? (cust.type === 'kurumsal' ? <Building size={20}/> : <UsersIcon size={20}/>) : <FolderIcon size={20}/>}
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-base font-semibold truncate" style={{ color: C.text }}>
+                      {cust ? customerLabel(cust) : 'Müşterisiz Fotoğraflar'}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
+                      {group.photos.length} fotoğraf
+                      {cust?.type === 'kurumsal' && ' · Kurumsal'}
+                      {cust?.type === 'bireysel' && ' · Bireysel'}
+                    </p>
+                  </div>
+                  <ChevronRight size={18} style={{ color: C.textDim, transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}/>
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      style={{ overflow: 'hidden' }}>
+                      <div className="p-4 pt-0">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                          {group.photos.map(p => <PhotoCard key={p.id} photo={p} />)}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Lightbox — gelişmiş foto görüntüleyici */}
       <AnimatePresence>
         {viewPhoto && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}
+            style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)' }}
             onClick={() => setViewPhoto(null)}>
+
+            {/* Önceki / sonraki düğmeleri */}
+            {currentIdx > 0 && (
+              <button onClick={(e) => { e.stopPropagation(); goPrev(); }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full flex items-center justify-center z-10"
+                style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', color: '#fff' }}
+                title="Önceki (←)">
+                <ArrowLeft size={20} />
+              </button>
+            )}
+            {currentIdx < filtered.length - 1 && (
+              <button onClick={(e) => { e.stopPropagation(); goNext(); }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full flex items-center justify-center z-10"
+                style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', color: '#fff' }}
+                title="Sonraki (→)">
+                <ArrowRight size={20} />
+              </button>
+            )}
+
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-5xl max-h-[90vh] flex flex-col md:flex-row rounded-3xl overflow-hidden"
+              key={viewPhoto.id}
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-6xl max-h-[92vh] flex flex-col md:flex-row rounded-3xl overflow-hidden"
               style={{ background: C.surface, border: `1px solid ${C.border}` }}
               onClick={e => e.stopPropagation()}>
-              {/* Image */}
-              <div className="flex-1 min-w-0 flex items-center justify-center bg-black/50 p-4" style={{ minHeight: 300 }}>
+
+              {/* Görüntü */}
+              <div className="flex-1 min-w-0 flex items-center justify-center bg-black/60 p-4 relative" style={{ minHeight: 320 }}>
                 <img src={viewPhoto.data} alt={viewPhoto.name}
-                  className="max-w-full max-h-[70vh] object-contain rounded-lg" />
+                  className="max-w-full max-h-[80vh] object-contain rounded-lg" />
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs"
+                  style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>
+                  {currentIdx + 1} / {filtered.length}
+                </div>
               </div>
-              {/* Info panel */}
-              <div className="w-full md:w-72 flex-shrink-0 p-6 space-y-4 overflow-y-auto" style={{ borderLeft: `1px solid ${C.border}` }}>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold truncate" style={{ color: C.text }}>{viewPhoto.name}</h3>
-                  <button onClick={() => setViewPhoto(null)} className="p-1 rounded-lg" style={{ color: C.textDim }}>✕</button>
+
+              {/* Yan panel — meta düzenleme */}
+              <div className="w-full md:w-80 flex-shrink-0 flex flex-col" style={{ borderLeft: `1px solid ${C.border}` }}>
+                <div className="p-5 flex items-start justify-between gap-3" style={{ borderBottom: `1px solid ${C.border}` }}>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-bold truncate" style={{ color: C.text }}>{viewPhoto.name}</h3>
+                    <p className="text-xs mt-0.5" style={{ color: C.textDim }}>{formatDate(viewPhoto.date)} · {formatSize(viewPhoto.size)}</p>
+                  </div>
+                  <button onClick={() => setViewPhoto(null)}
+                    className="p-2 rounded-lg flex-shrink-0" style={{ color: C.textDim }}>
+                    <XClose size={16} />
+                  </button>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span style={{ color: C.textDim }}>Tarih</span><span style={{ color: C.text }}>{formatDate(viewPhoto.date)}</span></div>
-                  <div className="flex justify-between"><span style={{ color: C.textDim }}>Boyut</span><span style={{ color: C.text }}>{formatSize(viewPhoto.size)}</span></div>
-                  <div className="flex justify-between"><span style={{ color: C.textDim }}>Tür</span><span style={{ color: C.text }}>{viewPhoto.mime}</span></div>
+
+                <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                  {/* Kategori seçici */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Kategori</label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {GALLERY_CATEGORIES.map(c => {
+                        const active = (viewPhoto.category || 'general') === c.key;
+                        return (
+                          <button key={c.key} onClick={() => updatePhoto(viewPhoto.id, { category: c.key })}
+                            className="px-2 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1"
+                            style={{
+                              background: active ? `${c.color}20` : 'rgba(0,0,0,0.04)',
+                              color: active ? c.color : C.textDim,
+                              border: `1px solid ${active ? c.color : C.border}`,
+                            }}>
+                            <span>{c.emoji}</span><span className="truncate">{c.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Müşteri */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Müşteri</label>
+                    <select value={viewPhoto.customer_id || ''}
+                      onChange={e => updatePhoto(viewPhoto.id, { customer_id: e.target.value || null })}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none cursor-pointer"
+                      style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                      <option value="">— Atanmamış —</option>
+                      {customers.map(c => <option key={c.id} value={c.id}>{customerLabel(c)}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Avukat */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Avukat</label>
+                    <select value={viewPhoto.lawyer_id || ''}
+                      onChange={e => updatePhoto(viewPhoto.id, { lawyer_id: e.target.value || null })}
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none cursor-pointer"
+                      style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                      <option value="">— Atanmamış —</option>
+                      {lawyers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Etiketler */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Etiketler (virgülle ayır)</label>
+                    <input type="text"
+                      value={(viewPhoto.tags || []).join(', ')}
+                      onChange={e => updatePhoto(viewPhoto.id, { tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })}
+                      placeholder="örn. ön çekim, sigorta, mahkeme"
+                      className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+                      style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                    {(viewPhoto.tags || []).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {viewPhoto.tags.map((t, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded-full text-[10px]"
+                            style={{ background: `${C.neon}10`, color: C.neon }}>#{t}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Not */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Not</label>
+                    <textarea
+                      value={viewPhoto.note || ''}
+                      onChange={e => updatePhoto(viewPhoto.id, { note: e.target.value })}
+                      rows={3} placeholder="Bu fotoğraf hakkında not..."
+                      className="w-full px-3 py-2 rounded-xl text-sm resize-none outline-none"
+                      style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: C.textDim }}>Not</label>
-                  <textarea
-                    value={viewPhoto.note || ''}
-                    onChange={e => {
-                      const note = e.target.value;
-                      setViewPhoto(prev => ({ ...prev, note }));
-                      updateNote(viewPhoto.id, note);
-                    }}
-                    rows={3} placeholder="Bu fotoğraf hakkında not..."
-                    className="w-full px-3 py-2 rounded-xl text-sm resize-none outline-none"
-                    style={{ background: C.surface2, border: `1px solid ${C.border}`, color: C.text }} />
-                </div>
-                <div className="flex gap-2 pt-2">
+
+                <div className="p-4 flex gap-2" style={{ borderTop: `1px solid ${C.border}` }}>
                   <a href={viewPhoto.data} download={viewPhoto.name}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium"
                     style={{ background: `${C.neon}15`, border: `1px solid ${C.neon}40`, color: C.neon }}>
                     <DownloadIcon size={14} /> İndir
                   </a>
                   <button onClick={() => deletePhoto(viewPhoto.id)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium"
                     style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444' }}>
-                    <TrashIcon size={14} /> Sil
+                    <TrashIcon size={14} />
                   </button>
                 </div>
               </div>
@@ -7961,7 +9418,232 @@ function AdminGallery({ db, setDb }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Yükleme sonrası etiketleme modalı */}
+      <AnimatePresence>
+        {pendingUploads?.files?.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-2xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col"
+              style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+              <div className="p-5 flex items-center justify-between" style={{ borderBottom: `1px solid ${C.border}` }}>
+                <div>
+                  <h3 className="text-lg font-bold" style={{ color: C.text }}>Fotoğrafları Etiketle</h3>
+                  <p className="text-xs mt-0.5" style={{ color: C.textDim }}>{pendingUploads.files.length} fotoğraf yüklenecek — kategori ve müşteri ata (opsiyonel)</p>
+                </div>
+                <button onClick={() => setPendingUploads([])}
+                  className="p-2 rounded-lg" style={{ color: C.textDim }}>
+                  <XClose size={18} />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto flex-1">
+                {/* Önizleme */}
+                <div className="p-5 pb-3">
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {pendingUploads.files.map(f => (
+                      <img key={f.tmpId} src={f.data} alt={f.name}
+                        className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+                        style={{ border: `1px solid ${C.border}` }} />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-5 pt-0 space-y-4">
+                  {/* Kategori */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Kategori</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {GALLERY_CATEGORIES.map(c => {
+                        const active = pendingUploads.meta.category === c.key;
+                        return (
+                          <button key={c.key}
+                            onClick={() => setPendingUploads(prev => ({ ...prev, meta: { ...prev.meta, category: c.key } }))}
+                            className="px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 justify-center"
+                            style={{
+                              background: active ? `${c.color}20` : 'rgba(0,0,0,0.04)',
+                              color: active ? c.color : C.textDim,
+                              border: `1px solid ${active ? c.color : C.border}`,
+                            }}>
+                            <span>{c.emoji}</span><span>{c.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Müşteri + Avukat */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Müşteri (opsiyonel)</label>
+                      <select value={pendingUploads.meta.customer_id}
+                        onChange={e => setPendingUploads(prev => ({ ...prev, meta: { ...prev.meta, customer_id: e.target.value } }))}
+                        className="w-full px-3 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
+                        style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                        <option value="">— Müşteri Seç —</option>
+                        {customers.map(c => <option key={c.id} value={c.id}>{customerLabel(c)}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Avukat (opsiyonel)</label>
+                      <select value={pendingUploads.meta.lawyer_id}
+                        onChange={e => setPendingUploads(prev => ({ ...prev, meta: { ...prev.meta, lawyer_id: e.target.value } }))}
+                        className="w-full px-3 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
+                        style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                        <option value="">— Avukat Seç —</option>
+                        {lawyers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Etiketler + Not */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Etiketler (virgülle ayır)</label>
+                    <input type="text"
+                      value={pendingUploads.meta.tags}
+                      onChange={e => setPendingUploads(prev => ({ ...prev, meta: { ...prev.meta, tags: e.target.value } }))}
+                      placeholder="örn. ön çekim, sigorta, BMW"
+                      className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                      style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Ortak Not (tüm fotoğraflara)</label>
+                    <textarea rows={2}
+                      value={pendingUploads.meta.note}
+                      onChange={e => setPendingUploads(prev => ({ ...prev, meta: { ...prev.meta, note: e.target.value } }))}
+                      placeholder="Açıklama..."
+                      className="w-full px-3 py-2.5 rounded-xl text-sm resize-none outline-none"
+                      style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 flex items-center gap-2" style={{ borderTop: `1px solid ${C.border}` }}>
+                <button onClick={skipTaggingAndCommit}
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium"
+                  style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+                  Etiketsiz Yükle
+                </button>
+                <button onClick={() => setPendingUploads([])}
+                  className="px-4 py-2.5 rounded-xl text-sm" style={{ color: C.textDim }}>
+                  İptal
+                </button>
+                <AdminButton variant="primary" onClick={commitPendingUploads} className="ml-auto">
+                  <Check size={14} /> {pendingUploads.files.length} Fotoğrafı Yükle
+                </AdminButton>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Toplu atama modalı */}
+      <AnimatePresence>
+        {bulkAssignOpen && (
+          <BulkAssignModal
+            count={selectedIds.length}
+            customers={customers}
+            lawyers={lawyers}
+            customerLabel={customerLabel}
+            onClose={() => setBulkAssignOpen(false)}
+            onApply={applyBulkAssign}
+          />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+// Toplu müşteri/kategori atama modalı
+function BulkAssignModal({ count, customers, lawyers, customerLabel, onClose, onApply }) {
+  const [category, setCategory] = useState('');
+  const [customerId, setCustomerId] = useState('');
+  const [lawyerId, setLawyerId] = useState('');
+
+  const apply = () => {
+    const patch = {};
+    if (category) patch.category = category;
+    if (customerId === '__clear__') patch.customer_id = null;
+    else if (customerId) patch.customer_id = customerId;
+    if (lawyerId === '__clear__') patch.lawyer_id = null;
+    else if (lawyerId) patch.lawyer_id = lawyerId;
+    if (Object.keys(patch).length === 0) { onClose(); return; }
+    onApply(patch);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+      onClick={onClose}>
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+        className="w-full max-w-md rounded-3xl overflow-hidden"
+        style={{ background: C.surface, border: `1px solid ${C.border}` }}
+        onClick={e => e.stopPropagation()}>
+        <div className="p-5" style={{ borderBottom: `1px solid ${C.border}` }}>
+          <h3 className="text-lg font-bold" style={{ color: C.text }}>Toplu Atama</h3>
+          <p className="text-xs mt-0.5" style={{ color: C.textDim }}>{count} fotoğrafa uygulanacak — sadece dolu alanlar değişir</p>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Kategori</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {GALLERY_CATEGORIES.map(c => {
+                const active = category === c.key;
+                return (
+                  <button key={c.key} onClick={() => setCategory(active ? '' : c.key)}
+                    className="px-2 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 justify-center"
+                    style={{
+                      background: active ? `${c.color}20` : 'rgba(0,0,0,0.04)',
+                      color: active ? c.color : C.textDim,
+                      border: `1px solid ${active ? c.color : C.border}`,
+                    }}>
+                    <span>{c.emoji}</span><span className="truncate">{c.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Müşteri</label>
+            <select value={customerId} onChange={e => setCustomerId(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
+              style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+              <option value="">— Değiştirme —</option>
+              <option value="__clear__">Müşteriyi Kaldır</option>
+              {customers.map(c => <option key={c.id} value={c.id}>{customerLabel(c)}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase tracking-wider font-medium mb-2 block" style={{ color: C.textDim }}>Avukat</label>
+            <select value={lawyerId} onChange={e => setLawyerId(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
+              style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }}>
+              <option value="">— Değiştirme —</option>
+              <option value="__clear__">Avukatı Kaldır</option>
+              {lawyers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="p-4 flex gap-2" style={{ borderTop: `1px solid ${C.border}` }}>
+          <button onClick={onClose}
+            className="px-4 py-2.5 rounded-xl text-sm" style={{ color: C.textDim }}>
+            İptal
+          </button>
+          <AdminButton variant="primary" onClick={apply} className="ml-auto">
+            <Check size={14} /> Uygula
+          </AdminButton>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -10673,8 +12355,8 @@ function AdminApp({ user, onLogout, onHome }) {
         mobileOpen={mobileNavOpen} setMobileOpen={setMobileNavOpen} />
       <main className="flex-1 min-w-0 px-4 py-4 lg:px-8 lg:py-8"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 90px)' }}>
-        {section === 'home' && <AdminHome db={db} />}
-        {section === 'live' && <AdminLiveDashboard db={db} setDb={setDb} />}
+        {section === 'home' && <AdminHome db={db} setSection={setSection} />}
+        {section === 'live' && <AdminLiveDashboard db={db} setDb={setDb} setSection={setSection} />}
         {section === 'bireysel' && <CustomerListView title="Privatkunden" type="bireysel"
           subtitle="Privatkunden-Einträge" db={db} setDb={setDb} onOpenCustomer={setOpenCustomer} currentUser={user} />}
         {section === 'kurumsal' && <CustomerListView title="Geschäftskunden" type="kurumsal"
@@ -11052,6 +12734,30 @@ function CustomerApp({ user, onLogout, onHome }) {
               ))}
             </div>
 
+            {/* TÜV / Sigorta — Müşteri kendi araçlarının durumunu görür */}
+            {myVehicles.length > 0 && (() => {
+              const dbForWidget = { vehicles: myVehicles, customers: [myRecord] };
+              return (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+                  className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                  <UpcomingTuvWidget
+                    db={dbForWidget}
+                    mode="tuv"
+                    title="TÜV / Hauptuntersuchung"
+                    subtitle="Araçlarımın muayene durumu"
+                    onSeeAll={() => setSection('vehicles')}
+                  />
+                  <UpcomingTuvWidget
+                    db={dbForWidget}
+                    mode="insurance"
+                    title="Sigorta Durumu"
+                    subtitle="Poliçe bitiş takibi"
+                    onSeeAll={() => setSection('vehicles')}
+                  />
+                </motion.div>
+              );
+            })()}
+
             {/* Active Vehicle Cards with Progress */}
             {myVehicles.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
@@ -11209,6 +12915,67 @@ function CustomerApp({ user, onLogout, onHome }) {
                             {apr.notes}
                           </p>
                         )}
+
+                        {/* TÜV / Sigorta durum şeridi — müşteri kendi araç tarihlerini direkt görsün */}
+                        {(() => {
+                          const tuvDays = tuvDaysUntil(v.tuv_date);
+                          const insDays = tuvDaysUntil(v.insurance_date);
+                          if (!v.tuv_date && !v.insurance_date) return null;
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
+                              {v.tuv_date && (() => {
+                                const st = tuvStatusInfo(tuvDays, C);
+                                return (
+                                  <div className="flex items-center gap-3 p-3 rounded-xl"
+                                    style={{ background: st.bg, border: `1px solid ${st.color}33` }}>
+                                    <Shield size={18} style={{ color: st.color, flexShrink: 0 }} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: st.color }}>TÜV / HU</p>
+                                      <p className="text-sm font-mono mt-0.5" style={{ color: C.text }}>
+                                        {new Date(v.tuv_date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                      </p>
+                                    </div>
+                                    {tuvDays != null && (
+                                      <div className="text-right flex-shrink-0">
+                                        <p className="text-lg font-bold font-mono leading-none" style={{ color: st.color }}>
+                                          {tuvDays < 0 ? Math.abs(tuvDays) : tuvDays}
+                                        </p>
+                                        <p className="text-[9px] uppercase tracking-wider" style={{ color: st.color, opacity: 0.85 }}>
+                                          {tuvDays < 0 ? 'gün geçti' : tuvDays === 0 ? 'bugün' : 'gün kaldı'}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                              {v.insurance_date && (() => {
+                                const st = tuvStatusInfo(insDays, C);
+                                return (
+                                  <div className="flex items-center gap-3 p-3 rounded-xl"
+                                    style={{ background: st.bg, border: `1px solid ${st.color}33` }}>
+                                    <ShieldIcon size={18} style={{ color: st.color, flexShrink: 0 }} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: st.color }}>Sigorta</p>
+                                      <p className="text-sm font-mono mt-0.5" style={{ color: C.text }}>
+                                        {new Date(v.insurance_date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                      </p>
+                                    </div>
+                                    {insDays != null && (
+                                      <div className="text-right flex-shrink-0">
+                                        <p className="text-lg font-bold font-mono leading-none" style={{ color: st.color }}>
+                                          {insDays < 0 ? Math.abs(insDays) : insDays}
+                                        </p>
+                                        <p className="text-[9px] uppercase tracking-wider" style={{ color: st.color, opacity: 0.85 }}>
+                                          {insDays < 0 ? 'gün geçti' : insDays === 0 ? 'bugün' : 'gün kaldı'}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          );
+                        })()}
                       </GlassCard>
                     </motion.div>
                   );

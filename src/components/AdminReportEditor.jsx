@@ -2,8 +2,52 @@
 // Üst kısımda 7 adımlı süreç çubuğu, altta 3 sütunlu form
 // (Davacı / Kaza+Ziyaretler / Karşı taraf+Sigorta+İmzalar).
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { C } from '../utils/tokens.js';
+
+// ─── Plaka parser: "34 ABC 123" → { city: '34', initials: 'ABC', number: '123' }
+function parsePlate(raw) {
+  const empty = { city: '', initials: '', number: '' };
+  if (!raw || typeof raw !== 'string') return empty;
+  const parts = raw.trim().toUpperCase().split(/[\s•·\-]+/).filter(Boolean);
+  if (parts.length >= 3) return { city: parts[0], initials: parts[1], number: parts.slice(2).join('') };
+  if (parts.length === 2) return { city: parts[0], initials: '', number: parts[1] };
+  return { ...empty, city: parts[0] || '' };
+}
+
+// İsmi "İlk Soy" → { firstName, lastName } olarak ayır.
+function splitName(full) {
+  if (!full) return { firstName: '', lastName: '' };
+  const tokens = String(full).trim().split(/\s+/);
+  if (tokens.length === 1) return { firstName: tokens[0], lastName: '' };
+  return { firstName: tokens[0], lastName: tokens.slice(1).join(' ') };
+}
+
+// Müşteri + araç → claimant & vehicle taslak alanlarını üret.
+function buildAutofillPatch(customer, vehicle) {
+  const { firstName, lastName } = splitName(customer?.full_name);
+  const claimantPatch = {
+    company:       customer?.company || '',
+    salutation:    '',
+    firstName,
+    lastName,
+    street:        customer?.address || customer?.street || '',
+    zip:           customer?.zip     || customer?.postal_code || '',
+    city:          customer?.city    || '',
+    phone:         customer?.phone   || '',
+    email:         customer?.email   || '',
+    plate:         vehicle ? parsePlate(vehicle.plate) : { city: '', initials: '', number: '' },
+    isOwner:       true,
+  };
+  const vehiclePatch = vehicle ? {
+    vin:                vehicle.chassis || vehicle.vin || '',
+    manufacturer:       vehicle.brand   || '',
+    mainType:           vehicle.model   || '',
+    yearOfManufacture:  vehicle.year ? String(vehicle.year) : '',
+    firstRegistration:  vehicle.first_registration || '',
+  } : null;
+  return { claimantPatch, vehiclePatch };
+}
 
 const STEPS = [
   { key: 'beteiligte',  label: 'Katılımcılar' },
@@ -1157,9 +1201,14 @@ function FahrzeugPanel({ draft, set }) {
   );
 }
 
-export default function AdminReportEditor() {
+export default function AdminReportEditor({ db } = {}) {
   const [step, setStep] = useState('beteiligte');
   const [draft, setDraft] = useState(initialDraft);
+  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
+  const [vehiclePicker, setVehiclePicker] = useState(null); // { vehicles, customer }
+
+  const customers = db?.customers || [];
+  const vehicles  = db?.vehicles  || [];
 
   const set = (path) => (val) => {
     setDraft((prev) => {
@@ -1174,6 +1223,47 @@ export default function AdminReportEditor() {
       return next;
     });
   };
+
+  // Tüm patch'i tek seferde uygula (state batch'lenmesi için).
+  const applyAutofill = (customer, vehicle) => {
+    const { claimantPatch, vehiclePatch } = buildAutofillPatch(customer, vehicle);
+    setDraft((prev) => ({
+      ...prev,
+      claimant: { ...prev.claimant, ...claimantPatch },
+      vehicle:  vehiclePatch ? { ...prev.vehicle, ...vehiclePatch } : prev.vehicle,
+    }));
+  };
+
+  const handleCustomerSelect = (customer) => {
+    setSelectedCustomerId(customer.id);
+    const ownVehicles = vehicles.filter((v) => v.owner_id === customer.id);
+    if (ownVehicles.length === 0) {
+      applyAutofill(customer, null);
+    } else if (ownVehicles.length === 1) {
+      applyAutofill(customer, ownVehicles[0]);
+    } else {
+      // Birden fazla araç → seçim modalı aç
+      applyAutofill(customer, null);
+      setVehiclePicker({ vehicles: ownVehicles, customer });
+    }
+  };
+
+  const handleVehiclePick = (vehicle) => {
+    const customer = vehiclePicker?.customer || customers.find((c) => c.id === selectedCustomerId);
+    if (customer) applyAutofill(customer, vehicle);
+    setVehiclePicker(null);
+  };
+
+  const handleClearCustomer = () => {
+    setSelectedCustomerId(null);
+    setDraft((prev) => ({
+      ...prev,
+      claimant: { ...initialDraft.claimant },
+      vehicle:  { ...initialDraft.vehicle },
+    }));
+  };
+
+  const selectedCustomer = customers.find((c) => c.id === selectedCustomerId) || null;
 
   return (
     <div className="space-y-6">
@@ -1207,6 +1297,14 @@ export default function AdminReportEditor() {
           {/* SOL — Davacı */}
           <div className="space-y-5">
             <Card title="Davacı" icon="👤">
+              <CustomerPicker
+                customers={customers}
+                vehicles={vehicles}
+                selectedId={selectedCustomerId}
+                onSelect={handleCustomerSelect}
+                onClear={handleClearCustomer}
+              />
+              <div className="my-3" style={{ borderTop: `1px dashed ${C.border}` }} />
               <Field label="Şirket" value={draft.claimant.company} onChange={set('claimant.company')} />
               <div className="grid grid-cols-3 gap-2">
                 <Field label="Selamlama" value={draft.claimant.salutation} onChange={set('claimant.salutation')} placeholder="Bay/Bayan" />
@@ -1409,6 +1507,244 @@ export default function AdminReportEditor() {
           </p>
         </div>
       )}
+
+      {vehiclePicker && (
+        <VehiclePickerModal
+          customer={vehiclePicker.customer}
+          vehicles={vehiclePicker.vehicles}
+          onPick={handleVehiclePick}
+          onClose={() => setVehiclePicker(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Müşteri seçici (autocomplete dropdown) ─────────────────────────────────
+function CustomerPicker({ customers, vehicles, selectedId, onSelect, onClear }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const wrapRef = useRef(null);
+
+  const selected = customers.find((c) => c.id === selectedId) || null;
+  const ownVehicles = selected ? vehicles.filter((v) => v.owner_id === selected.id) : [];
+
+  // Dış tıklamada kapan
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return customers.slice(0, 50);
+    return customers.filter((c) => {
+      const haystack = `${c.full_name || ''} ${c.company || ''} ${c.email || ''} ${c.phone || ''}`.toLowerCase();
+      return haystack.includes(q);
+    }).slice(0, 50);
+  }, [customers, query]);
+
+  // Seçiliyse kart görünümü, yoksa arama input
+  if (selected) {
+    return (
+      <div className="rounded-xl p-3 flex items-center gap-3"
+        style={{ background: `${C.neon}08`, border: `1px solid ${C.neon}33` }}>
+        <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+          style={{ background: C.neon, color: '#fff' }}>
+          {(selected.full_name || selected.company || '?').slice(0, 2).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold truncate" style={{ color: C.text }}>
+            {selected.full_name || selected.company}
+          </div>
+          <div className="text-[11px] truncate" style={{ color: C.textDim }}>
+            {selected.email || selected.phone || '—'}
+            {ownVehicles.length > 0 && (
+              <> · <span style={{ color: C.neon, fontWeight: 600 }}>{ownVehicles.length} araç</span></>
+            )}
+          </div>
+        </div>
+        <button onClick={onClear} type="button"
+          className="text-[11px] font-semibold px-2.5 py-1 rounded-md transition"
+          style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.08)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}>
+          Değiştir
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <div>
+        <span className="text-[10px] font-bold tracking-[0.15em] uppercase block mb-1.5" style={{ color: C.textDim }}>
+          Müşteri Seç
+        </span>
+        <div style={{ position: 'relative' }}>
+          <input
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            placeholder="Ad, şirket, e-posta veya telefon ile ara…"
+            className="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition"
+            style={{
+              background: '#fff',
+              border: `1px solid ${open ? C.neon : C.border}`,
+              color: C.text,
+              paddingLeft: 32,
+            }}
+          />
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textDim} strokeWidth="2"
+            style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}>
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+          </svg>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 30,
+          background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10,
+          boxShadow: '0 12px 32px rgba(0,0,0,0.12)', maxHeight: 320, overflow: 'auto',
+        }}>
+          {filtered.length === 0 ? (
+            <div className="text-xs text-center py-6" style={{ color: C.textDim }}>
+              {customers.length === 0 ? 'Henüz müşteri yok' : `"${query}" için sonuç yok`}
+            </div>
+          ) : (
+            filtered.map((c) => {
+              const ovCount = vehicles.filter((v) => v.owner_id === c.id).length;
+              return (
+                <button key={c.id} type="button"
+                  onClick={() => { onSelect(c); setOpen(false); setQuery(''); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition"
+                  style={{ borderBottom: `1px solid ${C.border}` }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
+                    style={{
+                      background: c.type === 'kurumsal' ? `${C.neon}15` : 'rgba(0,0,0,0.06)',
+                      color: c.type === 'kurumsal' ? C.neon : C.text,
+                    }}>
+                    {(c.full_name || c.company || '?').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate" style={{ color: C.text }}>
+                      {c.full_name || c.company}
+                      {c.company && c.full_name && (
+                        <span className="text-[10px] font-normal ml-1.5" style={{ color: C.textDim }}>
+                          · {c.company}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] truncate" style={{ color: C.textDim }}>
+                      {c.email || c.phone || '—'}
+                    </div>
+                  </div>
+                  {ovCount > 0 && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+                      style={{ background: `${C.neon}15`, color: C.neon }}>
+                      {ovCount} 🚗
+                    </span>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Birden fazla araç varsa seçim modalı ───────────────────────────────────
+function VehiclePickerModal({ customer, vehicles, onPick, onClose }) {
+  return (
+    <div onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 60,
+        background: 'rgba(20,20,18,0.5)', backdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+      }}>
+      <div onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560,
+          boxShadow: '0 24px 60px rgba(0,0,0,0.25)', overflow: 'hidden',
+        }}>
+        <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}` }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-base font-bold" style={{ color: C.text }}>
+                Araç Seçin
+              </div>
+              <div className="text-xs mt-0.5" style={{ color: C.textDim }}>
+                <strong>{customer?.full_name || customer?.company}</strong> için{' '}
+                <strong style={{ color: C.neon }}>{vehicles.length}</strong> araç bulundu — birini seçin.
+              </div>
+            </div>
+            <button onClick={onClose} type="button"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-xl"
+              style={{ color: C.textDim, background: 'transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+              ×
+            </button>
+          </div>
+        </div>
+        <div style={{ padding: 14, maxHeight: 480, overflow: 'auto' }}>
+          <div className="space-y-2">
+            {vehicles.map((v) => (
+              <button key={v.id} type="button" onClick={() => onPick(v)}
+                className="w-full text-left rounded-xl p-3 flex items-center gap-3 transition"
+                style={{ background: '#FAFAF8', border: `1px solid ${C.border}` }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = `${C.neon}08`;
+                  e.currentTarget.style.borderColor = `${C.neon}66`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#FAFAF8';
+                  e.currentTarget.style.borderColor = C.border;
+                }}>
+                <div className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 text-xl"
+                  style={{ background: '#fff', border: `1px solid ${C.border}` }}>
+                  🚗
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold" style={{ color: C.text }}>
+                    {v.brand} {v.model}
+                    {v.year && (
+                      <span className="text-[11px] font-normal ml-1.5" style={{ color: C.textDim }}>
+                        · {v.year}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5 text-[11px]" style={{ color: C.textDim }}>
+                    <span style={{
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                      fontWeight: 700, color: C.text,
+                      background: '#fff', padding: '1px 6px', borderRadius: 4,
+                      border: `1px solid ${C.border}`,
+                    }}>
+                      {v.plate || '—'}
+                    </span>
+                    {v.chassis && (
+                      <span title="Şasi (VIN)" style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                        VIN: {v.chassis.slice(0, 10)}…
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.textDim} strokeWidth="2">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

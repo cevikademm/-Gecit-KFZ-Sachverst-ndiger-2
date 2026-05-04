@@ -6,6 +6,46 @@ export const config = { runtime: 'nodejs' };
 
 const VALID_ROLES = ['customer', 'lawyer', 'insurance', 'staff', 'admin'];
 
+// user_profiles tablo şeması cache'i (TTL: process ömrü).
+let _userProfilesColumnsCache = null;
+
+/**
+ * user_profiles tablosunun mevcut kolonlarını information_schema'dan çeker.
+ * `debug_table_schema` RPC'si varsa onu kullanır, yoksa boş SELECT fallback.
+ * Şema çekilemezse null döner; çağıran tarafta filtreleme atlanır.
+ */
+async function getUserProfilesColumns(admin) {
+  if (_userProfilesColumnsCache) return _userProfilesColumnsCache;
+
+  // 1) RPC dene
+  const { data: rpcData, error: rpcErr } = await admin.rpc('debug_table_schema', {
+    p_table: 'user_profiles',
+  });
+  if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+    _userProfilesColumnsCache = new Set(rpcData.map((r) => r.column_name));
+    return _userProfilesColumnsCache;
+  }
+
+  // 2) Fallback — 1 satır seç, anahtarlardan çıkar
+  const { data, error } = await admin.from('user_profiles').select('*').limit(1);
+  if (!error && Array.isArray(data) && data.length > 0) {
+    _userProfilesColumnsCache = new Set(Object.keys(data[0]));
+    return _userProfilesColumnsCache;
+  }
+
+  console.warn('[invite-user] user_profiles şeması çekilemedi; payload filtresiz gönderilecek');
+  return null;
+}
+
+function stripToColumns(payload, columns) {
+  if (!columns) return payload;
+  const out = {};
+  for (const k of Object.keys(payload)) {
+    if (columns.has(k)) out[k] = payload[k];
+  }
+  return out;
+}
+
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return cors(res).status(204).end();
   cors(res);
@@ -62,7 +102,7 @@ export default async function handler(req, res) {
     }
 
     if (userId) {
-      const { error: profErr } = await admin.from('user_profiles').upsert({
+      const fullPayload = {
         id: userId,
         email,
         full_name: fullName || null,
@@ -70,7 +110,18 @@ export default async function handler(req, res) {
         active: true,
         linked_id: linkedId,
         phone,
-      }, { onConflict: 'id' });
+      };
+      const cols = await getUserProfilesColumns(admin);
+      const profilePayload = stripToColumns(fullPayload, cols);
+      const dropped = cols
+        ? Object.keys(fullPayload).filter((k) => !cols.has(k))
+        : [];
+      if (dropped.length > 0) {
+        console.warn(`[invite-user] user_profiles şemasında olmayan alanlar atlandı: ${dropped.join(', ')}`);
+      }
+      const { error: profErr } = await admin
+        .from('user_profiles')
+        .upsert(profilePayload, { onConflict: 'id' });
       if (profErr) console.warn('[invite-user] user_profiles upsert hata:', profErr.message);
     }
 
