@@ -86,12 +86,17 @@ function pickVehicleFields(car) {
     year: toInt(String(car?.first_registration_date || '').slice(0, 4)),
     chassis: car?.vin || null,
     km: toInt(car?.mileage_meter ?? car?.mileage_estimated),
-    color: null,
-    fuel: null,
-    engine_cc: null,
+    color: car?.color || null,
+    fuel: car?.engine_type || null,
+    engine_cc: toInt(car?.engine_displacement_in_ccm),
     performance_kw: toInt(car?.performance_kw),
     shape: car?.shape || car?.custom_shape_label || null,
     first_registration_date: car?.first_registration_date || null,
+    // TÜV / Hauptuntersuchung — AutoiXpertDetail.jsx:289'da "Nächste HU" alanı
+    // car.next_general_inspection_date (DATE) → vehicles.tuv_date (TEXT)
+    tuv_date: car?.next_general_inspection_date || null,
+    hsn: car?.hsn || null,
+    tsn: car?.tsn || null,
   };
 }
 

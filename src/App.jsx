@@ -2211,7 +2211,22 @@ function diffTablesForSync(prev, next) {
 // baro vb.) UPSERT öncesi strip edilir.
 const KNOWN_COLUMNS = {
   customers: ['id', 'full_name', 'company', 'email', 'phone', 'phone2', 'type', 'tax_id', 'tax_no', 'tax_office', 'address', 'street', 'zip', 'city', 'country', 'notes', 'autoixpert_contact_id', 'source', 'tc', 'birthdate', 'created_at', 'updated_at'],
-  vehicles: ['id', 'owner_id', 'plate', 'brand', 'model', 'year', 'chassis', 'km', 'color', 'fuel', 'hsn', 'tsn', 'first_reg', 'first_registration_date', 'performance_kw', 'shape', 'autoixpert_report_id', 'tuv_date', 'insurance_date', 'created_at'],
+  vehicles: [
+    'id', 'owner_id', 'plate', 'brand', 'model', 'year', 'chassis', 'km', 'color', 'fuel', 'hsn', 'tsn',
+    'first_reg', 'first_registration_date', 'performance_kw', 'shape', 'autoixpert_report_id',
+    'tuv_date', 'insurance_date', 'created_at',
+    // Ruhsat OCR ile eklenen alanlar
+    'vin', 'fuel_type', 'displacement_cm3', 'performance_ps', 'engine_number',
+    'co2_emission_g_km', 'emission_class', 'emission_type_approval', 'power_mass_ratio',
+    'weight_total_kg', 'weight_empty_kg', 'axle_count', 'trailer_braked_kg', 'trailer_unbraked_kg',
+    'length_mm', 'width_mm', 'height_mm', 'trailer_load_kg',
+    'seats_count', 'standing_count', 'max_speed_kmh', 'noise_standstill_db', 'noise_standstill_rpm', 'noise_driving_db',
+    'tire_size', 'tire_size_drive_axle',
+    'document_number', 'document_issue_date', 'issuing_authority', 'behoerden_schluessel', 'verfahrenskennung',
+    'vehicle_class', 'body_type_code', 'usage_type', 'fahrzeugart', 'typ_variante_version', 'handelsbezeichnung', 'eu_type_approval',
+    'halter_anschrift',
+    'ruhsat_data', 'ruhsat_doc_id', 'ruhsat_uploaded_at', 'ruhsat_ocr_confidence',
+  ],
   appraisals: ['id', 'vehicle_id', 'customer_id', 'status', 'date', 'expert', 'type', 'notes', 'result', 'total_value', 'damage_sum', 'autoixpert_report_id', 'report_token', 'report_type', 'source', 'created_at', 'updated_at'],
   paint_maps: ['vehicle_id', 'data', 'updated_at'],
   invoices: ['id', 'customer_id', 'appraisal_id', 'no', 'date', 'due_date', 'amount', 'tax', 'total', 'currency', 'status', 'items', 'pdf_path', 'created_at'],
@@ -3986,6 +4001,141 @@ function mockRuhsatOCR(type) {
   return { owner, vehicle };
 }
 
+// ─── Gerçek ruhsat OCR — Supabase Edge Function (ruhsat-ocr) ───
+// Claude Sonnet 4.6 vision ile Fahrzeugschein'dan tüm 47 alanı JSON olarak döner.
+async function extractRuhsatViaEdgeFunction(file) {
+  const sb = getSupabase();
+  if (!sb) throw new Error('Supabase istemcisi yok — env vars eksik olabilir.');
+  const fileBase64 = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1] || '');
+    r.onerror = () => reject(new Error('Dosya okunamadı'));
+    r.readAsDataURL(file);
+  });
+  const { data, error } = await sb.functions.invoke('ruhsat-ocr', {
+    body: { fileBase64, mimeType: file.type || 'image/jpeg' },
+  });
+  if (error) throw new Error(error.message || 'Edge Function hata');
+  if (!data?.ok) throw new Error(data?.error || 'OCR başarısız');
+  return { ruhsatData: data.data, confidence: data.confidence };
+}
+
+// EU kod ↔ form alanı mapleme: ham JSON → form patch
+function mapRuhsatToForm(ruhsat, type) {
+  const num = (s) => {
+    if (s == null) return null;
+    const m = String(s).match(/-?\d+(?:[.,]\d+)?/);
+    return m ? parseFloat(m[0].replace(',', '.')) : null;
+  };
+  const isoDate = (s) => {
+    if (!s) return '';
+    const m = String(s).match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})/);
+    if (!m) return '';
+    const [, d, mo, y] = m;
+    const yyyy = y.length === 2 ? (parseInt(y) > 50 ? '19' + y : '20' + y) : y;
+    return `${yyyy}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  };
+  // Adres parsing: "Amselweg 24 F, 52223 Stolberg" veya "Atatürk Cd. No:42, 34000 İstanbul"
+  const parseAddress = (raw) => {
+    if (!raw) return { street: '', zip: '', city: '', address: '' };
+    const parts = String(raw).split(',').map(s => s.trim()).filter(Boolean);
+    let street = '', zip = '', city = '';
+    if (parts.length >= 2) {
+      street = parts[0];
+      const tail = parts.slice(1).join(', ');
+      const m = tail.match(/(\d{4,5})\s*(.+)/);
+      if (m) { zip = m[1]; city = m[2].trim(); } else { city = tail; }
+    } else { street = parts[0] || raw; }
+    return { street, zip, city, address: raw };
+  };
+
+  const r = ruhsat || {};
+  const surname  = (r['C.1.1'] || '').trim();
+  const givenName = (r['C.1.2'] || '').trim();
+  const fullName = type === 'kurumsal'
+    ? [givenName, surname].filter(Boolean).join(' ')
+    : [givenName, surname].filter(Boolean).join(' ');
+  const addr = parseAddress(r['C.1.3']);
+
+  // Plaka normalize: "AC FN960" → "AC-FN-960" (varsa boşlukları korur)
+  const plate = (r['A'] || '').trim().replace(/\s+/g, ' ');
+
+  // Yıl: B (Erstzulassung) sonundaki yıldan
+  const isoFirstReg = isoDate(r['B']);
+  const year = isoFirstReg ? parseInt(isoFirstReg.slice(0, 4)) : null;
+
+  // Marka / model
+  const brand = (r['D.1'] || '').trim();
+  const model = (r['D.3'] || r['D.2'] || '').trim();
+
+  return {
+    // Müşteri (sahip) alanları
+    full_name: fullName,
+    address: addr.address,
+    street: addr.street,
+    zip: addr.zip,
+    city: addr.city,
+    country: 'DE',
+    // Araç alanları
+    plate,
+    chassis: (r['5'] || '').trim(),
+    vin: (r['5'] || '').trim(),
+    brand,
+    model,
+    year,
+    color: (r['R'] || '').trim(),
+    fuel: (r['P.3'] || '').trim(),
+    fuel_type: (r['P.3'] || '').trim(),
+    first_registration_date: isoFirstReg,
+    // Motor / performans
+    displacement_cm3: num(r['P.1']),
+    performance_kw: num(r['P.2']),
+    performance_ps: num(r['P.2']) ? Math.round(num(r['P.2']) * 1.35962) : null,
+    engine_number: (r['P.5'] || '').trim(),
+    co2_emission_g_km: num(r['V.7']),
+    emission_class: (r['V.9'] || '').trim(),
+    emission_type_approval: (r['14'] || '').trim(),
+    power_mass_ratio: num(r['Q']),
+    // Ağırlık & boyut
+    weight_total_kg: num(r['F.1']),
+    weight_empty_kg: num(r['G']),
+    axle_count: num(r['L']),
+    trailer_braked_kg: num(r['O.1']),
+    trailer_unbraked_kg: num(r['O.2']),
+    length_mm: num(r['18']),
+    width_mm: num(r['19']),
+    height_mm: num(r['20']),
+    trailer_load_kg: num(r['22']),
+    // Donanım
+    seats_count: num(r['S.1']),
+    standing_count: num(r['S.2']),
+    max_speed_kmh: num(r['T']),
+    noise_standstill_db: num(r['U.1']),
+    noise_standstill_rpm: num(r['U.2']),
+    noise_driving_db: num(r['U.3']),
+    tire_size: (r['15'] || '').trim(),
+    tire_size_drive_axle: (r['15.1'] || '').trim(),
+    // Belge bilgileri
+    document_number: (r['DRUCK'] || '').trim(),
+    document_issue_date: isoDate(r['AUSST']),
+    issuing_authority: (r['BEH'] || '').trim(),
+    behoerden_schluessel: (r['0.1'] || '').trim(),
+    verfahrenskennung: (r['0.2'] || '').trim(),
+    // Sınıflandırma
+    vehicle_class: (r['1'] || '').trim(),
+    body_type_code: (r['2'] || '').trim(),
+    usage_type: (r['4'] || '').trim(),
+    fahrzeugart: (r['J'] || '').trim(),
+    typ_variante_version: (r['D.2'] || '').trim(),
+    handelsbezeichnung: (r['D.3'] || '').trim(),
+    eu_type_approval: (r['K'] || '').trim(),
+    // Halter
+    halter_anschrift: (r['C.1.3'] || '').trim(),
+    // Ham OCR — vehicle.ruhsat_data'ya yazılacak
+    _ruhsat_raw: r,
+  };
+}
+
 // ─── Unified record modal (bireysel / kurumsal / avukat / sigorta) ──
 // Bireysel ve kurumsal için RUHSAT-FIRST akış zorunludur.
 function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, currentUser }) {
@@ -4019,21 +4169,30 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  const onRuhsatFile = (f) => {
+  const onRuhsatFile = async (f) => {
     if (!f) return;
+    // Önizleme göster
     const reader = new FileReader();
     reader.onload = () => setRuhsatPreview(reader.result);
     reader.readAsDataURL(f);
     setStage('processing');
-    setTimeout(() => {
-      const { owner, vehicle } = mockRuhsatOCR(type);
-      const merged = type === 'kurumsal'
-        ? { ...owner, ...vehicle }
-        : { full_name: owner.full_name, tc: owner.tc, address: owner.address, phone: owner.phone, ...vehicle };
-      setForm(merged);
-      setOcrConfidence(0.91 + Math.random() * 0.07); // 91-98%
+
+    try {
+      const { ruhsatData, confidence } = await extractRuhsatViaEdgeFunction(f);
+      const patch = mapRuhsatToForm(ruhsatData, type);
+      // Mevcut form'da kullanıcı manuel girdiyse, onu ezme — sadece eksikleri doldur
+      setForm((prev) => ({ ...patch, ...Object.fromEntries(Object.entries(prev || {}).filter(([, v]) => v && String(v).trim())) }));
+      setOcrConfidence(confidence);
       setStage('form');
-    }, 1800);
+    } catch (err) {
+      console.error('[ruhsat-ocr] hata:', err);
+      // Bilgilendir + kullanıcının elle dolduracağı boş forma geç
+      const msg = err?.message || 'Bilinmeyen hata';
+      alert(`Ruhsat OCR başarısız: ${msg}\n\nFormu elle doldurabilirsin.`);
+      setForm({});
+      setOcrConfidence(null);
+      setStage('form');
+    }
   };
 
   const submit = (e) => {
@@ -4099,18 +4258,70 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
         } : {}),
       };
       const vehicleId = 'v' + uid();
+      // Tüm ruhsat alanlarını dahil et — DB'de kolonlar mevcut, KNOWN_COLUMNS strip eder
       const vehicle = {
         id: vehicleId,
         owner_id: customerId,
         plate: form.plate || '',
         chassis: form.chassis || '',
+        vin: form.vin || form.chassis || '',
         brand: form.brand || '',
         model: form.model || '',
         year: Number(form.year) || null,
         color: form.color || '',
         fuel: form.fuel || '',
-        engine_cc: form.engine_cc || null,
-        tuv_date: form.tuv_date || '',
+        fuel_type: form.fuel_type || form.fuel || '',
+        engine_cc: form.engine_cc || form.displacement_cm3 || null,
+        tuv_date: form.tuv_date || null,
+        first_registration_date: form.first_registration_date || null,
+        // Motor / performans
+        displacement_cm3: form.displacement_cm3 ?? null,
+        performance_kw: form.performance_kw ?? null,
+        performance_ps: form.performance_ps ?? null,
+        engine_number: form.engine_number || '',
+        co2_emission_g_km: form.co2_emission_g_km ?? null,
+        emission_class: form.emission_class || '',
+        emission_type_approval: form.emission_type_approval || '',
+        power_mass_ratio: form.power_mass_ratio ?? null,
+        // Ağırlık & boyut
+        weight_total_kg: form.weight_total_kg ?? null,
+        weight_empty_kg: form.weight_empty_kg ?? null,
+        axle_count: form.axle_count ?? null,
+        trailer_braked_kg: form.trailer_braked_kg ?? null,
+        trailer_unbraked_kg: form.trailer_unbraked_kg ?? null,
+        length_mm: form.length_mm ?? null,
+        width_mm: form.width_mm ?? null,
+        height_mm: form.height_mm ?? null,
+        trailer_load_kg: form.trailer_load_kg ?? null,
+        // Donanım
+        seats_count: form.seats_count ?? null,
+        standing_count: form.standing_count ?? null,
+        max_speed_kmh: form.max_speed_kmh ?? null,
+        noise_standstill_db: form.noise_standstill_db ?? null,
+        noise_standstill_rpm: form.noise_standstill_rpm ?? null,
+        noise_driving_db: form.noise_driving_db ?? null,
+        tire_size: form.tire_size || '',
+        tire_size_drive_axle: form.tire_size_drive_axle || '',
+        // Belge bilgileri
+        document_number: form.document_number || '',
+        document_issue_date: form.document_issue_date || null,
+        issuing_authority: form.issuing_authority || '',
+        behoerden_schluessel: form.behoerden_schluessel || '',
+        verfahrenskennung: form.verfahrenskennung || '',
+        // Sınıflandırma
+        vehicle_class: form.vehicle_class || '',
+        body_type_code: form.body_type_code || '',
+        usage_type: form.usage_type || '',
+        fahrzeugart: form.fahrzeugart || '',
+        typ_variante_version: form.typ_variante_version || '',
+        handelsbezeichnung: form.handelsbezeichnung || '',
+        eu_type_approval: form.eu_type_approval || '',
+        // Halter ham metin
+        halter_anschrift: form.halter_anschrift || '',
+        // Ham OCR ciktisi (47 alan key→value)
+        ruhsat_data: form._ruhsat_raw || null,
+        ruhsat_uploaded_at: form._ruhsat_raw ? new Date().toISOString() : null,
+        ruhsat_ocr_confidence: ocrConfidence ?? null,
         created_at: new Date().toISOString().slice(0, 10),
       };
       const appraisal = {

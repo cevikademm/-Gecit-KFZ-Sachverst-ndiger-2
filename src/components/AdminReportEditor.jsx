@@ -26,7 +26,300 @@ function splitName(full) {
   return { firstName: tokens[0], lastName: tokens.slice(1).join(' ') };
 }
 
-// Müşteri + araç → claimant & vehicle taslak alanlarını üret.
+// Boş/eksik alanları doldur, dolu olanları override etme.
+// Müşteri kaydından gelen claimant verisi rapor verisinden öncelikli olsun.
+function mergeMissing(base, patch) {
+  if (!patch) return base;
+  const out = { ...(base || {}) };
+  for (const k of Object.keys(patch)) {
+    const cur = out[k];
+    const isEmpty = cur === undefined || cur === null || cur === ''
+      || (typeof cur === 'object' && cur !== null && !Array.isArray(cur)
+          && Object.values(cur).every((v) => v === '' || v === null || v === undefined));
+    if (isEmpty) out[k] = patch[k];
+  }
+  return out;
+}
+
+// HTML strip — AutoiXpert raporlarındaki rich text alanları (örn.
+// unrepaired_previous_damage <p>...</p>) düz metne çevir, satır sonu korunur.
+function stripHtml(html) {
+  if (!html || typeof html !== 'string') return '';
+  return html
+    .replace(/<\/?(p|br|div|li)[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// AutoiXpert car JSONB → form patch'leri.
+// car şeması: car { general_condition, body_condition, interior_condition,
+//   paint_condition, mileage_meter/mileage_estimated/mileage_as_stated,
+//   roadworthiness, service_book_complete, latest_registration_date,
+//   first_registration_date, axles[], damage_description,
+//   repaired_previous_damage, unrepaired_previous_damage, shape, ... }
+function buildAutofillPatchFromCar(car) {
+  if (!car || typeof car !== 'object') return null;
+
+  const conditionPatch = {};
+  if (car.general_condition)   conditionPatch.generalCondition  = car.general_condition;
+  if (car.body_condition)      conditionPatch.bodyCondition     = car.body_condition;
+  if (car.interior_condition)  conditionPatch.interiorCondition = car.interior_condition;
+  if (car.paint_condition)     conditionPatch.paintCondition    = car.paint_condition;
+  if (car.roadworthiness)      conditionPatch.drivability       = car.roadworthiness;
+  if (car.service_book_complete !== null && car.service_book_complete !== undefined) {
+    conditionPatch.serviceBookKept = !!car.service_book_complete;
+  }
+  if (car.mileage_as_stated)   conditionPatch.mileageRead      = String(car.mileage_as_stated);
+  if (car.mileage_estimated)   conditionPatch.mileageEstimated = String(car.mileage_estimated);
+  if (car.mileage_meter && !conditionPatch.mileageRead) {
+    conditionPatch.mileageRead = String(car.mileage_meter);
+  }
+
+  const vehiclePatch = {};
+  if (car.shape)                    vehiclePatch.shape             = car.shape;
+  if (car.latest_registration_date) vehiclePatch.lastRegistration  = String(car.latest_registration_date).slice(0, 10);
+  if (car.first_registration_date)  vehiclePatch.firstRegistration = String(car.first_registration_date).slice(0, 10);
+  if (car.performance_kw) {
+    vehiclePatch.powerKw = String(car.performance_kw);
+    vehiclePatch.powerPs = String(Math.round(car.performance_kw * 1.36));
+  }
+  if (car.performance_hp)           vehiclePatch.powerPs = String(car.performance_hp);
+
+  const damagesPatch = {};
+  if (car.damage_description)         damagesPatch.description     = stripHtml(car.damage_description);
+  if (car.repaired_previous_damage)   damagesPatch.previousRepaired = stripHtml(car.repaired_previous_damage);
+  if (car.unrepaired_previous_damage) damagesPatch.oldUnrepaired    = stripHtml(car.unrepaired_previous_damage);
+
+  // Tires: axles[] → tires.dimension/treadMm/season ortalaması
+  let tiresPatch = null;
+  if (Array.isArray(car.axles) && car.axles.length > 0) {
+    const allTires = [];
+    car.axles.forEach((a) => {
+      if (a?.left_tire)   allTires.push(a.left_tire);
+      if (a?.right_tire)  allTires.push(a.right_tire);
+      if (a?.center_tire) allTires.push(a.center_tire);
+    });
+    const validTires = allTires.filter((t) => t?.type);
+    if (validTires.length > 0) {
+      // En yaygın type/season — basit majority
+      const firstTire = validTires[0];
+      const seasons = validTires.map((t) => t.season).filter(Boolean);
+      const majoritySeason = seasons.sort((a, b) =>
+        seasons.filter((x) => x === a).length - seasons.filter((x) => x === b).length
+      ).pop() || 'allyear';
+      const treadMm = validTires.map((t) => t.tread_in_mm).find((x) => x != null);
+      const manuf   = validTires.map((t) => t.manufacturer).find((x) => x != null);
+      tiresPatch = {
+        dimension:    firstTire.type || '',
+        treadMm:      treadMm != null ? String(treadMm) : '',
+        manufacturer: manuf || '',
+        season:       majoritySeason,
+      };
+    }
+  }
+
+  return {
+    conditionPatch: Object.keys(conditionPatch).length ? conditionPatch : null,
+    vehiclePatch:   Object.keys(vehiclePatch).length   ? vehiclePatch   : null,
+    damagesPatch:   Object.keys(damagesPatch).length   ? damagesPatch   : null,
+    tiresPatch,
+  };
+}
+
+// AutoiXpert kontak (party) → form contact patch ortak normalizer.
+// Kullanım: claimant, author_of_damage, lawyer, garage, insurance, intermediary
+// hepsi aynı şemayı paylaşır.
+function partyToContactPatch(p) {
+  if (!p || typeof p !== 'object') return null;
+  const out = {};
+  if (p.organization_name)                       out.company       = p.organization_name;
+  if (p.salutation)                              out.salutation    = p.salutation;
+  if (p.first_name)                              out.firstName     = p.first_name;
+  if (p.last_name)                               out.lastName      = p.last_name;
+  if (p.email)                                   out.email         = p.email;
+  if (p.phone)                                   out.phone         = p.phone;
+  if (p.phone2)                                  out.phone2        = p.phone2;
+  if (p.street_and_housenumber_or_lockbox)       out.street        = p.street_and_housenumber_or_lockbox;
+  if (p.zip)                                     out.zip           = p.zip;
+  if (p.city)                                    out.city          = p.city;
+  if (p.license_plate)                           out.plate         = parsePlate(p.license_plate);
+  if (p.case_number)                             out.caseNumber    = p.case_number;
+  if (p.contract_number)                         out.insuranceNumber = p.contract_number;
+  if (p.vat_id)                                  out.vatId         = p.vat_id;
+  if (p.iban)                                    out.iban          = p.iban;
+  if (p.is_owner !== null && p.is_owner !== undefined)               out.isOwner            = !!p.is_owner;
+  if (p.may_deduct_taxes !== null && p.may_deduct_taxes !== undefined) out.canDeductTax     = !!p.may_deduct_taxes;
+  if (p.represented_by_lawyer !== null && p.represented_by_lawyer !== undefined) out.representedByLawyer = !!p.represented_by_lawyer;
+  if (p.notes)                                   out.notes         = p.notes;
+  return Object.keys(out).length ? out : null;
+}
+
+// AutoiXpert "type" enum → bizim rapor türü etiketleri
+const AUTOIXPERT_REPORT_TYPE_MAP = {
+  liability:                'Sorumluluk talebi',
+  short_assessment:         'Kısa rapor',
+  partial_kasko:            'Kısmi kasko',
+  full_kasko:               'Tam kasko',
+  valuation:                'Değerleme',
+  oldtimer_valuation_small: 'Değerleme',
+  lease_return:             'Kısa rapor',
+  used_vehicle_check:       'Kısa rapor',
+  invoice_audit:            'Kısa rapor',
+};
+
+// AutoiXpert raporundan TÜM ek alanları map'le. raw_payload + top-level kolonlar.
+function buildAutofillPatchFromReport(report) {
+  if (!report) return null;
+  const vehiclePatch   = {};
+  const conditionPatch = {};
+  const reportPatch    = {};
+  const accidentPatch  = {};
+  const visitPatch     = {};
+
+  // ─ Vehicle/condition flags (top-level kolonlar) ─────────────────────
+  if (report.vin_was_checked !== null && report.vin_was_checked !== undefined) {
+    vehiclePatch.vinVerified = !!report.vin_was_checked;
+  }
+  if (report.source_of_technical_data) {
+    vehiclePatch.technicalDataSource = report.source_of_technical_data;
+  }
+  if (report.test_drive_carried_out !== null && report.test_drive_carried_out !== undefined) {
+    conditionPatch.testDriveDone = !!report.test_drive_carried_out;
+  }
+
+  // ─ Rapor tarihleri / türü ───────────────────────────────────────────
+  if (report.type && AUTOIXPERT_REPORT_TYPE_MAP[report.type]) {
+    reportPatch.type = AUTOIXPERT_REPORT_TYPE_MAP[report.type];
+  }
+  if (report.completion_date) reportPatch.completionDate = String(report.completion_date).slice(0, 10);
+  if (report.order_date)      reportPatch.orderDate      = String(report.order_date).slice(0, 10);
+  if (report.order_time) {
+    const t = String(report.order_time);
+    // ISO timestamp → HH:MM
+    const m = t.match(/(\d{2}):(\d{2})/);
+    if (m) reportPatch.orderTime = `${m[1]}:${m[2]}`;
+  }
+
+  // ─ Kontaklar (claimant/opponent/lawyer/workshop/insurance/intermediary) ──
+  const claimantContact     = partyToContactPatch(report.claimant);
+  const opponentContact     = partyToContactPatch(report.author_of_damage);
+  const lawyerContact       = partyToContactPatch(report.lawyer);
+  const workshopContact     = partyToContactPatch(report.garage);
+  const insuranceContact    = partyToContactPatch(report.insurance);
+  const intermediaryContact = partyToContactPatch(report.intermediary);
+
+  // Lawyer → form lawyer obj'i (DruckVersandPanel kullanıyor)
+  let lawyerPatch = null;
+  if (lawyerContact) {
+    lawyerPatch = {
+      name:         [lawyerContact.firstName, lawyerContact.lastName].filter(Boolean).join(' ') || lawyerContact.company || '',
+      organization: lawyerContact.company || '',
+      email:        lawyerContact.email   || '',
+      phone:        lawyerContact.phone   || '',
+      street:       lawyerContact.street  || '',
+      zip:          lawyerContact.zip     || '',
+      city:         lawyerContact.city    || '',
+      caseNumber:   lawyerContact.caseNumber || '',
+    };
+  }
+  // Workshop / Garage → form workshop obj'i
+  let workshopPatch = null;
+  if (workshopContact) {
+    workshopPatch = {
+      name:   workshopContact.company || [workshopContact.firstName, workshopContact.lastName].filter(Boolean).join(' ') || '',
+      email:  workshopContact.email   || '',
+      phone:  workshopContact.phone   || '',
+      street: workshopContact.street  || '',
+      zip:    workshopContact.zip     || '',
+      city:   workshopContact.city    || '',
+    };
+  }
+  // Insurance → claim numarası raw_payload'da farklı yerde olabilir
+  let insurancePatch = null;
+  if (insuranceContact) {
+    insurancePatch = {
+      company:        insuranceContact.company || '',
+      email:          insuranceContact.email   || '',
+      phone:          insuranceContact.phone   || '',
+      street:         insuranceContact.street  || '',
+      zip:            insuranceContact.zip     || '',
+      city:           insuranceContact.city    || '',
+      insuranceNumber: insuranceContact.insuranceNumber || '',
+      claimNumber:    insuranceContact.caseNumber       || '',
+    };
+  }
+  // Intermediary → report.intermediary string'ine (organization_name veya isim)
+  if (intermediaryContact) {
+    reportPatch.intermediary = intermediaryContact.company
+      || [intermediaryContact.firstName, intermediaryContact.lastName].filter(Boolean).join(' ')
+      || '';
+  }
+
+  // ─ Accident ─────────────────────────────────────────────────────────
+  if (report.accident && typeof report.accident === 'object') {
+    const a = report.accident;
+    if (a.date)  accidentPatch.date     = String(a.date).slice(0, 10);
+    if (a.time)  accidentPatch.time     = String(a.time).match(/\d{2}:\d{2}/)?.[0] || '';
+    if (a.location) accidentPatch.location = a.location;
+    if (a.police_record_exists !== null && a.police_record_exists !== undefined) {
+      accidentPatch.policeRecorded = !!a.police_record_exists;
+    }
+    if (a.case_number_police) accidentPatch.policeCaseNumber = a.case_number_police;
+  }
+
+  // ─ Visits (ilk ziyaret) ─────────────────────────────────────────────
+  if (Array.isArray(report.visits) && report.visits.length > 0) {
+    const v = report.visits[0];
+    if (v.date)     visitPatch.date    = String(v.date).slice(0, 10);
+    if (v.time)     visitPatch.time    = String(v.time).match(/\d{2}:\d{2}/)?.[0] || '';
+    if (v.location) {
+      visitPatch.place  = v.location.label  || v.location.name  || '';
+      visitPatch.street = v.location.street_and_housenumber_or_lockbox || '';
+      visitPatch.zip    = v.location.zip    || '';
+      visitPatch.city   = v.location.city   || '';
+    }
+    if (v.notes)         visitPatch.notes        = v.notes;
+    if (v.car_condition) visitPatch.carCondition = v.car_condition;
+  }
+
+  // ─ Boya kalınlığı ölçümleri (paint_thickness_measurements) ──────────
+  // AutoiXpert: [{ position: 'hood', measurement_in_micrometers: 120 }, ...]
+  // Form: { hood: '120', frontLeft: '...', ... }
+  if (Array.isArray(report.paint_thickness_measurements)) {
+    const paintMap = {};
+    report.paint_thickness_measurements.forEach((m) => {
+      if (m?.position && m?.measurement_in_micrometers != null) {
+        paintMap[m.position] = String(m.measurement_in_micrometers);
+      }
+    });
+    if (Object.keys(paintMap).length) conditionPatch.paintMeasurements = paintMap;
+  }
+  if (report.paint_thickness_measurement_comment) {
+    conditionPatch.bemerkungen = report.paint_thickness_measurement_comment;
+  }
+
+  return {
+    vehiclePatch:   Object.keys(vehiclePatch).length   ? vehiclePatch   : null,
+    conditionPatch: Object.keys(conditionPatch).length ? conditionPatch : null,
+    reportPatch:    Object.keys(reportPatch).length    ? reportPatch    : null,
+    accidentPatch:  Object.keys(accidentPatch).length  ? accidentPatch  : null,
+    visitPatch:     Object.keys(visitPatch).length     ? visitPatch     : null,
+    claimantPatch:  claimantContact,
+    opponentPatch:  opponentContact,
+    lawyerPatch,
+    workshopPatch,
+    insurancePatch,
+  };
+}
+
+// Müşteri + araç → claimant & vehicle & condition taslak alanlarını üret.
+// AutoiXpert sync sırasında dolan alanları (km, tuv_date, color, fuel, hsn/tsn vb.)
+// formun ilgili sekmelerine otomatik yansıtır.
 function buildAutofillPatch(customer, vehicle) {
   const { firstName, lastName } = splitName(customer?.full_name);
   const claimantPatch = {
@@ -47,9 +340,22 @@ function buildAutofillPatch(customer, vehicle) {
     manufacturer:       vehicle.brand   || '',
     mainType:           vehicle.model   || '',
     yearOfManufacture:  vehicle.year ? String(vehicle.year) : '',
-    firstRegistration:  vehicle.first_registration || '',
+    firstRegistration:  vehicle.first_registration_date || vehicle.first_registration || '',
+    // Yeni — KBA HSN/TSN birleşik
+    kbaCode:            (vehicle.hsn && vehicle.tsn) ? `${vehicle.hsn}/${vehicle.tsn}` : '',
+    powerKw:            vehicle.performance_kw ? String(vehicle.performance_kw) : '',
+    powerPs:            vehicle.performance_kw ? String(Math.round(vehicle.performance_kw * 1.36)) : '',
+    displacement:       vehicle.engine_cc ? String(vehicle.engine_cc) : '',
+    shape:              vehicle.shape   || '',
+    engineType:         vehicle.fuel    || '',
   } : null;
-  return { claimantPatch, vehiclePatch };
+  // Yeni — Durum (Zustand) sekmesine de yansıyacak alanlar
+  const conditionPatch = vehicle ? {
+    mileageRead:    vehicle.km        ? String(vehicle.km) : '',
+    nextInspection: vehicle.tuv_date  || '',
+    paintColor:     vehicle.color     || '',
+  } : null;
+  return { claimantPatch, vehiclePatch, conditionPatch };
 }
 
 // Agent'tan gelen draft'ı boş initialDraft üzerine deep-merge eder.
@@ -129,6 +435,16 @@ const initialDraft = {
   insurance: {
     company: '', street: '', zip: '', city: '', phone: '', email: '',
     insuranceNumber: '', claimNumber: '',
+  },
+  // Avukat (Druck & Versand'da kullanılır)
+  lawyer: {
+    name: '', organization: '', email: '', phone: '',
+    street: '', zip: '', city: '', caseNumber: '',
+  },
+  // Servis / Werkstatt (Druck & Versand'da kullanılır)
+  workshop: {
+    name: '', email: '', phone: '',
+    street: '', zip: '', city: '',
   },
   // İmzalar
   signatures: {
@@ -759,7 +1075,14 @@ function ZustandPanel({ draft, set }) {
                 <Field label="Lauflstg. geschätzt" value={c.mileageEstimated} onChange={set('condition.mileageEstimated')} type="number" />
                 <Field label="Einheit" value={c.mileageUnit} onChange={set('condition.mileageUnit')} placeholder="km" />
               </div>
-              <Field label="Nächste HU" value={c.nextInspection} onChange={set('condition.nextInspection')} placeholder="MM.YYYY" />
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <Field label="Nächste HU" value={c.nextInspection} onChange={set('condition.nextInspection')} placeholder="MM.YYYY" />
+                </div>
+                <img src="/icons/zustand/hu-plakette_128.png" alt="HU Plakette"
+                  style={{ width: 48, height: 48, objectFit: 'contain', flexShrink: 0, marginBottom: 4 }}
+                  title="Hauptuntersuchung Plakette" />
+              </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                 <Checkbox label="Scheckheftgepflegt" checked={c.serviceBookKept} onChange={set('condition.serviceBookKept')} />
@@ -774,25 +1097,21 @@ function ZustandPanel({ draft, set }) {
               <div className="flex gap-2">
                 {[1, 2, 3, 4].map((g) => {
                   const isActive = c.emissionGroup === g;
-                  const colors = { 1: '#DC2626', 2: '#F59E0B', 3: '#FBBF24', 4: '#16A34A' };
-                  const col = colors[g];
                   return (
                     <button key={g} onClick={() => set('condition.emissionGroup')(g)} type="button"
                       style={{
                         flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                         padding: '8px 4px', borderRadius: 10,
-                        background: isActive ? `${col}10` : 'transparent',
+                        background: isActive ? 'rgba(0,0,0,0.04)' : 'transparent',
                         border: 'none', cursor: 'pointer',
-                      }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: '50%',
-                        background: isActive ? col : 'transparent',
-                        border: isActive ? 'none' : `2px dashed ${col}`,
-                        color: isActive ? '#fff' : col,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 14, fontWeight: 700,
-                      }}>{g}</div>
-                      <span style={{ fontSize: 10, color: isActive ? col : C.textDim, fontWeight: 600 }}>Gruppe {g}</span>
+                        opacity: isActive ? 1 : 0.45,
+                        transition: 'opacity 0.15s, background 0.15s',
+                      }}
+                      onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.opacity = '0.85'; }}
+                      onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.opacity = '0.45'; }}>
+                      <img src={`/icons/zustand/emission-group-${g}.png`} alt={`Gruppe ${g}`}
+                        style={{ width: 44, height: 44, objectFit: 'contain' }} />
+                      <span style={{ fontSize: 10, color: isActive ? C.text : C.textDim, fontWeight: 600 }}>Gruppe {g}</span>
                     </button>
                   );
                 })}
@@ -925,9 +1244,9 @@ function ZustandPanel({ draft, set }) {
                 <span className="text-[10px] font-bold tracking-[0.15em] uppercase block mb-2" style={{ color: C.textDim }}>Saison</span>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { key: 'summer',  label: 'Sommer',   color: '#F59E0B' },
-                    { key: 'winter',  label: 'Winter',   color: '#3B82F6' },
-                    { key: 'allyear', label: 'Ganzjahr', color: '#FBBF24' },
+                    { key: 'summer',  label: 'Sommer',   icon: '/icons/zustand/summer-tires.png' },
+                    { key: 'winter',  label: 'Winter',   icon: '/icons/zustand/winter-tires.png' },
+                    { key: 'allyear', label: 'Ganzjahr', icon: '/icons/zustand/allyear-tires.png' },
                   ].map((s) => {
                     const isOn = (wheelVal(tireTab, 'season') || 'allyear') === s.key;
                     return (
@@ -935,16 +1254,16 @@ function ZustandPanel({ draft, set }) {
                         style={{
                           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                           padding: '8px 4px', borderRadius: 10,
-                          background: isOn ? `${s.color}10` : 'transparent',
+                          background: isOn ? 'rgba(0,0,0,0.04)' : 'transparent',
                           border: 'none', cursor: 'pointer',
-                        }}>
-                        <div style={{
-                          width: 44, height: 44, borderRadius: '50%',
-                          background: isOn ? `${s.color}25` : 'rgba(0,0,0,0.04)',
-                          border: `${isOn ? '2.5px' : '2px'} solid ${isOn ? s.color : C.border}`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-                        }}>🛞</div>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: isOn ? s.color : C.textDim, textDecoration: isOn ? 'underline' : 'none' }}>
+                          opacity: isOn ? 1 : 0.45,
+                          transition: 'opacity 0.15s, background 0.15s',
+                        }}
+                        onMouseEnter={(e) => { if (!isOn) e.currentTarget.style.opacity = '0.85'; }}
+                        onMouseLeave={(e) => { if (!isOn) e.currentTarget.style.opacity = '0.45'; }}>
+                        <img src={s.icon} alt={s.label}
+                          style={{ width: 50, height: 50, objectFit: 'contain' }} />
+                        <span style={{ fontSize: 10, fontWeight: 600, color: isOn ? C.text : C.textDim, textDecoration: isOn ? 'underline' : 'none' }}>
                           {s.label}
                         </span>
                       </button>
@@ -1844,14 +2163,97 @@ export default function AdminReportEditor({ db, initialDraftOverride } = {}) {
     });
   };
 
-  // Tüm patch'i tek seferde uygula (state batch'lenmesi için).
+  // Tüm patch'i tek seferde uygula. Önce sync (vehicle row'undan), sonra
+  // async (autoixpert_reports.car'dan zenginleştirme).
   const applyAutofill = (customer, vehicle) => {
-    const { claimantPatch, vehiclePatch } = buildAutofillPatch(customer, vehicle);
+    const { claimantPatch, vehiclePatch, conditionPatch } = buildAutofillPatch(customer, vehicle);
     setDraft((prev) => ({
       ...prev,
-      claimant: { ...prev.claimant, ...claimantPatch },
-      vehicle:  vehiclePatch ? { ...prev.vehicle, ...vehiclePatch } : prev.vehicle,
+      claimant:  { ...prev.claimant, ...claimantPatch },
+      vehicle:   vehiclePatch   ? { ...prev.vehicle,   ...vehiclePatch }   : prev.vehicle,
+      condition: conditionPatch ? { ...prev.condition, ...conditionPatch } : prev.condition,
     }));
+
+    // Async — AutoiXpert raporundan condition/damages/tires zenginleştirmesi
+    if (vehicle?.autoixpert_report_id) {
+      enrichFromAutoixpertReport(vehicle.autoixpert_report_id);
+    }
+  };
+
+  // autoixpert_reports'tan TÜM zengin alanları çek ve form'a yansıt:
+  // car (Zustand+Tires+Damages), claimant, author_of_damage, lawyer, garage,
+  // insurance, intermediary, accident, visits, paint_thickness, type/dates.
+  const enrichFromAutoixpertReport = async (reportId) => {
+    try {
+      const sb = getSupabaseClient();
+      if (!sb) return;
+      const { data, error } = await sb
+        .from('autoixpert_reports')
+        .select(`
+          car,
+          vin_was_checked,
+          source_of_technical_data,
+          test_drive_carried_out,
+          type,
+          completion_date,
+          order_date,
+          order_time,
+          claimant,
+          author_of_damage,
+          lawyer,
+          garage,
+          insurance,
+          intermediary,
+          owner_of_claimants_car,
+          owner_of_author_of_damages_car,
+          accident,
+          visits,
+          paint_thickness_measurements,
+          paint_thickness_measurement_comment
+        `)
+        .eq('id', reportId)
+        .single();
+      if (error || !data) return;
+
+      const carPatches    = buildAutofillPatchFromCar(data.car);
+      const reportPatches = buildAutofillPatchFromReport(data);
+
+      setDraft((prev) => {
+        const next = { ...prev };
+        // ─ car patches ─
+        if (carPatches?.conditionPatch) next.condition = { ...prev.condition, ...carPatches.conditionPatch };
+        if (carPatches?.vehiclePatch)   next.vehicle   = { ...next.vehicle,   ...carPatches.vehiclePatch };
+        if (carPatches?.damagesPatch)   next.damages   = { ...prev.damages,   ...carPatches.damagesPatch };
+        if (carPatches?.tiresPatch)     next.tires     = { ...prev.tires,     ...carPatches.tiresPatch };
+        // ─ report-level patches ─
+        if (reportPatches?.vehiclePatch)   next.vehicle   = { ...next.vehicle,   ...reportPatches.vehiclePatch };
+        if (reportPatches?.conditionPatch) next.condition = { ...next.condition, ...reportPatches.conditionPatch };
+        if (reportPatches?.reportPatch)    next.report    = { ...prev.report,    ...reportPatches.reportPatch };
+        if (reportPatches?.accidentPatch)  next.accident  = { ...prev.accident,  ...reportPatches.accidentPatch };
+        if (reportPatches?.visitPatch)     next.visit     = { ...prev.visit,     ...reportPatches.visitPatch };
+        // ─ kontaklar ─
+        // Mevcut claimant'ı override etmiyoruz (vehicle row'undan dolu olabilir).
+        // Sadece boş alanları doldur.
+        if (reportPatches?.claimantPatch) {
+          next.claimant = mergeMissing(prev.claimant, reportPatches.claimantPatch);
+        }
+        if (reportPatches?.opponentPatch) {
+          next.opponent = mergeMissing(prev.opponent, reportPatches.opponentPatch);
+        }
+        if (reportPatches?.lawyerPatch) {
+          next.lawyer = { ...(prev.lawyer || {}), ...reportPatches.lawyerPatch };
+        }
+        if (reportPatches?.workshopPatch) {
+          next.workshop = { ...(prev.workshop || {}), ...reportPatches.workshopPatch };
+        }
+        if (reportPatches?.insurancePatch) {
+          next.insurance = mergeMissing(prev.insurance, reportPatches.insurancePatch);
+        }
+        return next;
+      });
+    } catch (e) {
+      console.warn('[AdminReportEditor] AutoiXpert enrichment failed:', e?.message);
+    }
   };
 
   const handleCustomerSelect = (customer) => {
