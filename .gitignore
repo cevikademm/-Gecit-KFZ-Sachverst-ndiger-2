@@ -55,3 +55,8 @@ GA-HS-*_files/
 *_aX_files/
 
 .vercel
+
+# Local verification / scraping artifacts
+klon/
+verify-*.json
+supabase/migrations_fresh/_temp_*.sql

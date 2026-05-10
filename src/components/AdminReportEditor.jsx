@@ -4,6 +4,9 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { C } from '../utils/tokens.js';
+import { getSupabaseClient } from '../utils/supabaseAuth.js';
+import FahrzeugauswahlPanel from './FahrzeugauswahlPanel.jsx';
+import DruckVersandPanel from './DruckVersandPanel.jsx';
 
 // ─── Plaka parser: "34 ABC 123" → { city: '34', initials: 'ABC', number: '123' }
 function parsePlate(raw) {
@@ -47,6 +50,23 @@ function buildAutofillPatch(customer, vehicle) {
     firstRegistration:  vehicle.first_registration || '',
   } : null;
   return { claimantPatch, vehiclePatch };
+}
+
+// Agent'tan gelen draft'ı boş initialDraft üzerine deep-merge eder.
+// Eksik alanlar default değerlerini korur, dolu alanlar üzerine yazılır.
+function mergeDraft(base, override) {
+  if (!override || typeof override !== 'object') return base;
+  const out = { ...base };
+  for (const key of Object.keys(override)) {
+    const ov = override[key];
+    const bv = base[key];
+    if (ov && typeof ov === 'object' && !Array.isArray(ov) && bv && typeof bv === 'object' && !Array.isArray(bv)) {
+      out[key] = { ...bv, ...ov };
+    } else if (ov !== undefined && ov !== null) {
+      out[key] = ov;
+    }
+  }
+  return out;
 }
 
 const STEPS = [
@@ -167,6 +187,11 @@ const initialDraft = {
     testDriveDone: false,
     errorMemoryRead: false,
     airbagsDeployed: false,
+    // Yeni — AutoiXpert paritesi
+    notrepair: { status: '', notes: '' },
+    bemerkungen: '',
+    // Lackschichtdickenmessung (μm) — 21 pozisyona kadar
+    paintMeasurements: {}, // { frontLeft: '120', hood: '125', ... }
   },
   // Hasar bölgeleri (gövde)
   damages: {
@@ -181,14 +206,20 @@ const initialDraft = {
     previousRepaired: '',
     oldUnrepaired: '',
     subsequentDamage: '',
+    // Yeni — Schadenbeschreibung sekmesi
+    description: '',
+    hergang: '',
+    plausibilitaet: '',
   },
-  // Lastikler
+  // Lastikler — flat default (4 lastik için ortak), her aks ayrı override edebilir
   tires: {
     dimension: '',
     treadMm: '',
     manufacturer: '',
     season: 'allyear',
     customSeasonType: '',
+    // 4-aks override — boş bırakılırsa default'tan miras alır
+    perWheel: { VL: {}, VR: {}, HL: {}, HR: {} },
   },
   // Fatura (Rechnung)
   invoice: {
@@ -237,7 +268,7 @@ const initialDraft = {
     sparePartsNet: '',
     sparePartsSurcharge: 0,   // %
     smallParts: 0,            // %
-    devaluation: '',          // değer kaybı (Wertminderung)
+    devaluation: '',          // değer kaybı (Wertminderung) ≈ merkantilerMinderwert
     replacementValue: '',     // ikame değeri (Wiederbeschaffungswert)
     residualValue: '',        // kalıntı değeri (Restwert)
     repairDuration: '',       // gün
@@ -245,6 +276,51 @@ const initialDraft = {
     isEconomicTotalLoss: false,
     notes: '',
     items: [],                // pozisyon listesi
+
+    // ─── AutoiXpert kalkulation layout — yeni alanlar ──────────
+    // Werkstatt (atölye saat ücretleri)
+    useDekraRates: true,
+    workshop: { name: 'Alsdorf', zip: '52477', mechanik: 176.75, karosserie: 178.50, lackiohn: 201.75 },
+    // Kalkulation toplam
+    abzuegeNeuFuerAlt: 0,
+    // Marktwert kaynakları (Privatmarkt / CARTV / VALUEpilot / winvalue / eigene)
+    marketSources: [
+      { id: 'mw_neutral',   name: 'Neutral (Privatmarkt)', status: 'active'  },
+      { id: 'mw_cartv',     name: 'CARTV',                  status: 'idle'   },
+      { id: 'mw_valuepilot',name: 'VALUEpilot',             status: 'idle'   },
+      { id: 'mw_winvalue',  name: 'winvalue',               status: 'idle'   },
+    ],
+    // Nutzungsausfall (kullanım kaybı)
+    lossOfUse: {
+      group: 'B',                    // Ausfallgruppe (A..L)
+      costPerDay: 35,                // €/gün
+      vehicleClass: '2 - Kleinwagen',// Mietwagenklasse
+      repairDays: '2-3',             // Reparaturdauer
+      replacementDays: 14,           // Wiederbeschaffungsdauer
+    },
+    // Restwert kaynakları
+    residualSources: [
+      { id: 'rw_autoonline',name: 'AUTOonline', status: 'idle', ts: '', location: '' },
+      { id: 'rw_cartv',     name: 'CARTV',      status: 'idle', ts: '', location: '' },
+      { id: 'rw_carcasion', name: 'car.casion', status: 'idle', ts: '', location: '' },
+      { id: 'rw_winvalue',  name: 'winvalue',   status: 'idle', ts: '', location: '' },
+      { id: 'rw_eigene',    name: 'Eigene',     status: 'idle', ts: '', location: '' },
+    ],
+    // Fahrzeugwert
+    replacementTaxRate: 'Neutral', // 'Neutral' | '19%' | '7%' | '0%'
+    merkantilerMinderwert: '',
+    technischerMinderwert: '',
+    wertverbesserung: '',
+    damageClass: 'Reparaturschaden', // Reparaturschaden | Totalschaden | wirtschaftlicher Totalschaden
+    fictiveAccounting: true,
+    // Reparatur
+    achsvermessung: 'nicht erforderlich',     // nicht erforderlich | erforderlich
+    karosserievermessung: 'nicht erforderlich',
+    beilackierung: 'erforderlich',
+    beilackierungComment: '',
+    kunststoffreparatur: false,
+    reparaturweg: '',
+    risiken: '',
   },
 };
 
@@ -354,18 +430,22 @@ function Checkbox({ label, checked, onChange }) {
   );
 }
 
-function Card({ title, icon, children, action }) {
+function Card({ title, icon, children, action, padding }) {
+  // padding="p-0" → header'sız, içerik kendi padding'ini yönetir
+  const isFlush = padding === 'p-0';
   return (
-    <section className="rounded-2xl p-5 space-y-4"
+    <section className={isFlush ? 'rounded-2xl overflow-hidden' : 'rounded-2xl p-5 space-y-4'}
       style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-      <header className="flex items-center justify-between">
-        <h3 className="text-sm font-bold tracking-tight flex items-center gap-2" style={{ color: C.text }}>
-          {icon && <span aria-hidden>{icon}</span>}
-          {title}
-        </h3>
-        {action}
-      </header>
-      <div className="space-y-3">{children}</div>
+      {title && (
+        <header className={isFlush ? 'flex items-center justify-between px-5 pt-5' : 'flex items-center justify-between'}>
+          <h3 className="text-sm font-bold tracking-tight flex items-center gap-2" style={{ color: C.text, letterSpacing: '0.05em' }}>
+            {icon && <span aria-hidden>{icon}</span>}
+            {title}
+          </h3>
+          {action}
+        </header>
+      )}
+      {isFlush ? children : <div className="space-y-3">{children}</div>}
     </section>
   );
 }
@@ -425,146 +505,517 @@ function Textarea({ label, value, onChange, rows = 3, placeholder = '' }) {
   );
 }
 
-function ZustandPanel({ draft, set }) {
-  const c = draft.condition;
-  const d = draft.damages;
-  const t = draft.tires;
+// ─── FotosPanel — Müşterinin / aracın AutoiXpert fotoğraflarını gösterir ──
+function FotosPanel({ selectedCustomer, selectedVehicle, customerVehicles }) {
+  const [photos, setPhotos] = useState(null); // null = yükleniyor
+  const [signedMap, setSignedMap] = useState({});
+  const [lightbox, setLightbox] = useState(null);
 
-  const toggleArea = (key) => {
-    set('damages.areas')({ ...d.areas, [key]: !d.areas[key] });
+  // Hangi araç(lar)ın fotoları yüklensin?
+  const targetVehicles = useMemo(() => {
+    if (selectedVehicle) return [selectedVehicle];
+    return (customerVehicles || []).filter(v => v.autoixpert_report_id);
+  }, [selectedVehicle, customerVehicles]);
+
+  const reportIds = useMemo(() => targetVehicles.map(v => v.autoixpert_report_id).filter(Boolean), [targetVehicles]);
+
+  useEffect(() => {
+    if (!selectedCustomer) { setPhotos([]); return; }
+    if (reportIds.length === 0) { setPhotos([]); return; }
+    let cancelled = false;
+    setPhotos(null);
+    (async () => {
+      const sb = getSupabaseClient();
+      if (!sb) { setPhotos([]); return; }
+      // Fotoları çek
+      const { data, error } = await sb.from('autoixpert_photos')
+        .select('id, report_id, storage_path, storage_bucket, mimetype, size_bytes, width, height, title, original_name, included_in_report, downloaded_at')
+        .in('report_id', reportIds)
+        .eq('download_status', 'done')
+        .order('downloaded_at', { ascending: false });
+      if (cancelled) return;
+      if (error) { console.error('[FotosPanel]', error.message); setPhotos([]); return; }
+      const ph = data || [];
+      setPhotos(ph);
+      // İlk 60 fotoğraf için signed URL'leri lazy çek
+      const subset = ph.slice(0, 60);
+      const urls = {};
+      for (const p of subset) {
+        const { data: signed } = await sb.storage.from(p.storage_bucket || 'autoixpert-photos').createSignedUrl(p.storage_path, 3600);
+        if (signed?.signedUrl) urls[p.id] = signed.signedUrl;
+      }
+      if (!cancelled) setSignedMap(urls);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedCustomer?.id, reportIds.join(',')]);
+
+  const openPhoto = async (p) => {
+    let url = signedMap[p.id];
+    if (!url) {
+      const sb = getSupabaseClient();
+      if (!sb) return;
+      const { data: signed } = await sb.storage.from(p.storage_bucket || 'autoixpert-photos').createSignedUrl(p.storage_path, 3600);
+      url = signed?.signedUrl;
+      if (url) setSignedMap(prev => ({ ...prev, [p.id]: url }));
+    }
+    if (url) setLightbox({ ...p, url });
   };
-  const damageCount = Object.values(d.areas).filter(Boolean).length;
+
+  if (!selectedCustomer) {
+    return (
+      <div className="rounded-2xl p-10 text-center" style={{ background: C.surface, border: `1px dashed ${C.border}`, color: C.textDim }}>
+        <div className="text-3xl mb-3">👤</div>
+        <p className="text-sm">Önce yukarıdan bir <strong style={{ color: C.text }}>müşteri</strong> seçin.</p>
+      </div>
+    );
+  }
+
+  if (photos === null) {
+    return (
+      <div className="rounded-2xl p-10 text-center" style={{ background: C.surface, border: `1px dashed ${C.border}`, color: C.textDim }}>
+        <div className="text-3xl mb-3 animate-pulse">📸</div>
+        <p className="text-sm">Fotoğraflar yükleniyor…</p>
+      </div>
+    );
+  }
+
+  if (photos.length === 0) {
+    return (
+      <div className="rounded-2xl p-10 text-center" style={{ background: C.surface, border: `1px dashed ${C.border}`, color: C.textDim }}>
+        <div className="text-3xl mb-3">📸</div>
+        <p className="text-sm">
+          Bu {selectedVehicle ? 'araç' : 'müşteri'} için AutoiXpert fotoğrafı bulunamadı.
+        </p>
+        <p className="text-xs mt-1">Müşteri detay sayfasındaki <strong>Fotoğraflar</strong> sekmesi de aynı kaynağı kullanır.</p>
+      </div>
+    );
+  }
+
+  // Rapora göre grupla (aracın token'ı yoksa report_id)
+  const grouped = photos.reduce((acc, p) => {
+    const v = targetVehicles.find(vh => vh.autoixpert_report_id === p.report_id);
+    const label = v?.plate || p.report_id;
+    if (!acc[label]) acc[label] = [];
+    acc[label].push(p);
+    return acc;
+  }, {});
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-      {/* SOL — Zustand */}
-      <div className="space-y-5">
-        <Card title="Boya & Genel Durum" icon="🎨">
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Boya Tipi" value={c.paintType} onChange={set('condition.paintType')} placeholder="Metalik / Düz / Mat" />
-            <Field label="Boya Rengi" value={c.paintColor} onChange={set('condition.paintColor')} placeholder="Renk kodu" />
-          </div>
-          <Field label="Boya Durumu" value={c.paintCondition} onChange={set('condition.paintCondition')} placeholder="Yaşa uygun / hasarlı" />
-          <Field label="Genel Durum" value={c.generalCondition} onChange={set('condition.generalCondition')} />
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Karoseri" value={c.bodyCondition} onChange={set('condition.bodyCondition')} />
-            <Field label="İç Mekân" value={c.interiorCondition} onChange={set('condition.interiorCondition')} />
-          </div>
-          <Field label="Sürüş Yeteneği" value={c.drivability} onChange={set('condition.drivability')} placeholder="Sürülebilir / çekilmeli" />
-          <Field label="Acil Onarım Durumu" value={c.emergencyRepairState} onChange={set('condition.emergencyRepairState')} placeholder="yapıldı / tavsiye edilir" />
-          <Textarea label="Özellikler" value={c.specialFeatures} onChange={set('condition.specialFeatures')} placeholder="Tuning, folyo, vb." rows={2} />
-          <Textarea label="Notlar" value={c.notes} onChange={set('condition.notes')} rows={3} />
-        </Card>
-      </div>
-
-      {/* ORTA — Hasar haritası + Km/Muayene */}
-      <div className="space-y-5">
-        <Card title="Hasar Bölgeleri" icon="💥" action={
-          <span className="text-[10px] font-bold tracking-[0.15em] uppercase px-2 py-1 rounded-full"
-            style={{ background: `${C.neon}15`, color: C.neon, border: `1px solid ${C.neon}33` }}>
-            {damageCount} bölge
-          </span>
-        }>
-          <div className="grid grid-cols-3 gap-2">
-            {DAMAGE_AREAS.map((area) => {
-              const isActive = !!d.areas[area.key];
-              return (
-                <button key={area.key} onClick={() => toggleArea(area.key)}
-                  className="flex items-center justify-center text-center px-2 py-3 rounded-lg text-[11px] font-semibold transition leading-tight"
-                  style={{
-                    background: isActive ? `${C.neon}15` : 'rgba(0,0,0,0.04)',
-                    border: `2px solid ${isActive ? C.neon : C.border}`,
-                    color: isActive ? C.neon : C.text,
-                    minHeight: 56,
-                  }}>
-                  {area.label}
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-xs mt-3" style={{ color: C.textDim }}>
-            İpucu: araç gövdesi 3 sütun (Sol / Orta / Sağ) ve 6 satır olarak düzenlendi — ön'den arkaya.
+    <div>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <h3 className="text-sm font-bold" style={{ color: C.text }}>Araç Fotoğrafları</h3>
+          <p className="text-xs" style={{ color: C.textDim }}>
+            {photos.length} foto · {Object.keys(grouped).length} araç · AutoiXpert kaynak
           </p>
-        </Card>
-
-        <Card title="Kilometre & Muayene" icon="📏">
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Okunan KM" value={c.mileageRead} onChange={set('condition.mileageRead')} type="number" />
-            <Field label="Tahmini KM" value={c.mileageEstimated} onChange={set('condition.mileageEstimated')} type="number" />
-          </div>
-          <Field label="Birim" value={c.mileageUnit} onChange={set('condition.mileageUnit')} placeholder="km / mil / saat" />
-          <Field label="Sıradaki Muayene" value={c.nextInspection} onChange={set('condition.nextInspection')} placeholder="Ay/Yıl, ör: 03/2027" />
-
-          <div className="pt-2">
-            <span className="text-[10px] font-bold tracking-[0.15em] uppercase block mb-2" style={{ color: C.textDim }}>
-              Emisyon Grubu
-            </span>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4].map((g) => {
-                const isActive = c.emissionGroup === g;
-                return (
-                  <button key={g} onClick={() => set('condition.emissionGroup')(g)}
-                    className="flex-1 py-2 rounded-lg text-sm font-semibold transition"
-                    style={{
-                      background: isActive ? `${C.neon}15` : 'rgba(0,0,0,0.04)',
-                      border: `2px solid ${isActive ? C.neon : C.border}`,
-                      color: isActive ? C.neon : C.text,
-                    }}>
-                    Grup {g}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <Field label="Emisyon Normu" value={c.emissionNorm} onChange={set('condition.emissionNorm')} placeholder="Euro 6" />
-        </Card>
-
-        <Card title="Kontroller" icon="✅">
-          <Checkbox label="Servis kitabı düzenli (Scheckheft)" checked={c.serviceBookKept} onChange={set('condition.serviceBookKept')} />
-          <Checkbox label="Test sürüşü yapıldı" checked={c.testDriveDone} onChange={set('condition.testDriveDone')} />
-          <Checkbox label="Hata hafızası okundu" checked={c.errorMemoryRead} onChange={set('condition.errorMemoryRead')} />
-          <Checkbox label="Airbag açıldı" checked={c.airbagsDeployed} onChange={set('condition.airbagsDeployed')} />
-        </Card>
+        </div>
       </div>
 
-      {/* SAĞ — Lastikler + Eski/Yeni hasar */}
-      <div className="space-y-5">
-        <Card title="Lastikler" icon="🛞">
-          <Field label="Lastik Ölçüsü" value={t.dimension} onChange={set('tires.dimension')} placeholder="195/65 R 15 91 H" />
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Diş Derinliği (mm)" value={t.treadMm} onChange={set('tires.treadMm')} type="number" />
-            <Field label="Üretici" value={t.manufacturer} onChange={set('tires.manufacturer')} placeholder="Continental, Michelin…" />
+      <div className="space-y-6">
+        {Object.entries(grouped).map(([label, list]) => (
+          <div key={label}>
+            <p className="text-xs uppercase tracking-widest mb-2 font-mono"
+              style={{ color: '#3B82F6', letterSpacing: '0.15em' }}>
+              {label} <span style={{ color: C.textDim }}>· {list.length}</span>
+            </p>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+              {list.map(p => (
+                <button key={p.id} onClick={() => openPhoto(p)}
+                  className="aspect-square rounded-lg overflow-hidden bg-gray-100 transition hover:ring-2 hover:ring-blue-400"
+                  style={{ border: `1px solid ${C.border}` }}>
+                  {signedMap[p.id] ? (
+                    <img src={signedMap[p.id]} alt={p.title || ''} className="w-full h-full object-cover" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs" style={{ color: C.textDim }}>📸</div>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="pt-2">
-            <span className="text-[10px] font-bold tracking-[0.15em] uppercase block mb-2" style={{ color: C.textDim }}>
-              Mevsim
-            </span>
-            <div className="grid grid-cols-3 gap-2">
-              {TIRE_SEASONS.map((s) => {
-                const isActive = t.season === s.key;
+        ))}
+      </div>
+
+      {lightbox && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 cursor-zoom-out"
+          onClick={() => setLightbox(null)}
+          style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)' }}>
+          <img src={lightbox.url} alt={lightbox.title || ''} className="max-w-full max-h-full object-contain"
+            onClick={(e) => e.stopPropagation()} />
+          <button onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center text-white text-xl"
+            style={{ background: 'rgba(255,255,255,0.15)' }}>
+            ✕
+          </button>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm text-white"
+            style={{ background: 'rgba(0,0,0,0.5)' }}>
+            {lightbox.title || lightbox.original_name}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Damage positions (görsel araç şeması üzerinde absolute) ─────
+const DAMAGE_POSITIONS = [
+  { key: 'frontLeft', x: 18, y: 5 }, { key: 'frontCenter', x: 50, y: 2 }, { key: 'frontRight', x: 82, y: 5 },
+  { key: 'fenderFrontLeft', x: 12, y: 22 }, { key: 'hood', x: 50, y: 18 }, { key: 'fenderFrontRight', x: 88, y: 22 },
+  { key: 'doorDriver', x: 10, y: 38 }, { key: 'windshield', x: 50, y: 32 }, { key: 'doorFrontPassenger', x: 90, y: 38 },
+  { key: 'doorBackPassengerLeft', x: 10, y: 56 }, { key: 'roof', x: 50, y: 50 }, { key: 'doorBackPassengerRight', x: 90, y: 56 },
+  { key: 'fenderRearLeft', x: 12, y: 75 }, { key: 'rearWindow', x: 50, y: 70 }, { key: 'fenderRearRight', x: 88, y: 75 },
+  { key: 'rearLeft', x: 18, y: 92 }, { key: 'rearCenter', x: 50, y: 95 }, { key: 'rearRight', x: 82, y: 92 },
+];
+
+// Lack ölçüm pozisyonları (Lackschichtdickenmessung) — 11 standart
+const PAINT_POSITIONS = [
+  { key: 'frontLeft', x: 22, y: 7 }, { key: 'hood', x: 50, y: 14 }, { key: 'frontRight', x: 78, y: 7 },
+  { key: 'fenderFrontLeft', x: 10, y: 28 }, { key: 'fenderFrontRight', x: 90, y: 28 },
+  { key: 'doorDriver', x: 10, y: 48 }, { key: 'roof', x: 50, y: 48 }, { key: 'doorFrontPassenger', x: 90, y: 48 },
+  { key: 'fenderRearLeft', x: 10, y: 70 }, { key: 'fenderRearRight', x: 90, y: 70 },
+  { key: 'rearCenter', x: 50, y: 92 },
+];
+
+const TIRE_AXLES = [
+  { key: 'VL', label: 'VL', desc: 'Vorne Links' },
+  { key: 'VR', label: 'VR', desc: 'Vorne Rechts' },
+  { key: 'HL', label: 'HL', desc: 'Hinten Links' },
+  { key: 'HR', label: 'HR', desc: 'Hinten Rechts' },
+];
+
+// Top-down araç silueti — basit SVG (Schäden ve Lack tab'larında ortak)
+function CarSilhouette({ children, height = 380 }) {
+  return (
+    <div style={{ position: 'relative', width: '100%', height, margin: '0 auto', maxWidth: 280 }}>
+      <svg viewBox="0 0 200 380" width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
+        <rect x="40" y="20" width="120" height="340" rx="60" ry="60"
+          fill="rgba(0,0,0,0.02)" stroke="#9CA3AF" strokeWidth="1.5" />
+        <path d="M 60 90 L 140 90 L 130 130 L 70 130 Z" fill="rgba(0,0,0,0.06)" stroke="#9CA3AF" strokeWidth="1" />
+        <path d="M 70 250 L 130 250 L 140 295 L 60 295 Z" fill="rgba(0,0,0,0.06)" stroke="#9CA3AF" strokeWidth="1" />
+        <rect x="65" y="135" width="70" height="110" rx="8" fill="rgba(0,0,0,0.04)" stroke="#9CA3AF" strokeWidth="1" />
+        <line x1="40" y1="38" x2="160" y2="38" stroke="#9CA3AF" strokeWidth="1" strokeDasharray="3,3" />
+        <line x1="40" y1="342" x2="160" y2="342" stroke="#9CA3AF" strokeWidth="1" strokeDasharray="3,3" />
+      </svg>
+      {children}
+    </div>
+  );
+}
+
+function ZustandPanel({ draft, set }) {
+  const c = draft.condition || {};
+  const d = draft.damages || {};
+  const t = draft.tires || {};
+  const paintMeasurements = c.paintMeasurements || {};
+  const perWheel = t.perWheel || { VL: {}, VR: {}, HL: {}, HR: {} };
+
+  const [centerTab, setCenterTab] = useState('schaden');
+  const [tireTab, setTireTab] = useState('VL');
+  const [bottomTab, setBottomTab] = useState('voralt');
+
+  const toggleArea = (key) => set('damages.areas')({ ...(d.areas || {}), [key]: !(d.areas || {})[key] });
+  const setPaintValue = (posKey, val) => set('condition.paintMeasurements')({ ...paintMeasurements, [posKey]: val });
+
+  const wheelVal = (axle, field) => (perWheel[axle]?.[field] ?? t[field] ?? '');
+  const setWheelVal = (axle, field, val) =>
+    set('tires.perWheel')({ ...perWheel, [axle]: { ...(perWheel[axle] || {}), [field]: val } });
+  const applyToAll = () => {
+    const cur = perWheel[tireTab] || {};
+    set('tires.perWheel')({ VL: { ...cur }, VR: { ...cur }, HL: { ...cur }, HR: { ...cur } });
+  };
+  const applyToAxle = () => {
+    const cur = perWheel[tireTab] || {};
+    const partner = tireTab === 'VL' ? 'VR' : tireTab === 'VR' ? 'VL' : tireTab === 'HL' ? 'HR' : 'HL';
+    set('tires.perWheel')({ ...perWheel, [partner]: { ...cur } });
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* ────── SOL: ZUSTAND ────── */}
+        <div>
+          <Card title="ZUSTAND" icon="📋">
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Lackart" value={c.paintType} onChange={set('condition.paintType')} placeholder="Metallic (2-Schicht)" />
+              <Field label="Lackfarbe" value={c.paintColor} onChange={set('condition.paintColor')} placeholder="Grau Silber" />
+            </div>
+            <Field label="Lackzustand" value={c.paintCondition} onChange={set('condition.paintCondition')} placeholder="dem Alter entsprechend" />
+            <Field label="Allgemeinzustand" value={c.generalCondition} onChange={set('condition.generalCondition')} placeholder="dem Alter entsprechend" />
+            <Field label="Karosseriezustand" value={c.bodyCondition} onChange={set('condition.bodyCondition')} placeholder="dem Alter entsprechend" />
+            <Field label="Innenraumzustand" value={c.interiorCondition} onChange={set('condition.interiorCondition')} placeholder="dem Alter entsprechend" />
+            <Field label="Fahrfähigkeit" value={c.drivability} onChange={set('condition.drivability')} placeholder="rollfähig / fahrbereit / nicht fahrbereit" />
+
+            <div style={{ marginTop: 8, padding: 12, borderRadius: 10, background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.text, letterSpacing: '0.05em' }}>🔧 NOTREPARATUR</span>
+              </div>
+              <Field label="Status" value={c.notrepair?.status || ''}
+                onChange={(v) => set('condition.notrepair')({ ...(c.notrepair || {}), status: v })}
+                placeholder="erforderlich / nicht erforderlich / durchgeführt" />
+            </div>
+
+            <div style={{ paddingTop: 8 }}>
+              <span className="text-[10px] font-bold tracking-[0.15em] uppercase block mb-2" style={{ color: C.textDim }}>Besonderheiten</span>
+              <div className="grid grid-cols-3 gap-2">
+                <Field label="Lauflstg. abgelesen" value={c.mileageRead} onChange={set('condition.mileageRead')} type="number" />
+                <Field label="Lauflstg. geschätzt" value={c.mileageEstimated} onChange={set('condition.mileageEstimated')} type="number" />
+                <Field label="Einheit" value={c.mileageUnit} onChange={set('condition.mileageUnit')} placeholder="km" />
+              </div>
+              <Field label="Nächste HU" value={c.nextInspection} onChange={set('condition.nextInspection')} placeholder="MM.YYYY" />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                <Checkbox label="Scheckheftgepflegt" checked={c.serviceBookKept} onChange={set('condition.serviceBookKept')} />
+                <Checkbox label="Probefahrt durchgeführt" checked={c.testDriveDone} onChange={set('condition.testDriveDone')} />
+                <Checkbox label="Fehlerspeicher ausgelesen" checked={c.errorMemoryRead} onChange={set('condition.errorMemoryRead')} />
+                <Checkbox label="Airbags ausgelöst" checked={c.airbagsDeployed} onChange={set('condition.airbagsDeployed')} />
+              </div>
+            </div>
+
+            <div style={{ paddingTop: 12 }}>
+              <span className="text-[10px] font-bold tracking-[0.15em] uppercase block mb-2" style={{ color: C.textDim }}>Schadstoffgruppen</span>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4].map((g) => {
+                  const isActive = c.emissionGroup === g;
+                  const colors = { 1: '#DC2626', 2: '#F59E0B', 3: '#FBBF24', 4: '#16A34A' };
+                  const col = colors[g];
+                  return (
+                    <button key={g} onClick={() => set('condition.emissionGroup')(g)} type="button"
+                      style={{
+                        flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                        padding: '8px 4px', borderRadius: 10,
+                        background: isActive ? `${col}10` : 'transparent',
+                        border: 'none', cursor: 'pointer',
+                      }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        background: isActive ? col : 'transparent',
+                        border: isActive ? 'none' : `2px dashed ${col}`,
+                        color: isActive ? '#fff' : col,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 14, fontWeight: 700,
+                      }}>{g}</div>
+                      <span style={{ fontSize: 10, color: isActive ? col : C.textDim, fontWeight: 600 }}>Gruppe {g}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <Field label="Abgasnorm" value={c.emissionNorm} onChange={set('condition.emissionNorm')} placeholder="EU6" />
+            </div>
+
+            <div style={{ paddingTop: 8 }}>
+              <span className="text-[10px] font-bold tracking-[0.15em] uppercase block mb-2" style={{ color: C.textDim }}>Bemerkungen</span>
+              <Textarea value={c.bemerkungen || ''} onChange={set('condition.bemerkungen')} rows={3} placeholder="Sonstige Bemerkungen…" />
+            </div>
+          </Card>
+        </div>
+
+        {/* ────── ORTA: SCHÄDEN / LACK ────── */}
+        <div>
+          <Card title={null} padding="p-0">
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 24, padding: '14px 16px 8px', borderBottom: `1px solid ${C.border}` }}>
+              <button onClick={() => setCenterTab('schaden')} type="button"
+                style={{
+                  padding: '6px 4px', background: 'transparent', border: 'none',
+                  color: centerTab === 'schaden' ? C.text : C.textDim,
+                  fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', cursor: 'pointer',
+                  borderBottom: centerTab === 'schaden' ? `2px solid ${C.neon}` : '2px solid transparent',
+                }}>SCHÄDEN</button>
+              <button onClick={() => setCenterTab('lack')} type="button"
+                style={{
+                  padding: '6px 4px', background: 'transparent', border: 'none',
+                  color: centerTab === 'lack' ? C.text : C.textDim,
+                  fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', cursor: 'pointer',
+                  borderBottom: centerTab === 'lack' ? `2px solid ${C.neon}` : '2px solid transparent',
+                }}>LACK</button>
+            </div>
+
+            <div style={{ padding: 14 }}>
+              {centerTab === 'schaden' ? (
+                <CarSilhouette>
+                  {DAMAGE_POSITIONS.map((p) => {
+                    const isOn = !!d.areas?.[p.key];
+                    return (
+                      <button key={p.key} onClick={() => toggleArea(p.key)} type="button" title={p.key}
+                        style={{
+                          position: 'absolute', top: `${p.y}%`, left: `${p.x}%`,
+                          transform: 'translate(-50%, -50%)',
+                          width: 22, height: 22, borderRadius: 4,
+                          background: isOn ? C.neon : '#fff',
+                          border: `2px solid ${isOn ? C.neon : '#9CA3AF'}`,
+                          color: '#fff', cursor: 'pointer', padding: 0,
+                          fontSize: 12, fontWeight: 700, lineHeight: 1,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: isOn ? `0 0 0 3px ${C.neon}33` : 'none', transition: 'all 0.15s',
+                        }}>{isOn && '✓'}</button>
+                    );
+                  })}
+                </CarSilhouette>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: C.textDim }}>Standard ▾</span>
+                    <div style={{ display: 'flex', gap: 0, height: 6, flex: 1, marginLeft: 12, borderRadius: 3, overflow: 'hidden' }}>
+                      <span style={{ flex: 1, background: '#06B6D4' }} />
+                      <span style={{ flex: 1, background: '#3B82F6' }} />
+                      <span style={{ flex: 1, background: '#10B981' }} />
+                      <span style={{ flex: 1, background: '#FBBF24' }} />
+                      <span style={{ flex: 1, background: '#EF4444' }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: C.textDim, marginBottom: 10, paddingLeft: 60 }}>
+                    <span>&lt; 70</span><span>&gt;= 70</span><span>&gt; 165</span><span>&gt; 300</span><span>&gt; 700</span>
+                  </div>
+                  <CarSilhouette>
+                    {PAINT_POSITIONS.map((p) => (
+                      <div key={p.key} style={{
+                        position: 'absolute', top: `${p.y}%`, left: `${p.x}%`, transform: 'translate(-50%, -50%)',
+                      }}>
+                        <input type="number" value={paintMeasurements[p.key] || ''}
+                          onChange={(e) => setPaintValue(p.key, e.target.value)}
+                          placeholder="µm"
+                          style={{
+                            width: 56, padding: '4px 6px', borderRadius: 6,
+                            background: '#fff', border: `1px solid ${C.border}`,
+                            fontSize: 11, textAlign: 'center', outline: 'none',
+                          }} />
+                      </div>
+                    ))}
+                  </CarSilhouette>
+                  <div style={{ textAlign: 'center', marginTop: 12 }}>
+                    <button type="button"
+                      style={{
+                        padding: '6px 14px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                        background: 'transparent', color: C.neon, border: `1px dashed ${C.neon}`, cursor: 'pointer',
+                      }}>⊕ Position hinzufügen</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {/* ────── SAĞ: REIFEN ────── */}
+        <div>
+          <Card title="REIFEN" icon="🛞" padding="p-0">
+            <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, background: 'rgba(0,0,0,0.02)' }}>
+              {TIRE_AXLES.map((a) => {
+                const isOn = tireTab === a.key;
                 return (
-                  <button key={s.key} onClick={() => set('tires.season')(s.key)}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl transition"
+                  <button key={a.key} onClick={() => setTireTab(a.key)} type="button" title={a.desc}
                     style={{
-                      background: isActive ? `${C.neon}15` : 'rgba(0,0,0,0.04)',
-                      border: `2px solid ${isActive ? C.neon : C.border}`,
-                      color: isActive ? C.neon : C.text,
-                    }}>
-                    <span className="text-xl mb-1">{s.icon}</span>
-                    <span className="text-[11px] font-semibold">{s.label}</span>
-                  </button>
+                      flex: 1, padding: '10px 6px',
+                      background: 'transparent', border: 'none',
+                      color: isOn ? C.text : C.textDim,
+                      fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      borderBottom: isOn ? `2px solid ${C.neon}` : '2px solid transparent',
+                    }}>{a.label}</button>
                 );
               })}
             </div>
-          </div>
-          <Field label="Özel Tip (opsiyonel)" value={t.customSeasonType} onChange={set('tires.customSeasonType')} />
-        </Card>
 
-        <Card title="Eski & Yeni Hasarlar" icon="📋">
-          <Textarea label="Önceden onarılmış hasarlar (Vorschäden)" value={d.previousRepaired} onChange={set('damages.previousRepaired')} rows={3} />
-          <Textarea label="Onarılmamış eski hasarlar (Altschäden)" value={d.oldUnrepaired} onChange={set('damages.oldUnrepaired')} rows={3} />
-          <Textarea label="Sonradan oluşan hasarlar (Nachschäden)" value={d.subsequentDamage} onChange={set('damages.subsequentDamage')} rows={3} />
-        </Card>
+            <div style={{ padding: 16 }}>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Reifendimension" value={wheelVal(tireTab, 'dimension')}
+                  onChange={(v) => setWheelVal(tireTab, 'dimension', v)} placeholder="165/65 R 15" />
+                <Field label="Profil (mm)" value={wheelVal(tireTab, 'treadMm')}
+                  onChange={(v) => setWheelVal(tireTab, 'treadMm', v)} placeholder="5 mm" />
+              </div>
+              <Field label="Hersteller" value={wheelVal(tireTab, 'manufacturer')}
+                onChange={(v) => setWheelVal(tireTab, 'manufacturer', v)} placeholder="Continental, Michelin..." />
+
+              <div style={{ paddingTop: 8 }}>
+                <span className="text-[10px] font-bold tracking-[0.15em] uppercase block mb-2" style={{ color: C.textDim }}>Saison</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { key: 'summer',  label: 'Sommer',   color: '#F59E0B' },
+                    { key: 'winter',  label: 'Winter',   color: '#3B82F6' },
+                    { key: 'allyear', label: 'Ganzjahr', color: '#FBBF24' },
+                  ].map((s) => {
+                    const isOn = (wheelVal(tireTab, 'season') || 'allyear') === s.key;
+                    return (
+                      <button key={s.key} onClick={() => setWheelVal(tireTab, 'season', s.key)} type="button"
+                        style={{
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                          padding: '8px 4px', borderRadius: 10,
+                          background: isOn ? `${s.color}10` : 'transparent',
+                          border: 'none', cursor: 'pointer',
+                        }}>
+                        <div style={{
+                          width: 44, height: 44, borderRadius: '50%',
+                          background: isOn ? `${s.color}25` : 'rgba(0,0,0,0.04)',
+                          border: `${isOn ? '2.5px' : '2px'} solid ${isOn ? s.color : C.border}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+                        }}>🛞</div>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: isOn ? s.color : C.textDim, textDecoration: isOn ? 'underline' : 'none' }}>
+                          {s.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button onClick={applyToAll} type="button"
+                  style={{
+                    flex: 1, padding: '8px 10px', borderRadius: 8,
+                    background: '#3B82F6', color: '#fff', border: 'none',
+                    fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  }}>Alle angleichen</button>
+                <button onClick={applyToAxle} type="button"
+                  style={{
+                    flex: 1, padding: '8px 10px', borderRadius: 8,
+                    background: 'transparent', color: '#3B82F6',
+                    border: `1px solid #3B82F6`, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  }}>Achse angleichen</button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {/* ─── ALT SUB-TAB BLOĞU ──────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', gap: 0, borderRadius: 14, overflow: 'hidden',
+        background: C.surface, border: `1px solid ${C.border}`,
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', background: '#475569', minWidth: 90 }}>
+          <button onClick={() => setBottomTab('voralt')} type="button"
+            style={{
+              padding: '20px 12px', textAlign: 'center',
+              background: bottomTab === 'voralt' ? '#1F2937' : 'transparent',
+              color: '#fff', border: 'none', cursor: 'pointer',
+              fontSize: 11, fontWeight: 600, lineHeight: 1.4,
+              borderLeft: bottomTab === 'voralt' ? `3px solid ${C.neon}` : '3px solid transparent',
+            }}>🔧<br />Vor- &<br />Altschäden</button>
+          <button onClick={() => setBottomTab('beschreibung')} type="button"
+            style={{
+              padding: '20px 12px', textAlign: 'center',
+              background: bottomTab === 'beschreibung' ? '#1F2937' : 'transparent',
+              color: '#fff', border: 'none', cursor: 'pointer',
+              fontSize: 11, fontWeight: 600, lineHeight: 1.4,
+              borderLeft: bottomTab === 'beschreibung' ? `3px solid ${C.neon}` : '3px solid transparent',
+            }}>📄<br />Schaden-<br />beschreibung</button>
+        </div>
+        <div style={{ flex: 1, padding: 18 }}>
+          {bottomTab === 'voralt' ? (
+            <div>
+              <h4 style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: C.text, marginBottom: 14 }}>VOR- & ALTSCHÄDEN</h4>
+              <div className="space-y-4">
+                <Field label="Vorschäden (repariert)" value={d.previousRepaired} onChange={set('damages.previousRepaired')} />
+                <Field label="Altschäden (nicht repariert)" value={d.oldUnrepaired} onChange={set('damages.oldUnrepaired')} />
+                <Field label="Nachschäden (zwischen Unfall & Besichtigung geschehen)" value={d.subsequentDamage} onChange={set('damages.subsequentDamage')} />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <h4 style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: C.text, marginBottom: 14 }}>SCHADENBESCHREIBUNG & -HERGANG</h4>
+              <div className="space-y-4">
+                <Field label="Schadenbeschreibung" value={d.description || ''} onChange={set('damages.description')} />
+                <Field label="Schadenhergang" value={d.hergang || ''} onChange={set('damages.hergang')} />
+                <Field label="Plausibilität" value={d.plausibilitaet || ''} onChange={set('damages.plausibilitaet')} />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -877,180 +1328,343 @@ function RechnungPanel({ draft, set }) {
   );
 }
 
-function KalkulationPanel({ draft, set }) {
-  const k = draft.calculation;
+// ─── Kalkulation yardımcıları (AutoiXpert tarzı düzen) ──────────────────
+const fmtEur = (n) => Number(n || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const numOf = (v) => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? 0 : n; };
 
-  const num = (v) => {
-    const n = parseFloat(String(v).replace(',', '.'));
-    return isNaN(n) ? 0 : n;
-  };
-  const fmt = (n) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  // Otomatik hesap: işçilik + boya + parça + ek = net; net * (1 + vat) = brüt
-  const laborTotal = num(k.laborHours) * num(k.laborCostPerHour);
-  const partsBase = num(k.sparePartsNet);
-  const partsSurcharge = partsBase * (num(k.sparePartsSurcharge) / 100);
-  const smallParts = partsBase * (num(k.smallParts) / 100);
-  const computedNet = laborTotal + num(k.paintCostNet) + partsBase + partsSurcharge + smallParts;
-  const computedGross = computedNet * (1 + num(k.vatRate) / 100);
-
-  const addItem = () => {
-    set('calculation.items')([...(k.items || []), { id: Date.now(), name: '', qty: 1, unitPrice: '' }]);
-  };
-  const updateItem = (id, key, val) => {
-    set('calculation.items')((k.items || []).map((it) => it.id === id ? { ...it, [key]: val } : it));
-  };
-  const removeItem = (id) => {
-    set('calculation.items')((k.items || []).filter((it) => it.id !== id));
-  };
-  const itemsTotal = (k.items || []).reduce((sum, it) => sum + num(it.qty) * num(it.unitPrice), 0);
-
+function KalkSectionCard({ title, action, children }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-      {/* SOL — Sağlayıcı + İşçilik/Parça/Boya */}
-      <div className="space-y-5">
-        <Card title="Hesaplama Sağlayıcısı" icon="🧮">
-          <div className="grid grid-cols-2 gap-2">
-            {CALC_PROVIDERS.map((p) => {
-              const isActive = k.provider === p.key;
-              return (
-                <button key={p.key} onClick={() => set('calculation.provider')(p.key)}
-                  className="flex flex-col items-center justify-center p-3 rounded-xl transition"
-                  style={{
-                    background: isActive ? `${C.neon}15` : 'rgba(0,0,0,0.04)',
-                    border: `2px solid ${isActive ? C.neon : C.border}`,
-                    color: isActive ? C.neon : C.text,
-                  }}>
-                  <span className="text-2xl mb-1">{p.icon}</span>
-                  <span className="text-[12px] font-semibold">{p.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          {k.provider === 'dat' && (
-            <p className="text-xs leading-relaxed pt-2" style={{ color: C.textDim }}>
-              DAT hesaplaması için hesap bilgileriniz tanımlı (kullanıcı: <strong style={{ color: C.text }}>geciroha</strong>,
-              müşteri no: <strong style={{ color: C.text }}>1346266</strong>). Canlı entegrasyon yakında.
-            </p>
-          )}
-        </Card>
+    <section className="rounded-xl"
+      style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+      <header className="px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: `1px solid ${C.border}` }}>
+        <h4 className="text-[11px] font-bold tracking-[0.20em] uppercase" style={{ color: C.textDim }}>{title}</h4>
+        {action}
+      </header>
+      <div className="p-4 space-y-3">{children}</div>
+    </section>
+  );
+}
 
-        <Card title="İşçilik" icon="🔧">
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="İşçilik Saati" value={k.laborHours} onChange={set('calculation.laborHours')} type="number" />
-            <Field label="Saat Ücreti (€)" value={k.laborCostPerHour} onChange={set('calculation.laborCostPerHour')} type="number" />
-          </div>
-          <div className="text-xs flex justify-between pt-1" style={{ color: C.textDim }}>
-            <span>İşçilik toplamı</span>
-            <strong style={{ color: C.text }}>{fmt(laborTotal)} €</strong>
-          </div>
-        </Card>
-
-        <Card title="Parça & Boya" icon="🧰">
-          <Field label="Parça Net (€)" value={k.sparePartsNet} onChange={set('calculation.sparePartsNet')} type="number" />
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Parça Marjı (%)" value={k.sparePartsSurcharge} onChange={set('calculation.sparePartsSurcharge')} type="number" />
-            <Field label="Küçük Parça (%)" value={k.smallParts} onChange={set('calculation.smallParts')} type="number" />
-          </div>
-          <Field label="Boya Net (€)" value={k.paintCostNet} onChange={set('calculation.paintCostNet')} type="number" />
-        </Card>
-      </div>
-
-      {/* ORTA — Pozisyonlar (manuel kalemler) */}
-      <div className="space-y-5">
-        <Card title="Pozisyonlar (manuel kalem)" icon="📑" action={
-          <button onClick={addItem}
-            className="text-xs font-semibold px-3 py-1.5 rounded-md transition"
-            style={{ background: C.neon, color: '#fff' }}>
-            + Ekle
-          </button>
-        }>
-          {(k.items || []).length === 0 && (
-            <p className="text-xs" style={{ color: C.textDim }}>
-              Henüz pozisyon eklenmedi. Yukarıdaki <strong>+ Ekle</strong> ile parça/iş kalemlerini girebilirsin.
-            </p>
-          )}
-          <div className="space-y-2">
-            {(k.items || []).map((it) => {
-              const total = num(it.qty) * num(it.unitPrice);
-              return (
-                <div key={it.id} className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-6">
-                    <Field label="Açıklama" value={it.name} onChange={(v) => updateItem(it.id, 'name', v)} />
-                  </div>
-                  <div className="col-span-2">
-                    <Field label="Adet" value={it.qty} onChange={(v) => updateItem(it.id, 'qty', v)} type="number" />
-                  </div>
-                  <div className="col-span-3">
-                    <Field label="Birim € (net)" value={it.unitPrice} onChange={(v) => updateItem(it.id, 'unitPrice', v)} type="number" />
-                  </div>
-                  <div className="col-span-1 flex items-center justify-end pb-2">
-                    <button onClick={() => removeItem(it.id)}
-                      className="w-8 h-8 rounded-md text-sm transition"
-                      style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#EF4444' }}
-                      aria-label="Sil">
-                      ✕
-                    </button>
-                  </div>
-                  <div className="col-span-12 flex justify-between text-[11px] -mt-1" style={{ color: C.textDim }}>
-                    <span>Satır toplamı</span>
-                    <strong style={{ color: C.text }}>{fmt(total)} €</strong>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {(k.items || []).length > 0 && (
-            <div className="pt-3 mt-1 flex justify-between text-sm border-t"
-              style={{ borderColor: C.border, color: C.text }}>
-              <span>Pozisyonlar toplamı</span>
-              <strong>{fmt(itemsTotal)} €</strong>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* SAĞ — Toplam, Wertminderung, Toplam Hasar */}
-      <div className="space-y-5">
-        <Card title="KDV & Toplam" icon="💶">
-          <Field label="KDV (%)" value={k.vatRate} onChange={set('calculation.vatRate')} type="number" />
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Onarım Net (€)" value={k.repairCostNet} onChange={set('calculation.repairCostNet')} type="number" placeholder={fmt(computedNet)} />
-            <Field label="Onarım Brüt (€)" value={k.repairCostGross} onChange={set('calculation.repairCostGross')} type="number" placeholder={fmt(computedGross)} />
-          </div>
-          <div className="rounded-lg p-3 mt-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
-            <div className="flex justify-between text-xs" style={{ color: C.textDim }}>
-              <span>Hesaplanan Net</span>
-              <strong style={{ color: C.text }}>{fmt(computedNet)} €</strong>
-            </div>
-            <div className="flex justify-between text-xs mt-1" style={{ color: C.textDim }}>
-              <span>Hesaplanan Brüt</span>
-              <strong style={{ color: C.text }}>{fmt(computedGross)} €</strong>
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Değerleme" icon="📊">
-          <Field label="İkame Değeri (€)" value={k.replacementValue} onChange={set('calculation.replacementValue')} type="number" placeholder="Wiederbeschaffungswert" />
-          <Field label="Kalıntı Değeri (€)" value={k.residualValue} onChange={set('calculation.residualValue')} type="number" placeholder="Restwert" />
-          <Field label="Değer Kaybı (€)" value={k.devaluation} onChange={set('calculation.devaluation')} type="number" placeholder="Wertminderung" />
-          <Field label="Onarım Süresi (gün)" value={k.repairDuration} onChange={set('calculation.repairDuration')} type="number" />
-          <div className="pt-1 space-y-2">
-            <Checkbox label="Toplam hasar (Totalschaden)" checked={k.isTotalLoss} onChange={set('calculation.isTotalLoss')} />
-            <Checkbox label="Ekonomik toplam hasar" checked={k.isEconomicTotalLoss} onChange={set('calculation.isEconomicTotalLoss')} />
-          </div>
-        </Card>
-
-        <Card title="Hesaplama Notları" icon="📝">
-          <Textarea label="Notlar" value={k.notes} onChange={set('calculation.notes')} rows={4}
-            placeholder="Ek açıklamalar, fee tablosu seçimi, sigorta yaklaşımı, vb." />
-        </Card>
+// İnce yatay alan: sol etiket / sağ değer (€/Tage). Tıklanabilir input.
+function InlineInput({ label, value, onChange, suffix = '€', type = 'number', placeholder = '' }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs flex-1" style={{ color: C.textDim }}>{label}</span>
+      <div className="flex items-center gap-1.5 min-w-0" style={{ minWidth: 130 }}>
+        <input
+          type={type}
+          value={value ?? ''}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full text-right text-sm outline-none px-2 py-1 rounded-md"
+          style={{ background: 'transparent', borderBottom: `1px solid ${C.border}`, color: C.text }}
+        />
+        {suffix && <span className="text-xs" style={{ color: C.textDim }}>{suffix}</span>}
       </div>
     </div>
   );
 }
 
+// Etiket altında dropdown
+function InlineSelect({ label, value, onChange, options }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[10px] tracking-[0.10em] uppercase" style={{ color: C.textDim }}>{label}</span>
+      <select value={value || ''} onChange={(e) => onChange(e.target.value)}
+        className="px-2 py-1.5 rounded-md text-sm outline-none cursor-pointer"
+        style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}`, color: C.text }}>
+        {options.map((o) => (
+          <option key={typeof o === 'string' ? o : o.value} value={typeof o === 'string' ? o : o.value}>
+            {typeof o === 'string' ? o : o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// Marktwert / Restwert satırı
+function ProviderRow({ name, brand, status, onOpen, onMore }) {
+  const dotColor = status === 'active' ? '#3B82F6' : status === 'done' ? '#10B981' : C.border;
+  return (
+    <div className="flex items-center justify-between py-1.5">
+      <div className="flex items-center gap-2 min-w-0">
+        {brand && <span className="text-[11px] font-bold" style={{ color: brand.color || C.text }}>{brand.label}</span>}
+        <span className="text-sm truncate" style={{ color: C.text }}>{name}</span>
+        <span className="w-1.5 h-1.5 rounded-full" style={{ background: dotColor }} />
+      </div>
+      <div className="flex items-center gap-1">
+        <button onClick={onOpen} className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-black/5"
+          aria-label="Aç" style={{ color: C.textDim }}>↗</button>
+        <button onClick={onMore} className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-black/5"
+          aria-label="Daha fazla" style={{ color: C.textDim }}>⋮</button>
+      </div>
+    </div>
+  );
+}
+
+function KalkulationPanel({ draft, set }) {
+  const k = draft.calculation;
+
+  // Toplamlar
+  const repairCostGross = numOf(k.repairCostGross) || (numOf(k.repairCostNet) * (1 + numOf(k.vatRate) / 100));
+  const repairCostNet = numOf(k.repairCostNet);
+  const abzuegeNFA = numOf(k.abzuegeNeuFuerAlt);
+  const sumNet = repairCostNet - abzuegeNFA;
+  const sumGross = repairCostGross - abzuegeNFA * (1 + numOf(k.vatRate) / 100);
+
+  // İlerleme barı: WBW ↔ RK oranı
+  const wbw = numOf(k.replacementValue);
+  const rk = repairCostGross;
+  const rkPct = wbw > 0 ? Math.min(100, (rk / wbw) * 100) : 0;
+
+  const ws = k.workshop || {};
+  const setWorkshop = (key) => (v) => set('calculation.workshop')({ ...ws, [key]: v });
+
+  const lou = k.lossOfUse || {};
+  const setLou = (key) => (v) => set('calculation.lossOfUse')({ ...lou, [key]: v });
+
+  const NICHT_ERF = ['nicht erforderlich', 'erforderlich'];
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* ─── SOL: Werkstatt ─── */}
+      <div className="space-y-4">
+        <KalkSectionCard title="Werkstatt">
+          <Checkbox label="DEKRA-Sätze verwenden"
+            checked={!!k.useDekraRates}
+            onChange={set('calculation.useDekraRates')} />
+          <div className="flex items-center gap-2 text-sm" style={{ color: C.text }}>
+            <span style={{ color: '#3B82F6' }}>📍</span>
+            <span className="font-medium">{ws.name || '—'}</span>
+            <span style={{ color: C.textDim }}>{ws.zip || ''}</span>
+          </div>
+          <div className="space-y-2 pt-1">
+            <InlineInput label="Mechanik"   value={ws.mechanik}   onChange={setWorkshop('mechanik')}   suffix="€" />
+            <InlineInput label="Karosserie" value={ws.karosserie} onChange={setWorkshop('karosserie')} suffix="€" />
+            <InlineInput label="Lackiohn"   value={ws.lackiohn}   onChange={setWorkshop('lackiohn')}   suffix="€" />
+          </div>
+          <button type="button"
+            className="text-[11px] underline mt-1"
+            style={{ color: C.textDim }}>
+            Weitere Kostensätze ablegen
+          </button>
+        </KalkSectionCard>
+      </div>
+
+      {/* ─── ORTA: Kalkulation, Marktwert, Nutzungsausfall ─── */}
+      <div className="space-y-4">
+        <KalkSectionCard title="Kalkulation"
+          action={
+            <button type="button" className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-black/5"
+              style={{ color: C.textDim }} aria-label="Düzenle">✎</button>
+          }>
+          <div className="flex items-center justify-between text-sm">
+            <span style={{ color: C.textDim }}>Reparaturkosten</span>
+            <strong style={{ color: C.text }}>{fmtEur(repairCostGross)} €</strong>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span style={{ color: C.textDim }}>Abzüge Neu-für-alt</span>
+            <strong style={{ color: C.text }}>{fmtEur(abzuegeNFA)} €</strong>
+          </div>
+          <div className="border-t pt-2" style={{ borderColor: C.border }}>
+            <div className="flex items-center justify-between text-sm">
+              <span style={{ color: C.text, fontWeight: 600 }}>Summe</span>
+              <strong style={{ color: C.text }}>{fmtEur(sumGross)} €</strong>
+            </div>
+            <div className="flex items-center justify-between text-[11px] mt-0.5" style={{ color: C.textDim }}>
+              <span>netto</span>
+              <span>{fmtEur(sumNet)} €</span>
+            </div>
+          </div>
+          <div className="rounded-lg p-2.5 text-center"
+            style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: C.textDim }}>Reparaturkosten</p>
+            <p className="text-xl font-bold mt-0.5" style={{ color: '#0EA5E9' }}>{fmtEur(repairCostGross)} €</p>
+            <p className="text-[11px]" style={{ color: C.textDim }}>{fmtEur(repairCostGross * 0.84)} €</p>
+          </div>
+        </KalkSectionCard>
+
+        <KalkSectionCard title="Marktwert">
+          {(k.marketSources || []).map((s) => (
+            <ProviderRow key={s.id} name={s.name} status={s.status} />
+          ))}
+          <button type="button" className="text-xs flex items-center gap-1 pt-1" style={{ color: C.neon }}>
+            + Eigene Recherche
+          </button>
+        </KalkSectionCard>
+
+        <KalkSectionCard title="Nutzungsausfall">
+          <div className="grid grid-cols-2 gap-2">
+            <InlineSelect label="Ausfallgruppe" value={lou.group} onChange={setLou('group')}
+              options={['A','B','C','D','E','F','G','H','I','J','K','L']} />
+            <InlineInput label="Kosten pro Tag" value={lou.costPerDay} onChange={setLou('costPerDay')} suffix="€" />
+          </div>
+          <InlineSelect label="Mietwagenklasse" value={lou.vehicleClass} onChange={setLou('vehicleClass')}
+            options={['1 - Kleinstwagen','2 - Kleinwagen','3 - Kompaktklasse','4 - Mittelklasse','5 - Obere Mittelklasse','6 - Oberklasse']} />
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <InlineInput label="Reparaturdauer" value={lou.repairDays} onChange={setLou('repairDays')} suffix="Tage" type="text" />
+            <InlineInput label="Wiederbeschaffungsdauer" value={lou.replacementDays} onChange={setLou('replacementDays')} suffix="Tage" />
+          </div>
+        </KalkSectionCard>
+      </div>
+
+      {/* ─── SAĞ: Restwert, Fahrzeugwert, Reparatur ─── */}
+      <div className="space-y-4">
+        <KalkSectionCard title="Restwert"
+          action={
+            <button type="button" className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-black/5"
+              style={{ color: C.textDim }} aria-label="Liste">≡</button>
+          }>
+          <div className="flex items-center gap-2 text-[11px] flex-wrap" style={{ color: C.textDim }}>
+            <span>📅 {new Date().toLocaleDateString('de-DE')}</span>
+            <span>· {new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+            <span>· 📍 {ws.zip || ''}</span>
+          </div>
+          {(k.residualSources || []).map((s) => (
+            <ProviderRow key={s.id} name={s.name} status={s.status} />
+          ))}
+        </KalkSectionCard>
+
+        <KalkSectionCard title="Fahrzeugwert"
+          action={
+            <button type="button" className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-black/5"
+              style={{ color: C.textDim }} aria-label="Daha fazla">⋮</button>
+          }>
+          <div className="grid grid-cols-2 gap-2 items-end">
+            <InlineInput label="Wiederbeschaffungswert" value={k.replacementValue} onChange={set('calculation.replacementValue')} suffix="€" />
+            <InlineSelect label="Steuersatz" value={k.replacementTaxRate} onChange={set('calculation.replacementTaxRate')}
+              options={['Neutral','19%','7%','0%']} />
+          </div>
+          <div className="pt-1 space-y-1">
+            <InlineInput label="Restwert"               value={k.residualValue}          onChange={set('calculation.residualValue')}          suffix="€" />
+            <InlineInput label="Merkantiler Minderwert" value={k.merkantilerMinderwert}   onChange={set('calculation.merkantilerMinderwert')}  suffix="€" />
+            <InlineInput label="Technischer Minderwert" value={k.technischerMinderwert}   onChange={set('calculation.technischerMinderwert')}  suffix="€" />
+            <InlineInput label="Wertverbesserung"       value={k.wertverbesserung}        onChange={set('calculation.wertverbesserung')}       suffix="€" />
+          </div>
+          <button type="button" className="text-xs" style={{ color: C.neon }}>
+            + Sonderkosten
+          </button>
+
+          {/* WBW & RK ilerleme barları */}
+          <div className="space-y-2 pt-2">
+            <div>
+              <div className="flex items-center justify-between text-[10px] mb-1" style={{ color: C.textDim }}>
+                <span>WBW</span><span>{fmtEur(wbw)} €</span>
+              </div>
+              <div className="h-1 rounded-full" style={{ background: 'rgba(14,165,233,0.6)' }} />
+            </div>
+            <div>
+              <div className="flex items-center justify-between text-[10px] mb-1" style={{ color: C.textDim }}>
+                <span>RK</span><span>{rkPct.toFixed(0)}% · {fmtEur(rk)} €</span>
+              </div>
+              <div className="h-1 rounded-full" style={{ background: 'rgba(14,165,233,0.15)' }}>
+                <div className="h-1 rounded-full" style={{ width: `${rkPct}%`, background: '#0EA5E9' }} />
+              </div>
+            </div>
+          </div>
+
+          <InlineSelect label="Schadenklasse" value={k.damageClass} onChange={set('calculation.damageClass')}
+            options={['Reparaturschaden','wirtschaftlicher Totalschaden','Totalschaden','Bagatellschaden']} />
+          <Checkbox label="Fiktive Abrechnung"
+            checked={!!k.fictiveAccounting}
+            onChange={set('calculation.fictiveAccounting')} />
+        </KalkSectionCard>
+
+        <KalkSectionCard title="Reparatur">
+          <InlineSelect label="Achsvermessung"        value={k.achsvermessung}        onChange={set('calculation.achsvermessung')}        options={NICHT_ERF} />
+          <InlineSelect label="Karosserievermessung"  value={k.karosserievermessung}  onChange={set('calculation.karosserievermessung')}  options={NICHT_ERF} />
+          <InlineSelect label="Beilackierung"          value={k.beilackierung}         onChange={set('calculation.beilackierung')}         options={NICHT_ERF} />
+          <Textarea label="Kommentar Beilackierung" rows={2}
+            value={k.beilackierungComment} onChange={set('calculation.beilackierungComment')} />
+          <Checkbox label="Kunststoffreparatur"
+            checked={!!k.kunststoffreparatur}
+            onChange={set('calculation.kunststoffreparatur')} />
+          <Field label="Reparaturweg" value={k.reparaturweg} onChange={set('calculation.reparaturweg')} />
+          <Field label="Risiken"      value={k.risiken}      onChange={set('calculation.risiken')} />
+        </KalkSectionCard>
+      </div>
+    </div>
+  );
+}
+
+// AdminReportEditor'da kullanılan field isimleri ile FahrzeugauswahlPanel'in
+// beklediği AutoiXpert isimleri arasında bidirectional mapping.
+const VEHICLE_FIELD_MAP = {
+  // panel-key            → editor-key
+  vin: 'vin',
+  vinChecked: 'vinVerified',
+  dateCode: 'datCode',
+  marktindex: 'marketIndex',
+  hersteller: 'manufacturer',
+  haupttyp: 'mainType',
+  untertyp: 'subType',
+  kba: 'kbaCode',
+  kw: 'powerKw',
+  ps: 'powerPs',
+  motorbauart: 'engineConfig',
+  zylinder: 'cylinders',
+  getriebe: 'transmission',
+  hubraum: 'displacement',
+  baujahr: 'yearOfManufacture',
+  erstzulassung: 'firstRegistration',
+  letzteZulassung: 'lastRegistration',
+  quelle: 'technicalDataSource',
+  fahrzeugart: 'shape',
+  motorart: 'engineType',
+  achsen: 'axles',
+  angetriebeneAchsen: 'poweredAxles',
+  tueren: 'doors',
+  sitze: 'seats',
+  vorbesitzer: 'previousOwners',
+};
+
+// Önceki sahip — panel ↔ editor değer çevirimi (Mehrere/Unbekannt ↔ multiple/unknown)
+const PREVOWNER_PANEL_TO_EDITOR = { Mehrere: 'multiple', Unbekannt: 'unknown' };
+const PREVOWNER_EDITOR_TO_PANEL = { multiple: 'Mehrere', unknown: 'Unbekannt' };
+
+function vehicleEditorToPanel(v) {
+  if (!v) return {};
+  const out = {};
+  Object.entries(VEHICLE_FIELD_MAP).forEach(([panelKey, editorKey]) => {
+    out[panelKey] = v[editorKey];
+  });
+  // Önceki sahip değer çevirimi
+  if (typeof out.vorbesitzer === 'string' && PREVOWNER_EDITOR_TO_PANEL[out.vorbesitzer]) {
+    out.vorbesitzer = PREVOWNER_EDITOR_TO_PANEL[out.vorbesitzer];
+  }
+  return out;
+}
+
 function FahrzeugPanel({ draft, set }) {
+  // Panel-format vehicle objesi (editor-format'tan dönüştürülmüş)
+  const panelVehicle = useMemo(() => vehicleEditorToPanel(draft.vehicle), [draft.vehicle]);
+
+  // Panel'den gelen değişiklikleri editor-format'a geri çevir ve set'i çağır
+  const handlePanelChange = (next) => {
+    Object.entries(VEHICLE_FIELD_MAP).forEach(([panelKey, editorKey]) => {
+      const oldVal = panelVehicle[panelKey];
+      let newVal = next[panelKey];
+      if (oldVal === newVal) return;
+      // Önceki sahip — panel'den gelen Mehrere/Unbekannt → multiple/unknown
+      if (panelKey === 'vorbesitzer' && typeof newVal === 'string' && PREVOWNER_PANEL_TO_EDITOR[newVal]) {
+        newVal = PREVOWNER_PANEL_TO_EDITOR[newVal];
+      }
+      set(`vehicle.${editorKey}`)(newVal);
+    });
+  };
+
+  return (
+    <div style={{ padding: '4px 0' }}>
+      <FahrzeugauswahlPanel vehicle={panelVehicle} onChange={handlePanelChange} />
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Eski FahrzeugPanel (yedek) — kaldırılan kod aşağıdaki sahte fonksiyonda
+// referans amaçlı tutulmuyor; gerekirse git history'den geri alınır.
+function _LegacyFahrzeugPanelDeleted({ draft, set }) {
   const v = draft.vehicle;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -1201,9 +1815,14 @@ function FahrzeugPanel({ draft, set }) {
   );
 }
 
-export default function AdminReportEditor({ db } = {}) {
+export default function AdminReportEditor({ db, initialDraftOverride } = {}) {
   const [step, setStep] = useState('beteiligte');
-  const [draft, setDraft] = useState(initialDraft);
+  // Agent ile gelen draft varsa onu kullan; yoksa boş initialDraft.
+  // Deep merge: override'da olmayan alanlar default'tan korunur.
+  const [draft, setDraft] = useState(() => {
+    if (!initialDraftOverride) return initialDraft;
+    return mergeDraft(initialDraft, initialDraftOverride);
+  });
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [vehiclePicker, setVehiclePicker] = useState(null); // { vehicles, customer }
@@ -1517,10 +2136,12 @@ export default function AdminReportEditor({ db } = {}) {
 
       {step === 'fahrzeug' && <FahrzeugPanel draft={draft} set={set} />}
       {step === 'zustand' && <ZustandPanel draft={draft} set={set} />}
+      {step === 'fotos' && <FotosPanel selectedCustomer={selectedCustomer} selectedVehicle={selectedVehicle} customerVehicles={selectedCustomerVehicles} />}
       {step === 'kalkulation' && <KalkulationPanel draft={draft} set={set} />}
       {step === 'rechnung' && <RechnungPanel draft={draft} set={set} />}
+      {step === 'druck' && <DruckVersandPanel draft={draft} set={set} />}
 
-      {step !== 'beteiligte' && step !== 'fahrzeug' && step !== 'zustand' && step !== 'kalkulation' && step !== 'rechnung' && (
+      {step !== 'beteiligte' && step !== 'fahrzeug' && step !== 'zustand' && step !== 'fotos' && step !== 'kalkulation' && step !== 'rechnung' && step !== 'druck' && (
         <div className="rounded-2xl p-10 text-center"
           style={{ background: C.surface, border: `1px dashed ${C.border}`, color: C.textDim }}>
           <div className="text-3xl mb-3">🚧</div>

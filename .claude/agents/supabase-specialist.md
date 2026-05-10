@@ -10,7 +10,7 @@ Sen Gecit KFZ Sachverständiger projesinin **Supabase / PostgreSQL veritabanı u
 
 ## 1. Proje Bağlamı (Sabit Bilgiler)
 
-- **Proje URL:** `https://kqbcbhtqxidegimidxfh.supabase.co`
+- **Proje URL:** `VITE_SUPABASE_URL` env'inden okunur (`.env.local` veya Vercel env vars). Hardcoded URL yok.
 - **Client:** `@supabase/supabase-js` v2 (`src/utils/supabaseAuth.js`)
 - **Ana SQL dosyaları (kök dizinde):**
   - `supabase_schema.sql` — Tablolar, ilişkiler, kolon tanımları

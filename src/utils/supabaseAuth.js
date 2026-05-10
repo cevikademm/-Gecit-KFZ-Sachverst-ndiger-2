@@ -4,8 +4,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const DEFAULT_SUPABASE_URL = 'https://kqbcbhtqxidegimidxfh.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxYmNiaHRxeGlkZWdpbWlkeGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NTMwMDIsImV4cCI6MjA5MzEyOTAwMn0.cauDwrs0bZCEwmWifU2nFRK0O_ooOaJA5-TSEgs13sY';
+// Silinmiş eski Supabase projeleri — localStorage cache veya stale env'de
+// kalmış olabilirler. isValidUrl/isValidKey bunları reddeder + cache scrub edilir.
+const DEAD_PROJECT_REFS = ['kqbcbhtqxidegimidxfh'];
 
 const ENV_SUPABASE_URL = (import.meta.env?.VITE_SUPABASE_URL || '').trim();
 const ENV_SUPABASE_ANON_KEY = (import.meta.env?.VITE_SUPABASE_ANON_KEY || '').trim();
@@ -14,31 +15,50 @@ function readLocalStorage(key) {
   try { return localStorage.getItem(key); } catch (e) { return null; }
 }
 
-// localStorage/env'de bozuk veya placeholder değer varsa yoksay, default'a düş.
+function removeLocalStorage(key) {
+  try { localStorage.removeItem(key); } catch (e) {}
+}
+
+// localStorage/env'de bozuk, placeholder veya silinmiş proje değeri varsa yoksay.
 // Case-insensitive: 'YOUR_PROJECT', 'your-project', 'your_project' vb. hepsi yakalanır.
+const containsDeadRef = (v) => typeof v === 'string' && DEAD_PROJECT_REFS.some((ref) => v.includes(ref));
 const isValidUrl = (v) => typeof v === 'string'
   && v.startsWith('https://')
   && !/your[-_]?project/i.test(v)
-  && v.includes('.supabase.co');
+  && v.includes('.supabase.co')
+  && !containsDeadRef(v);
 const isValidKey = (v) => typeof v === 'string'
   && v.length > 30
   && !v.includes('...')
-  && !/eyJhbGc\.\.\./i.test(v);
+  && !/eyJhbGc\.\.\./i.test(v)
+  && !containsDeadRef(v);
 
-const _lsUrl = readLocalStorage('gecit_kfz_supabase_url');
-const _lsKey = readLocalStorage('gecit_kfz_supabase_key');
+let _lsUrl = readLocalStorage('gecit_kfz_supabase_url');
+let _lsKey = readLocalStorage('gecit_kfz_supabase_key');
+
+// Silinmiş eski projenin localStorage cache'i varsa scrub et — yeni env'e bağlanılsın.
+if (containsDeadRef(_lsUrl) || containsDeadRef(_lsKey)) {
+  removeLocalStorage('gecit_kfz_supabase_url');
+  removeLocalStorage('gecit_kfz_supabase_key');
+  _lsUrl = null;
+  _lsKey = null;
+}
 
 const SUPABASE_CONFIG = {
-  url: (isValidUrl(_lsUrl) && _lsUrl) || (isValidUrl(ENV_SUPABASE_URL) && ENV_SUPABASE_URL) || DEFAULT_SUPABASE_URL,
-  anonKey: (isValidKey(_lsKey) && _lsKey) || (isValidKey(ENV_SUPABASE_ANON_KEY) && ENV_SUPABASE_ANON_KEY) || DEFAULT_SUPABASE_ANON_KEY,
+  url: (isValidUrl(_lsUrl) && _lsUrl) || (isValidUrl(ENV_SUPABASE_URL) && ENV_SUPABASE_URL) || '',
+  anonKey: (isValidKey(_lsKey) && _lsKey) || (isValidKey(ENV_SUPABASE_ANON_KEY) && ENV_SUPABASE_ANON_KEY) || '',
 };
 
 let _client = null;
+let _warned = false;
 
 export function getSupabaseClient() {
   if (_client) return _client;
   if (!isValidUrl(SUPABASE_CONFIG.url) || !isValidKey(SUPABASE_CONFIG.anonKey)) {
-    console.error('[supabaseAuth] config invalid:', { url: SUPABASE_CONFIG.url, keyLen: SUPABASE_CONFIG.anonKey?.length });
+    if (!_warned) {
+      console.error('[supabaseAuth] VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY tanımlı değil — .env.local veya Vercel env vars üzerinden ayarlayın.');
+      _warned = true;
+    }
     return null;
   }
   _client = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {

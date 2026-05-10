@@ -135,8 +135,12 @@ export default function AdminAutoiXpert({ mode = 'admin' }) {
       .select('*')
       .eq('id', record.id)
       .maybeSingle();
-    if (!error && full) {
+    if (error) {
+      console.error('[AdminAutoiXpert] detay sorgu HATASI:', error.code, error.message, error.details);
+    } else if (full) {
       setDetail(full); // tam veriyle güncelle (raw_payload dahil)
+    } else {
+      console.warn('[AdminAutoiXpert] detay null döndü, id:', record.id);
     }
   };
 
@@ -161,9 +165,13 @@ export default function AdminAutoiXpert({ mode = 'admin' }) {
         </p>
       </div>
 
-      {/* Module quick stats / nav */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        {MODULES.map((m) => {
+      {/* Modül sekme barı — Rapor Düzenleyici stili (numaralı, yatay, kırmızı pill).
+          Sayım rozeti veri modüllerinde, "bald" işaretçisi placeholder modüllerde. */}
+      <nav
+        className="rounded-2xl p-2 flex items-center gap-1 overflow-x-auto mb-6"
+        style={{ background: C.surface, border: `1px solid ${C.border}` }}
+      >
+        {MODULES.map((m, i) => {
           const isActive = activeModule === m.key;
           const count = m.kind === 'data' ? counts[m.key] : null;
           return (
@@ -171,36 +179,49 @@ export default function AdminAutoiXpert({ mode = 'admin' }) {
               key={m.key}
               type="button"
               onClick={() => setActiveModule(m.key)}
-              className="text-left rounded-xl p-3 transition-all"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition"
               style={{
-                background: isActive ? `${C.neon}10` : 'rgba(0,0,0,0.04)',
-                border: `1px solid ${isActive ? C.neon : C.border}`,
+                background: isActive ? C.neon : 'transparent',
+                color: isActive ? '#fff' : C.textDim,
               }}
             >
-              <div className="text-xl mb-1">{m.emoji}</div>
-              <div className="text-xs font-semibold" style={{ color: C.text }}>
-                {m.label}
-              </div>
-              <div className="text-[10px] mt-0.5" style={{ color: C.textDim }}>
-                {m.subtitle}
-              </div>
-              {count !== null && (
-                <div className="text-base font-bold font-mono mt-2" style={{ color: C.text }}>
+              <span
+                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
+                style={{
+                  background: isActive ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.06)',
+                  color: isActive ? '#fff' : C.text,
+                }}
+              >
+                {i + 1}
+              </span>
+              {m.label}
+              {count !== null && count !== undefined && (
+                <span
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                  style={{
+                    background: isActive ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.06)',
+                    color: isActive ? '#fff' : C.textDim,
+                  }}
+                >
                   {count}
-                </div>
+                </span>
               )}
               {m.kind === 'placeholder' && (
-                <div
-                  className="text-[10px] mt-2 inline-block px-2 py-0.5 rounded-full"
-                  style={{ background: 'rgba(0,0,0,0.05)', color: C.textDim }}
+                <span
+                  className="text-[9px] uppercase px-1.5 py-0.5 rounded"
+                  style={{
+                    background: isActive ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)',
+                    color: isActive ? '#fff' : C.textDim,
+                    letterSpacing: '0.08em',
+                  }}
                 >
-                  bald verfügbar
-                </div>
+                  bald
+                </span>
               )}
             </button>
           );
         })}
-      </div>
+      </nav>
 
       {/* Section content */}
       {activeMod?.kind === 'placeholder' && (

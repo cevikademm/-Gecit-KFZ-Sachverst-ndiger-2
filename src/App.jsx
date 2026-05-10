@@ -18,15 +18,17 @@ import {
   PaletteIcon, EditIcon, EyeIcon, FolderIcon, ImageIcon, PinIcon, MessageIcon,
   CheckSquare, HashIcon, QrCodeIcon, ClipboardIcon, ScaleIcon, ShieldIcon, UserPlusIcon, StarIcon,
   TrashIcon, GlobeIcon, InfinityIcon, UsersGroupIcon, RadioTowerIcon, FolderCheckIcon,
-  CameraIcon, GridIcon, MaximizeIcon,
+  CameraIcon, GridIcon, ListIcon, MaximizeIcon, MoreVertical,
 } from './components/icons.jsx';
 // Landing (homepage) tamamen izole — src/pages/Landing.jsx
 import Landing from './pages/Landing.jsx';
 import { GecitKfzModal } from './components/Modal.jsx';
 import { RuhsatPanel } from './components/RuhsatPanel.jsx';
 import AdminAutoiXpert from './components/AdminAutoiXpert.jsx';
+import GutachtenWorkbench from './components/GutachtenWorkbench.jsx';
 import AdminReportCreate from './components/AdminReportCreate.jsx';
 import CommunicationsPanel from './components/CommunicationsPanel.jsx';
+import PhotoEditor from './components/PhotoEditor.jsx';
 import { parseRuhsatMock } from './utils/ruhsatParser.js';
 import { useLang } from './i18n/LangContext.jsx';
 
@@ -1305,36 +1307,50 @@ const DB_KEY = 'gecit_kfz_db_v6';
 //       'live'  = Supabase (production)
 // Tek switch ile canlıya geç: GECIT_KFZ_MODE = 'live'
 // ═══════════════════════════════════════════════════════
-// Varsayılan Supabase bağlantısı (env yoksa hardcoded fallback kullanılır)
-const DEFAULT_SUPABASE_URL = 'https://kqbcbhtqxidegimidxfh.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxYmNiaHRxeGlkZWdpbWlkeGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NTMwMDIsImV4cCI6MjA5MzEyOTAwMn0.cauDwrs0bZCEwmWifU2nFRK0O_ooOaJA5-TSEgs13sY';
+// Supabase bağlantısı: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY env vars
+// veya Ayarlar > Veri Kaynagi sekmesinden gelen localStorage override.
+// Env yoksa app otomatik 'local' moda düşer.
+
+// Silinmiş eski Supabase projeleri — stale localStorage/env reddi için.
+const DEAD_PROJECT_REFS = ['kqbcbhtqxidegimidxfh'];
 
 const ENV_SUPABASE_URL = (import.meta.env?.VITE_SUPABASE_URL || '').trim();
 const ENV_SUPABASE_ANON_KEY = (import.meta.env?.VITE_SUPABASE_ANON_KEY || '').trim();
 
-// localStorage/env'de bozuk veya placeholder değer varsa yoksay, default'a düş.
+// localStorage/env'de bozuk, placeholder veya silinmiş proje değeri varsa yoksay.
 // Case-insensitive: 'YOUR_PROJECT', 'your-project', 'your_project' vb. hepsi yakalanır.
+const containsDeadRef = (v) => typeof v === 'string' && DEAD_PROJECT_REFS.some((ref) => v.includes(ref));
 const isValidUrl = (v) => typeof v === 'string'
   && v.startsWith('https://')
   && !/your[-_]?project/i.test(v)
-  && v.includes('.supabase.co');
+  && v.includes('.supabase.co')
+  && !containsDeadRef(v);
 const isValidKey = (v) => typeof v === 'string'
   && v.length > 30
   && !v.includes('...')
-  && !/eyJhbGc\.\.\./i.test(v);
+  && !/eyJhbGc\.\.\./i.test(v)
+  && !containsDeadRef(v);
 
-const _lsUrl = (() => { try { return localStorage.getItem('gecit_kfz_supabase_url'); } catch (e) { return null; } })();
-const _lsKey = (() => { try { return localStorage.getItem('gecit_kfz_supabase_key'); } catch (e) { return null; } })();
+let _lsUrl = (() => { try { return localStorage.getItem('gecit_kfz_supabase_url'); } catch (e) { return null; } })();
+let _lsKey = (() => { try { return localStorage.getItem('gecit_kfz_supabase_key'); } catch (e) { return null; } })();
+
+// Silinmiş eski projenin localStorage cache'i varsa scrub et — yeni env'e bağlanılsın.
+if (containsDeadRef(_lsUrl) || containsDeadRef(_lsKey)) {
+  try {
+    localStorage.removeItem('gecit_kfz_supabase_url');
+    localStorage.removeItem('gecit_kfz_supabase_key');
+  } catch (e) {}
+  _lsUrl = null;
+  _lsKey = null;
+}
 
 const SUPABASE_CONFIG = {
-  url: (isValidUrl(_lsUrl) && _lsUrl) || (isValidUrl(ENV_SUPABASE_URL) && ENV_SUPABASE_URL) || DEFAULT_SUPABASE_URL,
-  anonKey: (isValidKey(_lsKey) && _lsKey) || (isValidKey(ENV_SUPABASE_ANON_KEY) && ENV_SUPABASE_ANON_KEY) || DEFAULT_SUPABASE_ANON_KEY,
+  url: (isValidUrl(_lsUrl) && _lsUrl) || (isValidUrl(ENV_SUPABASE_URL) && ENV_SUPABASE_URL) || '',
+  anonKey: (isValidKey(_lsKey) && _lsKey) || (isValidKey(ENV_SUPABASE_ANON_KEY) && ENV_SUPABASE_ANON_KEY) || '',
 };
 
-// Env veya fallback ile geçerli bir URL/Key varsa otomatik canlı moda geç
-const HAS_VALID_SUPABASE = SUPABASE_CONFIG.url.startsWith('https://') &&
-  !SUPABASE_CONFIG.url.includes('YOUR_PROJECT') &&
-  SUPABASE_CONFIG.anonKey.length > 20;
+// Env'de geçerli URL/Key varsa otomatik canlı moda geç.
+const HAS_VALID_SUPABASE = isValidUrl(SUPABASE_CONFIG.url) && isValidKey(SUPABASE_CONFIG.anonKey);
 
 const GECIT_KFZ_MODE = localStorage.getItem('gecit_kfz_mode') || (HAS_VALID_SUPABASE ? 'live' : 'local');
 
@@ -1634,10 +1650,11 @@ async function uploadCustomerDocument(file, customerId, bucket = DOC_BUCKET) {
     if (sb) {
       const { error } = await sb.storage.from(bucket).upload(path, file, { upsert: false, contentType: file.type });
       if (!error) {
+        const isPublicBucket = bucket === PHOTO_BUCKET || bucket === 'gallery' || bucket === 'avatars';
         return {
           storage_path: path,
           storage_bucket: bucket,
-          public_url: bucket === PHOTO_BUCKET ? StorageService.getPublicUrl(bucket, path) : null,
+          public_url: isPublicBucket ? StorageService.getPublicUrl(bucket, path) : null,
           data: null,
           mime: file.type,
           size: file.size,
@@ -2117,13 +2134,18 @@ function saveDB(db) {
   }
 }
 
-// Base64 'data' alanlarını ve ruhsatData içindeki olası büyük blobları kaldır
+// Base64 'data' alanlarını kalıcılık güvencesiyle kaldır:
+// - storage_path veya url varsa → data zaten gereksiz (Supabase kaynak), her zaman düş
+// - aksi halde 50KB üstü base64'leri quota için strip et
 function stripBase64FromDb(db) {
   const stripDoc = (d) => {
     if (!d) return d;
     const out = { ...d };
-    if (typeof out.data === 'string' && out.data.startsWith('data:') && out.data.length > 50000) {
-      out.data = null; // çok büyük base64 — düş
+    const hasRemote = !!(out.storage_path || out.url || out.public_url);
+    if (typeof out.data === 'string' && out.data.startsWith('data:')) {
+      if (hasRemote || out.data.length > 50000) {
+        out.data = null;
+      }
     }
     return out;
   };
@@ -2185,16 +2207,16 @@ function diffTablesForSync(prev, next) {
 }
 
 // Supabase şemasındaki kolonlar — supabase_schema.sql ile birebir
-// Lokal kayıtlarda olabilen ama şemada olmayan alanlar (tuv_date, action,
-// target, baro vb.) UPSERT öncesi strip edilir.
+// Lokal kayıtlarda olabilen ama şemada olmayan alanlar (action, target,
+// baro vb.) UPSERT öncesi strip edilir.
 const KNOWN_COLUMNS = {
-  customers: ['id', 'full_name', 'company', 'email', 'phone', 'type', 'tax_id', 'address', 'city', 'country', 'notes', 'created_at', 'updated_at'],
-  vehicles: ['id', 'owner_id', 'plate', 'brand', 'model', 'year', 'chassis', 'km', 'color', 'fuel', 'hsn', 'tsn', 'first_reg', 'created_at'],
-  appraisals: ['id', 'vehicle_id', 'customer_id', 'status', 'date', 'expert', 'type', 'notes', 'result', 'total_value', 'damage_sum', 'created_at', 'updated_at'],
+  customers: ['id', 'full_name', 'company', 'email', 'phone', 'phone2', 'type', 'tax_id', 'tax_no', 'tax_office', 'address', 'street', 'zip', 'city', 'country', 'notes', 'autoixpert_contact_id', 'source', 'tc', 'birthdate', 'created_at', 'updated_at'],
+  vehicles: ['id', 'owner_id', 'plate', 'brand', 'model', 'year', 'chassis', 'km', 'color', 'fuel', 'hsn', 'tsn', 'first_reg', 'first_registration_date', 'performance_kw', 'shape', 'autoixpert_report_id', 'tuv_date', 'insurance_date', 'created_at'],
+  appraisals: ['id', 'vehicle_id', 'customer_id', 'status', 'date', 'expert', 'type', 'notes', 'result', 'total_value', 'damage_sum', 'autoixpert_report_id', 'report_token', 'report_type', 'source', 'created_at', 'updated_at'],
   paint_maps: ['vehicle_id', 'data', 'updated_at'],
   invoices: ['id', 'customer_id', 'appraisal_id', 'no', 'date', 'due_date', 'amount', 'tax', 'total', 'currency', 'status', 'items', 'pdf_path', 'created_at'],
   appointments: ['id', 'customer_id', 'name', 'email', 'phone', 'plate', 'service', 'date', 'time', 'status', 'notes', 'created_at'],
-  customer_documents: ['id', 'customer_id', 'vehicle_id', 'name', 'type', 'category', 'size', 'storage_path', 'data', 'mime', 'uploaded_at', 'uploaded_by', 'created_at'],
+  customer_documents: ['id', 'customer_id', 'vehicle_id', 'name', 'type', 'category', 'size', 'storage_path', 'storage_bucket', 'public_url', 'data', 'mime', 'uploaded_at', 'uploaded_by', 'created_at'],
   customer_notes: ['id', 'customer_id', 'text', 'author', 'created_at'],
   vehicle_notes: ['id', 'vehicle_id', 'text', 'author', 'created_at'],
   lawyers: ['id', 'name', 'email', 'phone', 'bar_number', 'password', 'active', 'created_at'],
@@ -2215,7 +2237,9 @@ const KNOWN_COLUMNS = {
   objection_templates: ['id', 'title', 'category', 'content', 'created_at'],
   file_flows: ['id', 'trigger', 'actions', 'label', 'active', 'created_at'],
   whatsapp_templates: ['id', 'name', 'message', 'trigger', 'active', 'created_at'],
-  gallery: ['id', 'vehicle_id', 'url', 'storage_path', 'caption', 'created_at'],
+  gallery: ['id', 'vehicle_id', 'url', 'storage_path', 'storage_bucket', 'public_url', 'data', 'caption', 'created_at',
+            'customer_id', 'lawyer_id', 'name', 'size', 'mime', 'note', 'tags',
+            'category', 'uploaded_at', 'uploaded_by', 'date'],
   reminders: ['id', 'text', 'due_date', 'done', 'priority', 'user_id', 'created_at'],
   live_feed: ['id', 'type', 'text', 'time', 'date', 'status', 'metadata', 'created_at'],
 };
@@ -2764,6 +2788,7 @@ function MobileBottomNav({ items, active, onChange, onHome, onLogout, primaryCou
 }
 
 function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mobileOpen, setMobileOpen }) {
+  const isPrimaryAdmin = (user?.email || '').trim().toLowerCase() === 'cevikademm@gmail.com';
   const items = [
     { key: 'home',         label: 'Ana Sayfa',           icon: LayoutDashboard },
     { key: 'live',         label: 'Canlı Dashboard',     icon: ActivityIcon },
@@ -2778,6 +2803,7 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
     { key: 'file_flows',    label: 'Dosya Akış Motoru',   icon: Zap },
     { key: 'whatsapp_tpl', label: 'WhatsApp Şablonları', icon: MessageIcon },
     { key: 'communications', label: 'İletişim & Davet',  icon: MailIcon },
+    ...(isPrimaryAdmin ? [{ key: 'autoixpert', label: 'AutoiXpert Spiegel', icon: Database }] : []),
     { key: 'activity_logs', label: 'Aktivite Logları',   icon: EyeIcon },
     { key: 'settings',     label: 'Ayarlar',             icon: SettingsIcon },
   ];
@@ -3185,12 +3211,64 @@ function AdminHome({ db, setSection }) {
   );
 }
 
+// ─── Plaka rozeti yardımcısı (Alman/TR plaka formatı) ──
+// "AC AI 88" → { prefix: 'AC', main: 'AI 88' }
+// "34 ABC 123" → { prefix: '34', main: 'ABC 123' }
+// "DN-QM-504" → { prefix: 'DN', main: 'QM 504' }
+function parsePlate(plate) {
+  if (!plate || typeof plate !== 'string') return null;
+  const cleaned = plate.trim().replace(/[-_]/g, ' ').replace(/\s+/g, ' ');
+  const parts = cleaned.split(' ');
+  if (parts.length < 2) return { prefix: cleaned.slice(0, 3).toUpperCase(), main: '' };
+  return { prefix: parts[0].toUpperCase(), main: parts.slice(1).join(' ').toUpperCase() };
+}
+
+// ─── Marka rengi sözlüğü (yuvarlak avatar için) ──
+const BRAND_COLORS = {
+  'mercedes': { bg: '#0F0F0F', fg: '#FFFFFF' },
+  'mercedes-benz': { bg: '#0F0F0F', fg: '#FFFFFF' },
+  'bmw': { bg: '#0066B1', fg: '#FFFFFF' },
+  'audi': { bg: '#BB0A30', fg: '#FFFFFF' },
+  'volkswagen': { bg: '#001E50', fg: '#FFFFFF' },
+  'vw': { bg: '#001E50', fg: '#FFFFFF' },
+  'ford': { bg: '#003478', fg: '#FFFFFF' },
+  'fiat': { bg: '#A20E0E', fg: '#FFFFFF' },
+  'smart': { bg: '#FFCC00', fg: '#1A1A1A' },
+  'opel': { bg: '#FFE600', fg: '#1A1A1A' },
+  'renault': { bg: '#FFCD00', fg: '#1A1A1A' },
+  'peugeot': { bg: '#1E2536', fg: '#FFFFFF' },
+  'toyota': { bg: '#EB0A1E', fg: '#FFFFFF' },
+  'honda': { bg: '#CC0000', fg: '#FFFFFF' },
+  'hyundai': { bg: '#002C5F', fg: '#FFFFFF' },
+  'kia': { bg: '#05141F', fg: '#FFFFFF' },
+  'nissan': { bg: '#C3002F', fg: '#FFFFFF' },
+  'mazda': { bg: '#101010', fg: '#FFFFFF' },
+  'porsche': { bg: '#0F0F0F', fg: '#D5001C' },
+  'tesla': { bg: '#CC0000', fg: '#FFFFFF' },
+  'skoda': { bg: '#0E3A2F', fg: '#FFFFFF' },
+  'seat': { bg: '#A4031F', fg: '#FFFFFF' },
+  'mini': { bg: '#000000', fg: '#FFFFFF' },
+};
+function brandStyle(brand) {
+  if (!brand) return { bg: 'rgba(0,0,0,0.06)', fg: '#9CA3AF' };
+  return BRAND_COLORS[brand.toLowerCase().trim()] || { bg: 'rgba(0,0,0,0.85)', fg: '#FFFFFF' };
+}
+
 // ─── Customer list view (bireysel / kurumsal) ──
 function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, currentUser }) {
   const [q, setQ] = useState('');
   const [newOpen, setNewOpen] = useState(false);
-  const [viewMode, setViewMode] = useState('grid');
+  // Liste varsayılan; kullanıcı isterse grid'e geçer (tercih localStorage'da kalır).
+  const [viewMode, setViewMode] = useState(() => {
+    try { return localStorage.getItem('gecit_kfz_customer_view') || 'list'; } catch (e) { return 'list'; }
+  });
+  const updateViewMode = (m) => {
+    setViewMode(m);
+    try { localStorage.setItem('gecit_kfz_customer_view', m); } catch (e) {}
+  };
   const [sortBy, setSortBy] = useState('recent');
+  // customerId → signed photo URL (autoixpert_photos için lazy batch)
+  const [photoUrlMap, setPhotoUrlMap] = useState(new Map());
 
   const isKurum = type === 'kurumsal';
   const accent = isKurum ? C.cyan : C.neon;
@@ -3233,6 +3311,97 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
     const vehicleIds = getCustomerVehicles(cid).map(v => v.id);
     return (db.appraisals || []).filter(a => vehicleIds.includes(a.vehicle_id));
   };
+  // Liste değiştikçe AutoiXpert fotoğraflarını batch-fetch et.
+  //
+  // YAKLAŞIM: AutoiXpert'in kendi gösterim sırası `raw_payload.photos[]` array'idir.
+  // İlk eleman (`photos[0]`) = kapak fotosu = gallery top-left. autoixpert_reports
+  // tablosunun raw_payload'undan bunu okuyup karşılık gelen autoixpert_photos
+  // satırından storage_path alıp signed URL üret.
+  const listKey = list.map(c => c.id).join(',');
+  useEffect(() => {
+    if (viewMode !== 'list' || list.length === 0) return;
+    const sb = getSupabase();
+    if (!sb) return;
+
+    // Müşteri → onun raporlarının ID'leri (created_at sırasını sonra öğreneceğiz)
+    const customerToReportIds = new Map();
+    for (const c of list) {
+      const vehs = getCustomerVehicles(c.id);
+      const aprs = (db.appraisals || []).filter(a => vehs.some(v => v.id === a.vehicle_id));
+      const ids = aprs.map(a => a.autoixpert_report_id).filter(Boolean);
+      if (ids.length > 0) customerToReportIds.set(c.id, ids);
+    }
+    if (customerToReportIds.size === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const allReportIds = [...new Set([].concat(...customerToReportIds.values()))];
+
+      // raw_payload sadece bir alanını çekmek için PostgREST JSON path
+      // (raw_payload->photos) kullan — full payload ağır olabilir.
+      const { data: reports, error: rErr } = await sb
+        .from('autoixpert_reports')
+        .select('id, created_at, photos:raw_payload->photos')
+        .in('id', allReportIds);
+      if (cancelled || rErr || !reports) return;
+
+      const reportById = new Map(reports.map(r => [r.id, r]));
+
+      // Her müşteri için EN YENİ raporun raw_payload.photos[0].id'sini al.
+      const firstPhotoIdPerCustomer = new Map();
+      for (const [cid, reportIds] of customerToReportIds) {
+        // En yeni rapor: created_at DESC sırasında ilk
+        const sortedReports = reportIds
+          .map(id => reportById.get(id))
+          .filter(Boolean)
+          .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+        for (const r of sortedReports) {
+          const arr = r?.photos || [];
+          if (arr.length > 0 && arr[0]?.id != null) {
+            firstPhotoIdPerCustomer.set(cid, String(arr[0].id));
+            break;
+          }
+        }
+      }
+      if (firstPhotoIdPerCustomer.size === 0) return;
+
+      // Bu photo ID'lerin storage_path'lerini al
+      const photoIds = [...firstPhotoIdPerCustomer.values()];
+      const { data: photoRows, error: pErr } = await sb
+        .from('autoixpert_photos')
+        .select('id, storage_path, storage_bucket')
+        .in('id', photoIds)
+        .eq('download_status', 'done');
+      if (cancelled || pErr || !photoRows || photoRows.length === 0) return;
+
+      const photoById = new Map(photoRows.map(p => [String(p.id), p]));
+
+      // Bucket'a göre grupla, batch signed URL
+      const byBucket = new Map();
+      for (const [cid, photoId] of firstPhotoIdPerCustomer) {
+        const photo = photoById.get(photoId);
+        if (!photo) continue;
+        const b = photo.storage_bucket || 'autoixpert-photos';
+        if (!byBucket.has(b)) byBucket.set(b, []);
+        byBucket.get(b).push({ cid, photo });
+      }
+
+      const next = new Map();
+      for (const [bucket, entries] of byBucket) {
+        const paths = entries.map(e => e.photo.storage_path);
+        const { data: signedList } = await sb.storage.from(bucket).createSignedUrls(paths, 3600);
+        if (cancelled) return;
+        entries.forEach((e, idx) => {
+          const url = signedList?.[idx]?.signedUrl;
+          if (url) next.set(e.cid, url);
+        });
+      }
+      if (!cancelled && next.size > 0) setPhotoUrlMap(next);
+    })();
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listKey, viewMode]);
   const getAssignedLawyer = (cid) => {
     const a = (db.lawyer_assignments || []).find(x => x.customer_id === cid);
     return a ? (db.lawyers || []).find(l => l.id === a.lawyer_id) : null;
@@ -3302,10 +3471,10 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
         </select>
         <div className="inline-flex rounded-full p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
           {[
-            { k: 'grid', icon: Layers, label: 'Grid' },
             { k: 'list', icon: FileText, label: 'Liste' },
+            { k: 'grid', icon: Layers, label: 'Grid' },
           ].map(v => (
-            <button key={v.k} onClick={() => setViewMode(v.k)}
+            <button key={v.k} onClick={() => updateViewMode(v.k)}
               className="px-3 py-1.5 rounded-full text-xs flex items-center gap-1.5 transition-all"
               style={{
                 background: viewMode === v.k ? `linear-gradient(135deg, ${accent}, ${accentSecondary})` : 'transparent',
@@ -3532,52 +3701,246 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
         </div>
       )}
 
-      {/* List view (compact) */}
+      {/* List view — AutoiXpert benzeri ferah satır görünümü */}
       {list.length > 0 && viewMode === 'list' && (
         <GlassCard padding="p-0">
-          <div className="grid gap-0 text-xs uppercase px-6 py-3"
-            style={{ gridTemplateColumns: isKurum ? '60px 2fr 1.5fr 1.4fr 1.2fr 140px 100px' : '60px 2fr 1.5fr 1.4fr 140px 100px',
-              color: C.textDim, letterSpacing: '0.2em', borderBottom: `1px solid ${C.border}` }}>
+          {/* Sütun başlıkları */}
+          <div className="hidden md:grid items-center text-[10px] uppercase tracking-widest px-6 py-3"
+            style={{
+              gridTemplateColumns: '92px minmax(180px, 240px) 150px 130px minmax(180px, 1.4fr) 150px 40px',
+              gap: '10px',
+              color: C.textDim,
+              letterSpacing: '0.18em',
+              borderBottom: `1px solid ${C.border}`,
+              background: 'rgba(0,0,0,0.015)',
+            }}>
             <div></div>
-            <div>{isKurum ? 'Firma' : 'Ad Soyad'}</div>
-            <div>E-posta</div>
-            <div>Telefon</div>
-            {isKurum && <div>Vergi No</div>}
-            <div>Atamalar</div>
-            <div className="text-right">İşlem</div>
+            <div>{isKurum ? 'Firma' : 'Name'}</div>
+            <div>Kennzeichen</div>
+            <div>Datum</div>
+            <div>Hersteller / Modell</div>
+            <div>İlerleme</div>
+            <div></div>
           </div>
+
           {list.map((c, i) => {
             const [g1, g2] = paletteFor(c.id);
-            const lawyer = getAssignedLawyer(c.id);
-            const insurer = getAssignedInsurer(c.id);
+            const vehicles = getCustomerVehicles(c.id);
+            const apprs = getCustomerAppraisals(c.id);
+            // En son araç (varsa) — plaka ve marka için
+            const primaryVehicle = vehicles.length > 0
+              ? vehicles.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0]
+              : null;
+            const extraVehicleCount = Math.max(0, vehicles.length - 1);
+            // En son tarih: en yeni rapor → en yeni araç → müşteri kayıt tarihi
+            const latestAppraisalDate = apprs.length > 0
+              ? apprs.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0]?.created_at
+              : null;
+            const displayDateRaw = latestAppraisalDate || primaryVehicle?.created_at || c.created_at;
+            const displayDate = displayDateRaw ? (() => {
+              try {
+                const d = new Date(displayDateRaw);
+                if (isNaN(d.getTime())) return null;
+                return d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+              } catch (e) { return null; }
+            })() : null;
+
+            const plate = primaryVehicle?.plate ? parsePlate(primaryVehicle.plate) : null;
+            const brand = primaryVehicle?.brand || null;
+            const model = primaryVehicle?.model || null;
+            const bStyle = brandStyle(brand);
+            const displayName = isKurum ? c.company : c.full_name;
+            // Avatar fotoğrafı: AutoiXpert gallery'sinin top-left fotosu (id ASC sırasında ilk).
+            const photoUrl = photoUrlMap.get(c.id) || null;
+
             return (
               <motion.div key={c.id}
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(i * 0.02, 0.3) }}
+                initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.25), duration: 0.22 }}
                 onClick={() => onOpenCustomer(c)}
-                className="grid gap-0 items-center px-6 py-3 text-sm cursor-pointer transition-colors hover:bg-black/[0.05]"
-                style={{ gridTemplateColumns: isKurum ? '60px 2fr 1.5fr 1.4fr 1.2fr 140px 100px' : '60px 2fr 1.5fr 1.4fr 140px 100px',
-                  borderBottom: `1px solid ${C.border}`, color: C.text }}>
-                <div>
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold"
-                    style={{ background: `linear-gradient(135deg, ${g1}, ${g2})`, color: '#FFFFFF' }}>
-                    {getInitials(c)}
+                className="group grid items-center px-6 py-3 cursor-pointer transition-colors"
+                style={{
+                  gridTemplateColumns: '92px minmax(180px, 240px) 150px 130px minmax(180px, 1.4fr) 150px 40px',
+                  gap: '10px',
+                  borderBottom: i < list.length - 1 ? `1px solid ${C.border}` : 'none',
+                  color: C.text,
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.025)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+
+                {/* Vehicle thumbnail / avatar — gerçek foto varsa onu, yoksa brand fallback */}
+                <div className="flex items-center justify-center">
+                  <div className="relative w-20 h-20 rounded-full overflow-hidden flex-shrink-0"
+                    style={{
+                      background: brand ? bStyle.bg : `linear-gradient(135deg, ${g1}, ${g2})`,
+                      color: brand ? bStyle.fg : '#FFFFFF',
+                      border: '2px solid #FFFFFF',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.10)',
+                    }}>
+                    {photoUrl && (
+                      <img
+                        src={photoUrl}
+                        alt=""
+                        loading="lazy"
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    )}
+                    {!photoUrl && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        {brand ? (
+                          <span className="text-lg font-bold" style={{ letterSpacing: '0.02em' }}>
+                            {brand.slice(0, 2).toUpperCase()}
+                          </span>
+                        ) : (
+                          <CarIcon size={32} style={{ opacity: 0.6 }} />
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* İsim / Firma */}
+                <div className="min-w-0">
+                  {displayName ? (
+                    <p className="text-sm font-medium truncate" style={{ color: C.text }}>{displayName}</p>
+                  ) : (
+                    <p className="text-sm italic" style={{ color: C.textDim, opacity: 0.6 }}>Kein Name</p>
+                  )}
+                  {isKurum && c.full_name && (
+                    <p className="text-[11px] mt-0.5 truncate" style={{ color: C.textDim }}>{c.full_name}</p>
+                  )}
+                  {c.email && (
+                    <p className="text-[11px] mt-0.5 truncate flex items-center gap-1" style={{ color: C.textDim }}>
+                      <MailIcon size={10} style={{ opacity: 0.7, flexShrink: 0 }} />
+                      <span className="truncate">{c.email}</span>
+                    </p>
+                  )}
+                  {c.phone && (
+                    <p className="text-[11px] mt-0.5 truncate flex items-center gap-1" style={{ color: C.textDim }}>
+                      <PhoneIcon size={10} style={{ opacity: 0.7, flexShrink: 0 }} />
+                      <span className="truncate">{c.phone}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Plaka rozeti */}
                 <div>
-                  <p className="truncate">{isKurum ? c.company : c.full_name}</p>
-                  <p className="text-xs mt-0.5 truncate" style={{ color: C.textDim }}>{isKurum ? 'Yetkili: ' + c.full_name : c.created_at}</p>
+                  {plate ? (
+                    <div className="inline-flex items-stretch rounded-md overflow-hidden font-mono text-[12px] font-bold"
+                      style={{
+                        border: '1.5px solid #1F2937',
+                        background: '#FFFFFF',
+                        height: '26px',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                      }}>
+                      <div className="px-2 flex items-center justify-center"
+                        style={{ background: '#1E40AF', color: '#FFFFFF', minWidth: '30px', letterSpacing: '0.02em' }}>
+                        {plate.prefix}
+                      </div>
+                      <div className="px-2.5 flex items-center" style={{ color: '#0F172A', letterSpacing: '0.05em' }}>
+                        {plate.main || '—'}
+                      </div>
+                      {extraVehicleCount > 0 && (
+                        <div className="px-1.5 flex items-center text-[9px] font-semibold"
+                          style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim, borderLeft: '1px solid rgba(0,0,0,0.08)' }}>
+                          +{extraVehicleCount}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-xs italic" style={{ color: C.textDim, opacity: 0.6 }}>Kein Kennzeichen</span>
+                  )}
                 </div>
-                <div style={{ color: C.textDim }} className="truncate text-xs">{c.email}</div>
-                <div style={{ color: C.textDim }} className="font-mono text-xs">{c.phone}</div>
-                {isKurum && <div style={{ color: C.textDim }} className="font-mono text-xs">{c.tax_no || '—'}</div>}
-                <div className="flex items-center gap-1">
-                  {lawyer && <span className="w-5 h-5 rounded-md flex items-center justify-center" title={lawyer.name}
-                    style={{ background: 'rgba(245,158,11,0.1)', color: '#F59E0B' }}><ScaleIcon size={10} /></span>}
-                  {insurer && <span className="w-5 h-5 rounded-md flex items-center justify-center" title={insurer.company}
-                    style={{ background: 'rgba(0,0,0,0.05)', color: C.cyan }}><ShieldIcon size={10} /></span>}
-                  {!lawyer && !insurer && <span className="text-[10px]" style={{ color: C.textDim }}>—</span>}
+
+                {/* Tarih */}
+                <div>
+                  {displayDate ? (
+                    <span className="text-xs" style={{ color: C.textDim }}>{displayDate}</span>
+                  ) : (
+                    <span className="text-xs italic" style={{ color: C.textDim, opacity: 0.6 }}>—</span>
+                  )}
                 </div>
-                <div className="text-right"><span style={{ color: accent }} className="text-xs">Detay <ChevronRight size={12} style={{ display: 'inline' }} /></span></div>
+
+                {/* Marka / Model + İşleme başlama tarihi */}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {brand ? (
+                      <>
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ background: bStyle.bg, color: bStyle.fg }}>
+                          <span className="text-[9px] font-bold">{brand.slice(0, 1).toUpperCase()}</span>
+                        </div>
+                        <p className="text-sm truncate" style={{ color: C.text }}>
+                          {brand}{model ? <span style={{ color: C.textDim }}> {model}</span> : null}
+                        </p>
+                      </>
+                    ) : (
+                      <span className="text-xs italic" style={{ color: C.textDim, opacity: 0.6 }}>Kein Hersteller / Kein Modell</span>
+                    )}
+                  </div>
+                  {c.created_at && (() => {
+                    try {
+                      const d = new Date(c.created_at);
+                      if (isNaN(d.getTime())) return null;
+                      const formatted = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                      return (
+                        <p className="text-[11px] mt-1 truncate" style={{ color: C.textDim }}>
+                          Bearbeitung seit {formatted}
+                        </p>
+                      );
+                    } catch (e) { return null; }
+                  })()}
+                </div>
+
+                {/* İlerleme durumu — animasyonlu progress bar (en son ekspertize göre) */}
+                <div className="min-w-0">
+                  {(() => {
+                    if (apprs.length === 0) {
+                      return <span className="text-xs italic" style={{ color: C.textDim, opacity: 0.5 }}>—</span>;
+                    }
+                    const latestAppr = apprs.slice().sort((a, b) =>
+                      (b.created_at || '').localeCompare(a.created_at || '')
+                    )[0];
+                    const stage = STAGES.find(s => s.key === (latestAppr?.status || 'bekliyor')) || STAGES[0];
+                    return (
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-[11px] font-medium truncate" style={{ color: stage.color }}>
+                            {stage.label}
+                          </span>
+                          <span className="text-[10px] font-mono flex-shrink-0" style={{ color: stage.color }}>
+                            %{stage.pct}
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.06)' }}>
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${stage.pct}%` }}
+                            transition={{ duration: 1.0, delay: Math.min(i * 0.04, 0.4), ease: easeOut }}
+                            className="h-full rounded-full"
+                            style={{
+                              background: `linear-gradient(90deg, ${stage.color}AA, ${stage.color})`,
+                              boxShadow: `0 0 8px ${stage.color}55`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* 3-nokta menü (şimdilik detayı açar) */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onOpenCustomer(c); }}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                    style={{ color: C.textDim, background: 'transparent' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    title="Detay">
+                    <MoreVertical size={16} />
+                  </button>
+                </div>
               </motion.div>
             );
           })}
@@ -5229,20 +5592,45 @@ function AppraisalCard({ ap, customer, db, setDb, onPreview, isPreviewing, curre
   const stop = (e) => { e.stopPropagation(); };
   const STAGE_LABEL = (k) => (STAGES.find(s => s.key === k)?.label) || k;
   const customerLabel = customer ? (customer.full_name || customer.company || customer.email) : '';
+  // Kim oluşturdu? AI agent / AutoiXpert / Manuel — UI rozeti için
+  const isAiAgent = ap.created_by === 'ai_agent' || ap.source === 'ai_agent';
+  const isAutoiXpert = !isAiAgent && (ap.created_by === 'autoixpert' || ap.source === 'autoixpert' || !!ap.autoixpert_report_id);
   return (
     <div onClick={onPreview ? () => onPreview() : undefined}
       className="rounded-2xl overflow-hidden transition-all"
       style={{
         background: isPreviewing ? 'rgba(239,68,68,0.06)' : 'rgba(0,0,0,0.03)',
-        border: `1px solid ${isPreviewing ? 'rgba(239,68,68,0.4)' : C.border}`,
+        border: `1px solid ${isPreviewing ? 'rgba(239,68,68,0.4)' : (isAiAgent ? `${C.neon}55` : C.border)}`,
         cursor: onPreview ? 'pointer' : 'default',
-        boxShadow: isPreviewing ? '0 0 24px rgba(239,68,68,0.15)' : 'none',
+        boxShadow: isPreviewing ? '0 0 24px rgba(239,68,68,0.15)' : (isAiAgent ? `0 0 18px ${C.neon}22` : 'none'),
       }}
       title={onPreview ? 'PDF\u0027yi sağ panelde önizle' : undefined}>
       <div className="p-5">
         <div className="flex items-start justify-between mb-3 gap-3">
-          <div>
-            <p className="font-mono text-sm" style={{ color: C.text }}>{v?.plate}</p>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 4 }}>
+              <p className="font-mono text-sm" style={{ color: C.text }}>{v?.plate}</p>
+              {isAiAgent && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                  style={{
+                    background: `${C.neon}15`, color: C.neon,
+                    border: `1px solid ${C.neon}55`, letterSpacing: '0.05em',
+                  }}
+                  title="AI Agent tarafından hazırlandı">
+                  🤖 AI Agent
+                </span>
+              )}
+              {isAutoiXpert && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                  style={{
+                    background: 'rgba(59,130,246,0.10)', color: '#3B82F6',
+                    border: '1px solid rgba(59,130,246,0.35)', letterSpacing: '0.05em',
+                  }}
+                  title="AutoiXpert üzerinden senkronize edildi">
+                  ⛓ AutoiXpert
+                </span>
+              )}
+            </div>
             <p className="text-xs" style={{ color: C.textDim }}>{v?.brand} {v?.model} · {v?.year} — {ap.created_at}</p>
           </div>
           <div className="w-48" onClick={stop}>
@@ -5522,136 +5910,92 @@ function VariableRefPanel({ onInsert }) {
 
 function TemplateCard({ tpl, onEdit, onCopy, onToggleActive, isActive, copied }) {
   const meta = WA_TRIGGER_META[tpl.trigger] || { color: CL.brand, tone: CL.brandSoft, label: tpl.trigger, desc: '' };
-  const charCount = (tpl.message || '').length;
-  const varCount = (tpl.message || '').match(/\{[A-Z_]+\}/g)?.length || 0;
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       style={{
         background: CL.surface,
         border: `1px solid ${CL.hairline}`,
         borderRadius: 14,
-        overflow: 'hidden',
         opacity: isActive ? 1 : 0.55,
         transition: 'opacity 0.2s',
+        padding: 18,
+        display: 'flex',
+        flexDirection: 'column',
       }}>
-      {/* Üst şerit: kategori rengi */}
-      <div style={{ height: 3, background: meta.color }} />
-
-      <div style={{ padding: 18 }}>
-        {/* Başlık satırı */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-start gap-3 flex-1 min-w-0">
-            <div style={{
-              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-              background: CL.whatsappSoft, border: `1px solid rgba(37,211,102,0.2)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill={CL.whatsapp}>
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div style={{ fontSize: 14, fontWeight: 600, color: CL.ink, lineHeight: 1.3, marginBottom: 2 }}>
-                {tpl.name}
-              </div>
-              <div style={{ fontSize: 11, color: CL.muted, lineHeight: 1.4 }}>
-                {meta.desc}
-              </div>
-            </div>
-          </div>
-          <span style={{
-            fontSize: 9, padding: '4px 8px', borderRadius: 6, flexShrink: 0,
-            background: meta.tone, color: meta.color, fontWeight: 600,
-            letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap',
-          }}>
-            {meta.label}
-          </span>
-        </div>
-
-        {/* Mesaj önizlemesi - hafif kağıt arka plan, değişkenler vurgulu */}
+      {/* Başlık satırı: ikon + ad + aktif noktası */}
+      <div className="flex items-start gap-3 mb-3">
         <div style={{
-          background: CL.paper, border: `1px solid ${CL.hairlineSoft}`,
-          borderRadius: 10, padding: '12px 14px', marginBottom: 12,
-          fontSize: 12.5, lineHeight: 1.6, color: CL.inkSoft,
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-          maxHeight: 96, overflow: 'hidden', position: 'relative',
+          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+          background: CL.whatsappSoft, border: `1px solid rgba(37,211,102,0.2)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          {highlightVars(tpl.message || '').map((p, i) =>
-            p.t === 'var' ? (
-              <span key={i} style={{
-                background: CL.brandSoft, color: CL.brand, padding: '1px 5px',
-                borderRadius: 4, fontWeight: 600, fontSize: 11.5,
-              }}>{p.v}</span>
-            ) : (
-              <span key={i}>{p.v}</span>
-            )
-          )}
-          {(tpl.message || '').length > 200 && (
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, height: 28,
-              background: `linear-gradient(transparent, ${CL.paper})`, pointerEvents: 'none',
-            }} />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill={CL.whatsapp}>
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div style={{ fontSize: 14, fontWeight: 600, color: CL.ink, lineHeight: 1.3, marginBottom: 2 }}>
+            {tpl.name}
+          </div>
+          {meta.desc && (
+            <div style={{ fontSize: 11, color: CL.muted, lineHeight: 1.4 }}>
+              {meta.desc}
+            </div>
           )}
         </div>
+        <button onClick={onToggleActive} type="button"
+          title={isActive ? 'Aktif — durdurmak için tıkla' : 'Pasif — aktifleştir'}
+          style={{
+            width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+            background: isActive ? CL.whatsapp : CL.hairline,
+            border: 'none', cursor: 'pointer', padding: 0,
+            transition: 'background 0.2s', marginTop: 6,
+          }}
+        />
+      </div>
 
-        {/* Alt meta + aksiyonlar */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 text-[11px]" style={{ color: CL.muted }}>
-            <span title="Karakter sayısı" className="flex items-center gap-1">
-              <span style={{ fontWeight: 600 }}>{charCount}</span>
-              <span>/{WA_CHAR_LIMIT}</span>
-            </span>
-            <span style={{ width: 1, height: 10, background: CL.hairline }} />
-            <span title="Değişken sayısı" className="flex items-center gap-1">
-              <HashIcon size={10} />
-              <span>{varCount}</span>
-            </span>
-            {tpl.updated_at && (
-              <>
-                <span style={{ width: 1, height: 10, background: CL.hairline }} />
-                <span title={new Date(tpl.updated_at).toLocaleString('tr-TR')}>
-                  {formatRelativeTime(tpl.updated_at)}
-                </span>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <button onClick={onToggleActive} type="button" title={isActive ? 'Aktif — durdurmak için tıkla' : 'Pasif — aktifleştir'}
-              style={{
-                width: 32, height: 20, borderRadius: 999, padding: 2,
-                background: isActive ? CL.whatsapp : CL.hairline,
-                border: 'none', cursor: 'pointer', transition: 'background 0.2s',
-                display: 'flex', alignItems: 'center',
-              }}>
-              <div style={{
-                width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                transform: `translateX(${isActive ? 12 : 0}px)`,
-                transition: 'transform 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-              }} />
-            </button>
-            <button onClick={onCopy} type="button" title="Mesajı kopyala"
-              style={{
-                padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 500,
-                background: copied ? CL.whatsappSoft : 'transparent',
-                color: copied ? CL.whatsapp : CL.inkSoft,
-                border: `1px solid ${copied ? 'rgba(37,211,102,0.3)' : CL.hairline}`,
-                cursor: 'pointer', transition: 'all 0.15s',
-              }}>
-              {copied ? '✓ Kopyalandı' : 'Kopyala'}
-            </button>
-            <button onClick={onEdit} type="button"
-              style={{
-                padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-                background: CL.ink, color: '#fff', border: 'none', cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = CL.brand}
-              onMouseLeave={e => e.currentTarget.style.background = CL.ink}>
-              Düzenle
-            </button>
-          </div>
-        </div>
+      {/* Mesaj önizlemesi — değişkenler vurgulu */}
+      <div style={{
+        background: CL.paper, border: `1px solid ${CL.hairlineSoft}`,
+        borderRadius: 10, padding: '12px 14px', marginBottom: 14,
+        fontSize: 12.5, lineHeight: 1.6, color: CL.inkSoft,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+        flex: 1, minHeight: 80,
+      }}>
+        {highlightVars(tpl.message || '').map((p, i) =>
+          p.t === 'var' ? (
+            <span key={i} style={{
+              background: CL.brandSoft, color: CL.brand, padding: '1px 5px',
+              borderRadius: 4, fontWeight: 600, fontSize: 11.5,
+            }}>{p.v}</span>
+          ) : (
+            <span key={i}>{p.v}</span>
+          )
+        )}
+      </div>
+
+      {/* Aksiyonlar — tek satır, iki buton */}
+      <div className="flex items-center gap-2">
+        <button onClick={onCopy} type="button"
+          style={{
+            flex: 1, padding: '10px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+            background: copied ? CL.whatsapp : CL.brand, color: '#fff', border: 'none',
+            cursor: 'pointer', transition: 'all 0.15s',
+          }}>
+          {copied ? '✓ Kopyalandı' : 'Mesajı Kopyala'}
+        </button>
+        <button onClick={onEdit} type="button"
+          style={{
+            padding: '10px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+            background: 'transparent', color: CL.inkSoft,
+            border: `1px solid ${CL.hairline}`, cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = CL.paper}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+          Düzenle
+        </button>
       </div>
     </motion.div>
   );
@@ -5845,7 +6189,6 @@ function WhatsAppTemplatesSection({ db, setDb }) {
   const templates = db.whatsapp_templates || [];
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState('');
-  const [filterTrigger, setFilterTrigger] = useState('all');
   const [copiedId, setCopiedId] = useState(null);
   const [activeMap, setActiveMap] = useState(() => {
     const m = {};
@@ -5854,17 +6197,10 @@ function WhatsAppTemplatesSection({ db, setDb }) {
   });
 
   const filtered = templates.filter(t => {
-    if (filterTrigger !== 'all' && t.trigger !== filterTrigger) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (t.name || '').toLowerCase().includes(q) || (t.message || '').toLowerCase().includes(q);
   });
-
-  const counts = templates.reduce((acc, t) => {
-    acc[t.trigger] = (acc[t.trigger] || 0) + 1;
-    return acc;
-  }, {});
-  const activeCount = Object.values(activeMap).filter(Boolean).length;
 
   const handleCopy = (tpl) => {
     navigator.clipboard.writeText(tpl.message || '').then(() => {
@@ -5883,138 +6219,59 @@ function WhatsAppTemplatesSection({ db, setDb }) {
 
   return (
     <>
-      <AdminTopbar title="WhatsApp Şablon Mesajları" subtitle="Otomatik tetiklenen müşteri bildirimleri — değişkenler, canlı önizleme, kategori filtresi" />
+      <AdminTopbar title="WhatsApp Şablon Mesajları" subtitle="Müşterilere göndermek için hazır mesaj şablonları" />
 
-      {/* Üst istatistik şeridi */}
+      {/* Sade arama satırı — filtre chip'i yok, stats yok, sidebar yok */}
       <div style={{
-        background: CL.surface, border: `1px solid ${CL.hairline}`, borderRadius: 12,
-        padding: '14px 18px', marginBottom: 16,
-        display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap',
+        position: 'relative', maxWidth: 480, marginBottom: 18,
+        background: CL.surface, border: `1px solid ${CL.hairline}`, borderRadius: 10,
       }}>
-        <div className="flex items-baseline gap-2">
-          <span style={{ fontSize: 22, fontWeight: 700, color: CL.ink, fontVariantNumeric: 'tabular-nums' }}>
-            {templates.length}
-          </span>
-          <span style={{ fontSize: 11, color: CL.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Toplam Şablon
-          </span>
-        </div>
-        <div style={{ width: 1, height: 28, background: CL.hairline }} />
-        <div className="flex items-baseline gap-2">
-          <span style={{ fontSize: 22, fontWeight: 700, color: CL.whatsapp, fontVariantNumeric: 'tabular-nums' }}>
-            {activeCount}
-          </span>
-          <span style={{ fontSize: 11, color: CL.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Aktif
-          </span>
-        </div>
-        <div style={{ width: 1, height: 28, background: CL.hairline }} />
-        <div className="flex items-baseline gap-2">
-          <span style={{ fontSize: 22, fontWeight: 700, color: CL.muted, fontVariantNumeric: 'tabular-nums' }}>
-            {WA_VARIABLES.length}
-          </span>
-          <span style={{ fontSize: 11, color: CL.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Değişken
-          </span>
-        </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ fontSize: 11, color: CL.muted }}>
-          Düzenleme yaptığında <strong style={{ color: CL.inkSoft }}>otomatik versiyonlanır</strong>
-        </div>
-      </div>
-
-      {/* Arama + filtre çubuğu */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{
-          position: 'relative', flex: '1 1 280px', maxWidth: 380,
-          background: CL.surface, border: `1px solid ${CL.hairline}`, borderRadius: 10,
-        }}>
-          <SearchIcon size={14} style={{
-            position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: CL.muted,
-          }} />
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Şablon adı veya mesaj içeriğinde ara…"
+        <SearchIcon size={14} style={{
+          position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: CL.muted,
+        }} />
+        <input
+          value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Şablonlarda ara…"
+          style={{
+            width: '100%', padding: '10px 12px 10px 34px',
+            background: 'transparent', border: 'none', outline: 'none',
+            fontSize: 13, color: CL.ink,
+          }}
+        />
+        {search && (
+          <button onClick={() => setSearch('')} type="button"
             style={{
-              width: '100%', padding: '9px 12px 9px 34px',
-              background: 'transparent', border: 'none', outline: 'none',
-              fontSize: 12.5, color: CL.ink,
-            }}
-          />
-          {search && (
-            <button onClick={() => setSearch('')} type="button"
-              style={{
-                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                width: 22, height: 22, border: 'none', background: 'transparent',
-                color: CL.muted, cursor: 'pointer', borderRadius: 4,
-              }}>×</button>
-          )}
-        </div>
-        <ClChip active={filterTrigger === 'all'} onClick={() => setFilterTrigger('all')}>
-          Tümü ({templates.length})
-        </ClChip>
-        {Object.entries(WA_TRIGGER_META).map(([key, meta]) => (
-          counts[key] ? (
-            <ClChip key={key} active={filterTrigger === key} color={meta.color}
-              onClick={() => setFilterTrigger(key)}>
-              {meta.label} ({counts[key]})
-            </ClChip>
-          ) : null
-        ))}
+              position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+              width: 22, height: 22, border: 'none', background: 'transparent',
+              color: CL.muted, cursor: 'pointer', borderRadius: 4,
+            }}>×</button>
+        )}
       </div>
 
-      {/* Ana içerik: kart grid + sağ değişken sütunu */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 260px', gap: 16, alignItems: 'start' }}>
-        <div>
-          {filtered.length === 0 ? (
-            <div style={{
-              background: CL.surface, border: `1px dashed ${CL.hairline}`, borderRadius: 12,
-              padding: '48px 24px', textAlign: 'center',
-            }}>
-              <div style={{ fontSize: 13, color: CL.muted }}>
-                {search ? `"${search}" için sonuç yok` : 'Bu kategoride şablon yok'}
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 12 }}>
-              {filtered.map(tpl => (
-                <TemplateCard
-                  key={tpl.id} tpl={tpl}
-                  isActive={activeMap[tpl.id] !== false}
-                  copied={copiedId === tpl.id}
-                  onEdit={() => setEditing(tpl)}
-                  onCopy={() => handleCopy(tpl)}
-                  onToggleActive={() => setActiveMap(m => ({ ...m, [tpl.id]: !(m[tpl.id] !== false) }))}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Sağ sticky değişken paneli (geniş ekranlarda) */}
-        <div style={{ position: 'sticky', top: 16 }}>
-          <VariableRefPanel onInsert={null} />
-          <div style={{
-            marginTop: 12, padding: 14, borderRadius: 12,
-            background: CL.whatsappSoft, border: `1px solid rgba(37,211,102,0.18)`,
-          }}>
-            <div className="flex items-center gap-2 mb-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill={CL.whatsapp}>
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-              </svg>
-              <span style={{ fontSize: 11, fontWeight: 600, color: CL.ink, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Format İpuçları
-              </span>
-            </div>
-            <div style={{ fontSize: 11, color: CL.inkSoft, lineHeight: 1.7 }}>
-              <div><code style={{ background: CL.surface, padding: '1px 5px', borderRadius: 3 }}>*kalın*</code> → <strong>kalın</strong></div>
-              <div><code style={{ background: CL.surface, padding: '1px 5px', borderRadius: 3 }}>_italik_</code> → <em>italik</em></div>
-              <div><code style={{ background: CL.surface, padding: '1px 5px', borderRadius: 3 }}>~üstü çizili~</code> → <s>üstü çizili</s></div>
-              <div><code style={{ background: CL.surface, padding: '1px 5px', borderRadius: 3 }}>```kod```</code> → mono</div>
-            </div>
+      {/* Tek tasarım: tüm şablonlar uniform kart grid */}
+      {filtered.length === 0 ? (
+        <div style={{
+          background: CL.surface, border: `1px dashed ${CL.hairline}`, borderRadius: 12,
+          padding: '48px 24px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 13, color: CL.muted }}>
+            {search ? `"${search}" için sonuç yok` : 'Henüz şablon yok'}
           </div>
         </div>
-      </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 14 }}>
+          {filtered.map(tpl => (
+            <TemplateCard
+              key={tpl.id} tpl={tpl}
+              isActive={activeMap[tpl.id] !== false}
+              copied={copiedId === tpl.id}
+              onEdit={() => setEditing(tpl)}
+              onCopy={() => handleCopy(tpl)}
+              onToggleActive={() => setActiveMap(m => ({ ...m, [tpl.id]: !(m[tpl.id] !== false) }))}
+            />
+          ))}
+        </div>
+      )}
 
       <AnimatePresence>
         {editing && (
@@ -6026,6 +6283,280 @@ function WhatsAppTemplatesSection({ db, setDb }) {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+// Customer detail → Fotoğraflar sekmesi: AutoiXpert fotoları gallery + tam editör.
+function CustomerPhotosTab({ photos: incomingPhotos }) {
+  const [deletedIds, setDeletedIds] = useState(() => new Set());
+  const [editorIndex, setEditorIndex] = useState(null); // photos[] içindeki index
+  const [signedMap, setSignedMap] = useState({}); // photo.id → signedUrl
+  const [errorMap, setErrorMap] = useState({});   // photo.id → true (img yükleme hatası)
+  const [editedFlags, setEditedFlags] = useState({}); // photo.id → bool (localStorage'dan tespit edilen düzenleme)
+  const [fetchError, setFetchError] = useState(null); // genel signed URL hatası
+
+  // Silinenleri filtreleyerek görüntülenecek listeyi türet (memoize → ref stable)
+  const photos = useMemo(
+    () => (incomingPhotos || []).filter((p) => !deletedIds.has(p.id)),
+    [incomingPhotos, deletedIds]
+  );
+
+  // localStorage'dan düzenlenmiş foto ID'lerini topla → galeride rozet göster
+  useEffect(() => {
+    if (!photos.length) return;
+    const flags = {};
+    for (const p of photos) {
+      try {
+        if (localStorage.getItem(`photo_edit_${p.id}`)) flags[p.id] = true;
+      } catch (e) {}
+    }
+    setEditedFlags(flags);
+  }, [photos]);
+
+  // Signed URL fetch — paralel, sağlam hata mesajı
+  useEffect(() => {
+    if (!photos.length) return;
+    let cancelled = false;
+    (async () => {
+      const sb = getSupabase();
+      if (!sb) {
+        setFetchError('Supabase bağlantısı yok — fotoğraflar gösterilemiyor (Ayarlar > Veri Kaynağı).');
+        return;
+      }
+      setFetchError(null);
+      const subset = photos.slice(0, 60).filter((p) => !signedMap[p.id] && p.storage_path);
+      if (!subset.length) return;
+      const results = await Promise.all(subset.map(async (p) => {
+        try {
+          const bucket = p.storage_bucket || 'autoixpert-photos';
+          const { data, error } = await sb.storage.from(bucket).createSignedUrl(p.storage_path, 3600);
+          if (error) {
+            console.warn('[CustomerPhotosTab] signedUrl hata', p.id, p.storage_path, error.message);
+            return [p.id, null];
+          }
+          return [p.id, data?.signedUrl || null];
+        } catch (err) {
+          console.warn('[CustomerPhotosTab] signedUrl exception', p.id, err);
+          return [p.id, null];
+        }
+      }));
+      if (cancelled) return;
+      const next = {};
+      let anyOk = false;
+      for (const [id, url] of results) {
+        if (url) { next[id] = url; anyOk = true; }
+      }
+      if (Object.keys(next).length) setSignedMap((prev) => ({ ...prev, ...next }));
+      if (!anyOk && results.length > 0) {
+        setFetchError(`${results.length} fotoğrafın URL'i alınamadı. Bucket / RLS izinlerini kontrol edin.`);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [photos]);
+
+  const ensureSignedUrl = async (p) => {
+    let url = signedMap[p.id];
+    if (url) return url;
+    const sb = getSupabase();
+    if (!sb || !p.storage_path) return null;
+    try {
+      const bucket = p.storage_bucket || 'autoixpert-photos';
+      const { data, error } = await sb.storage.from(bucket).createSignedUrl(p.storage_path, 3600);
+      if (error) { console.warn('ensureSignedUrl hata', error.message); return null; }
+      url = data?.signedUrl || null;
+      if (url) setSignedMap((prev) => ({ ...prev, [p.id]: url }));
+      return url;
+    } catch (err) {
+      console.warn('ensureSignedUrl exception', err);
+      return null;
+    }
+  };
+
+  const openPhoto = async (idx) => {
+    const p = photos[idx];
+    if (!p) return;
+    await ensureSignedUrl(p); // editor önce yüklensin
+    setEditorIndex(idx);
+  };
+
+  const handleEditorSaved = ({ photoId }) => {
+    setEditedFlags((f) => ({ ...f, [photoId]: true }));
+  };
+
+  const handleEditorDelete = async (p) => {
+    setDeletedIds((prev) => { const next = new Set(prev); next.add(p.id); return next; });
+    setEditorIndex(null);
+    try {
+      const sb = getSupabase();
+      if (sb && p.storage_bucket && p.storage_path) {
+        await sb.storage.from(p.storage_bucket).remove([p.storage_path]);
+        await sb.from('autoixpert_photos').delete().eq('id', p.id);
+      }
+    } catch (e) { console.warn('Foto silme (storage/db) başarısız:', e); }
+  };
+
+  const goPrev = () => setEditorIndex((i) => (i != null && i > 0 ? i - 1 : i));
+  const goNext = () => setEditorIndex((i) => (i != null && i < photos.length - 1 ? i + 1 : i));
+
+  // Editör açıldığında komşu fotoların da URL'ini hazırla (UX)
+  useEffect(() => {
+    if (editorIndex == null) return;
+    const neighbours = [photos[editorIndex - 1], photos[editorIndex + 1]].filter(Boolean);
+    neighbours.forEach((p) => { if (!signedMap[p.id]) ensureSignedUrl(p); });
+  }, [editorIndex]);
+
+  const handleImgError = (id) => {
+    setErrorMap((m) => ({ ...m, [id]: true }));
+    // signedMap'ten de düşür ki retry mümkün olsun
+    setSignedMap((prev) => { const next = { ...prev }; delete next[id]; return next; });
+  };
+
+  if (!photos || photos.length === 0) {
+    return (
+      <div className="rounded-2xl p-10 text-center" style={{ background: 'rgba(0,0,0,0.02)', border: `1px dashed ${C.border}` }}>
+        <ImageIcon size={40} style={{ color: C.textDim, margin: '0 auto 12px' }} />
+        <p className="text-sm" style={{ color: C.textDim }}>Bu müşteri için fotoğraf yok.</p>
+      </div>
+    );
+  }
+
+  // Rapora göre grupla — index hesabı için orijinal photos sırasını da koru
+  const grouped = photos.reduce((acc, p, idx) => {
+    const key = p.report_token || '?';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push({ p, idx });
+    return acc;
+  }, {});
+
+  const activePhoto = editorIndex != null ? photos[editorIndex] : null;
+  const activeUrl = activePhoto ? signedMap[activePhoto.id] : null;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-sm font-bold" style={{ color: C.text }}>Fotoğraflar</h3>
+          <p className="text-xs" style={{ color: C.textDim }}>{photos.length} foto · {Object.keys(grouped).length} rapora ait</p>
+        </div>
+        <p className="text-[11px]" style={{ color: C.textDim }}>Bir foto'ya tıkla → editör açılır</p>
+      </div>
+      {fetchError && (
+        <div className="mb-4 p-3 rounded-xl text-xs flex items-start gap-2"
+          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#B91C1C' }}>
+          <AlertTriangle size={14} style={{ marginTop: 1, flexShrink: 0 }} />
+          <span>{fetchError}</span>
+        </div>
+      )}
+      <div className="space-y-6">
+        {Object.entries(grouped).map(([token, list]) => (
+          <div key={token}>
+            <p className="text-xs uppercase tracking-widest mb-2 font-mono" style={{ color: '#3B82F6', letterSpacing: '0.15em' }}>
+              {token} <span style={{ color: C.textDim }}>· {list.length}</span>
+            </p>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+              {list.map(({ p, idx }) => {
+                const url = signedMap[p.id];
+                const failed = errorMap[p.id];
+                return (
+                  <button key={p.id} onClick={() => openPhoto(idx)}
+                    className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 transition hover:ring-2 hover:ring-blue-400"
+                    style={{ border: `1px solid ${C.border}` }}>
+                    {url ? (
+                      <img src={url} alt={p.title || ''}
+                        onError={() => handleImgError(p.id)}
+                        className="w-full h-full object-cover" loading="lazy" />
+                    ) : failed ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1 text-center"
+                        style={{ color: '#EF4444', background: 'rgba(239,68,68,0.06)' }}>
+                        <AlertTriangle size={16} />
+                        <span className="text-[9px] leading-tight">Yüklenemedi</span>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs animate-pulse"
+                        style={{ color: C.textDim }}>📸</div>
+                    )}
+                    {editedFlags[p.id] && (
+                      <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase"
+                        style={{ background: '#10B981', color: '#fff', letterSpacing: '0.06em' }}>
+                        düz.
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <AnimatePresence>
+        {activePhoto && activeUrl && (
+          <PhotoEditor
+            key={activePhoto.id}
+            photo={activePhoto}
+            imageUrl={activeUrl}
+            onClose={() => setEditorIndex(null)}
+            onDelete={handleEditorDelete}
+            onSaved={handleEditorSaved}
+            onPrev={goPrev}
+            onNext={goNext}
+            hasPrev={editorIndex > 0}
+            hasNext={editorIndex < photos.length - 1}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// Customer detail → AutoiXpert sekmesi: GutachtenWorkbench gömülü.
+// Birden fazla rapor varsa üstte dropdown.
+function CustomerAutoiXpertTab({ reports }) {
+  const [selectedId, setSelectedId] = useState(null);
+
+  if (reports === null) {
+    return (
+      <div className="rounded-2xl p-8 text-center" style={{ background: 'rgba(0,0,0,0.02)', border: `1px dashed ${C.border}` }}>
+        <div className="text-4xl mb-3 animate-pulse">📋</div>
+        <p className="text-sm" style={{ color: C.textDim }}>AutoiXpert raporları yükleniyor…</p>
+      </div>
+    );
+  }
+  if (!reports.length) {
+    return (
+      <div className="rounded-2xl p-8 text-center" style={{ background: 'rgba(0,0,0,0.02)', border: `1px dashed ${C.border}` }}>
+        <div className="text-4xl mb-3">📋</div>
+        <p className="text-sm font-medium mb-1" style={{ color: C.text }}>AutoiXpert kaydı yok</p>
+        <p className="text-xs" style={{ color: C.textDim }}>Bu müşteri için AutoiXpert sisteminde rapor bulunamadı.</p>
+      </div>
+    );
+  }
+
+  const sorted = [...reports].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  const selected = sorted.find((r) => r.id === selectedId) || sorted[0];
+
+  return (
+    <div>
+      {sorted.length > 1 && (
+        <div className="mb-4 flex items-center gap-3 flex-wrap">
+          <label className="text-xs uppercase tracking-widest" style={{ color: C.textDim }}>Rapor:</label>
+          <select
+            value={selected.id}
+            onChange={(e) => setSelectedId(e.target.value)}
+            className="px-3 py-2 rounded-lg text-sm font-mono"
+            style={{ background: '#fff', border: `1px solid ${C.border}`, color: C.text }}
+          >
+            {sorted.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.token || r.id} — {[r.car?.make, r.car?.model].filter(Boolean).join(' ') || '?'} ({r.completion_date || r.order_date || r.created_at?.slice(0, 10)})
+              </option>
+            ))}
+          </select>
+          <span className="text-xs" style={{ color: C.textDim }}>{sorted.length} rapor toplam</span>
+        </div>
+      )}
+      <GutachtenWorkbench report={selected} onBack={() => {}} embedded />
+    </div>
   );
 }
 
@@ -6221,21 +6752,160 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
   const [tab, setTab] = useState('araclar');
   const [ruhsatOpen, setRuhsatOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [axReports, setAxReports] = useState(null); // [] | null henüz yüklenmedi
+  const [axDocuments, setAxDocuments] = useState([]); // AutoiXpert PDF'ler (Druck)
+  const [axInvoices, setAxInvoices] = useState([]);   // AutoiXpert faturaları
+  const [axPhotos, setAxPhotos] = useState([]);       // AutoiXpert fotoğrafları
+  // Plaka filtresi: null = tüm araçlar, vehicle.id = sadece o plakaya ait veri
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+  // Müşteri değiştiğinde plaka filtresini sıfırla
+  useEffect(() => { setSelectedVehicleId(null); }, [customer?.id]);
+
+  // AutoiXpert raporları: customer'ın bağlı olduğu raporlar (plaka filtresi uygulanır)
+  const myCustomerAppraisals = useMemo(() => {
+    const myV = (db.vehicles || []).filter(v => v.owner_id === customer?.id);
+    const allowedIds = selectedVehicleId
+      ? new Set([selectedVehicleId])
+      : new Set(myV.map(v => v.id));
+    return (db.appraisals || []).filter(a => allowedIds.has(a.vehicle_id) && a.autoixpert_report_id);
+  }, [db.vehicles, db.appraisals, customer?.id, selectedVehicleId]);
+
+  useEffect(() => {
+    if (!customer?.id) return;
+    if (myCustomerAppraisals.length === 0) { setAxReports([]); setAxDocuments([]); return; }
+    let cancelled = false;
+    (async () => {
+      const sb = getSupabase();
+      if (!sb) { setAxReports([]); setAxDocuments([]); return; }
+      const ids = myCustomerAppraisals.map(a => a.autoixpert_report_id).filter(Boolean);
+
+      // Reports
+      const { data: reports, error: rErr } = await sb.from('autoixpert_reports')
+        .select('id, token, type, state, completion_date, order_date, created_at, claimant, car, raw_payload').in('id', ids);
+      if (cancelled) return;
+      if (rErr) console.error('[AutoiXpert reports]', rErr.message);
+      setAxReports(reports || []);
+
+      // Documents (Druck PDF'leri) — sadece done olanlar
+      const { data: docs, error: dErr } = await sb.from('autoixpert_documents')
+        .select('id, report_id, type, title, storage_path, storage_bucket, size_bytes, downloaded_at, mimetype')
+        .in('report_id', ids).eq('download_status', 'done');
+      if (cancelled) return;
+      if (dErr) console.error('[AutoiXpert documents]', dErr.message);
+      const tokenMap = new Map((reports || []).map(r => [r.id, r.token || r.id]));
+      setAxDocuments((docs || []).map(d => ({ ...d, report_token: tokenMap.get(d.report_id) || d.report_id })));
+
+      // AutoiXpert faturaları — junction tablosu ile rapor → fatura ilişkisi
+      const { data: links } = await sb.from('autoixpert_invoice_reports').select('invoice_id, report_id').in('report_id', ids);
+      const invoiceIds = [...new Set((links || []).map(l => l.invoice_id))];
+      if (invoiceIds.length > 0) {
+        const { data: invs } = await sb.from('autoixpert_invoices')
+          .select('id, number, date, total_net, total_gross, vat_rate, has_outstanding_payments, current_unpaid_amount, is_fully_canceled, recipient, raw_payload')
+          .in('id', invoiceIds);
+        if (!cancelled) setAxInvoices(invs || []);
+      } else {
+        if (!cancelled) setAxInvoices([]);
+      }
+
+      // AutoiXpert fotoğrafları — sadece done olanlar.
+      // SIRA: raw_payload.photos[] array sırası — AutoiXpert'in kendi gösterim sırası.
+      // raw_payload.photos[0] = kapak fotosu = gallery top-left = list view avatarı.
+      const { data: photos } = await sb.from('autoixpert_photos')
+        .select('id, report_id, storage_path, storage_bucket, mimetype, size_bytes, width, height, title, original_name, included_in_report, downloaded_at')
+        .in('report_id', ids).eq('download_status', 'done');
+
+      // raw_payload.photos[] sırasından bir position map oluştur.
+      // Anahtar: photo.id — Değer: [reportIndex, photoIndex]
+      // Reports created_at DESC ile sıralı (en yeni önce); böylece en yeni raporun
+      // ilk fotosu listenin en başına gelir.
+      const sortedReports = (reports || []).slice().sort((a, b) =>
+        (b.created_at || '').localeCompare(a.created_at || '')
+      );
+      const positionMap = new Map();
+      sortedReports.forEach((r, reportIdx) => {
+        const arr = r?.raw_payload?.photos || [];
+        arr.forEach((p, photoIdx) => {
+          if (p?.id != null) positionMap.set(String(p.id), [reportIdx, photoIdx]);
+        });
+      });
+      const sortedPhotos = (photos || []).slice().sort((a, b) => {
+        const pa = positionMap.get(String(a.id)) || [9999, 9999];
+        const pb = positionMap.get(String(b.id)) || [9999, 9999];
+        if (pa[0] !== pb[0]) return pa[0] - pb[0];
+        return pa[1] - pb[1];
+      });
+      if (!cancelled) setAxPhotos(sortedPhotos.map(p => ({ ...p, report_token: tokenMap.get(p.report_id) || p.report_id })));
+    })();
+    return () => { cancelled = true; };
+  }, [customer?.id, myCustomerAppraisals.length]);
+
   const [ruhsatPanelDoc, setRuhsatPanelDoc] = useState(null);
   const [previewAppraisal, setPreviewAppraisal] = useState(null);
   const [docFilter, setDocFilter] = useState('all');
   const fileInputRef = useRef(null);
   if (!customer) return null;
+  // Müşterinin tüm araçları — plaka switcher her zaman bunların hepsini gösterir.
   const myVehicles = db.vehicles.filter(v => v.owner_id === customer.id);
-  const myAppraisals = db.appraisals.filter(ap => myVehicles.some(v => v.id === ap.vehicle_id));
-  const myInvoices = db.invoices.filter(i => i.customer_id === customer.id);
-  const myDocs = (db.customer_documents || []).filter(d => d.customer_id === customer.id);
+  // Plaka filtresi: bir plaka seçiliyse sadece o vehicle.id, değilse hepsi.
+  const scopedVehicleIds = new Set(
+    selectedVehicleId ? [selectedVehicleId] : myVehicles.map(v => v.id)
+  );
+  // Ekspertizler — sadece scope'taki araçlar
+  const myAppraisals = db.appraisals.filter(ap => scopedVehicleIds.has(ap.vehicle_id));
+  // Faturalar — appraisal_id üzerinden vehicle bağı var; filtre yoksa müşteri bazlı.
+  const myInvoices = db.invoices.filter(i => {
+    if (i.customer_id !== customer.id) return false;
+    if (!selectedVehicleId) return true;
+    if (!i.appraisal_id) return false; // plaka filtresi aktifken araçsız faturayı gizle
+    const ap = db.appraisals.find(a => a.id === i.appraisal_id);
+    return ap && scopedVehicleIds.has(ap.vehicle_id);
+  });
+  // Dokümanlar — vehicle_id alanı varsa o üzerinden filtrele.
+  const myDocs = (db.customer_documents || []).filter(d => {
+    if (d.customer_id !== customer.id) return false;
+    if (!selectedVehicleId) return true;
+    return d.vehicle_id === selectedVehicleId;
+  });
   const filteredDocs = docFilter === 'all' ? myDocs
     : docFilter.startsWith('group:') ? myDocs.filter(d => {
         const cat = DOC_CATEGORIES.find(c => c.key === d.type);
         return cat?.group === docFilter.slice(6);
       })
     : myDocs.filter(d => d.type === docFilter);
+
+  // AutoiXpert PDF'lerini virtual document olarak myDocs benzeri formata çevir
+  const AX_TYPE_LABELS = {
+    report: 'Gutachten',
+    invoice: 'Rechnung',
+    letter_claimant: 'Anschreiben Anspruchsteller',
+    letter_garage: 'Anschreiben Werkstatt',
+    letter_lawyer: 'Anschreiben Anwalt',
+    letter_insurance: 'Anschreiben Versicherung',
+    letter_author_of_damage: 'Anschreiben Schädiger',
+    letter_owner: 'Anschreiben Halter',
+    letter_intermediary: 'Anschreiben Vermittler',
+    garage_information: 'Werkstatt-Information',
+    repair_confirmation: 'Reparaturbestätigung',
+    declaration_of_assignment: 'Abtretungserklärung',
+    manual_calculation: 'Manuelle Kalkulation',
+  };
+  const axVirtualDocs = useMemo(() => (axDocuments || []).map((d) => ({
+    id: 'ax_' + d.id,
+    name: `${AX_TYPE_LABELS[d.type] || d.type} — ${d.report_token}.pdf`,
+    type: 'autoixpert_pdf',
+    size: d.size_bytes || 0,
+    mime: d.mimetype || 'application/pdf',
+    storage_path: d.storage_path,
+    storage_bucket: d.storage_bucket || 'autoixpert-documents',
+    uploaded_at: d.downloaded_at?.slice(0, 10) || '',
+    _autoixpert: true,
+    _ax_type: d.type,
+    _ax_report_token: d.report_token,
+  })), [axDocuments]);
+
+  const allVisibleDocs = (docFilter === 'all' || docFilter === 'group:AutoiXpert')
+    ? [...filteredDocs, ...axVirtualDocs]
+    : filteredDocs;
 
   const [uploadCategory, setUploadCategory] = useState('');
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -6247,6 +6917,106 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
   };
 
   const [pendingFiles, setPendingFiles] = useState([]);
+
+  // AutoiXpert dokümanı önizle (signed URL ile)
+  const openAxDoc = async (doc) => {
+    try {
+      const sb = getSupabase();
+      if (!sb) throw new Error('Supabase yok');
+      const { data: signed, error } = await sb.storage.from(doc.storage_bucket || 'autoixpert-documents').createSignedUrl(doc.storage_path, 3600);
+      if (error) throw new Error(error.message);
+      if (!signed?.signedUrl) throw new Error('Signed URL üretilemedi');
+      setPreviewDoc({ ...doc, signedUrl: signed.signedUrl, data: signed.signedUrl, mime: 'application/pdf' });
+    } catch (e) {
+      alert('PDF açılamadı: ' + (e?.message || 'bilinmeyen hata'));
+    }
+  };
+
+  // Belgeler sekmesi her açıldığında listedeki ilk evrağı sağ panelde otomatik göster.
+  // Kullanıcı X ile kapattıysa veya başka belge açtıysa müdahale etmiyoruz.
+  const autoOpenedFirstDocRef = useRef(false);
+  useEffect(() => {
+    if (tab !== 'belgeler') {
+      autoOpenedFirstDocRef.current = false;
+      return;
+    }
+    if (autoOpenedFirstDocRef.current) return;
+    if (previewDoc) { autoOpenedFirstDocRef.current = true; return; }
+    if (!allVisibleDocs.length) return;
+    const first = allVisibleDocs[0];
+    autoOpenedFirstDocRef.current = true;
+    if (first._autoixpert) {
+      openAxDoc(first);
+    } else {
+      setPreviewDoc(first);
+    }
+  }, [tab, allVisibleDocs.length, previewDoc]);
+
+  // AutoiXpert dokümanını sil (DB satırı + storage dosyası)
+  const deleteAxDoc = async (doc) => {
+    if (!window.confirm(`"${doc.name}" silinsin mi?\n\n(Yeniden indirmek için: scripts/autoixpert/download-documents.js)`)) return;
+    try {
+      const sb = getSupabase();
+      if (!sb) throw new Error('Supabase yok');
+      const realId = doc.id?.startsWith('ax_') ? doc.id.slice(3) : doc.id;
+      if (doc.storage_path) {
+        await sb.storage.from(doc.storage_bucket || 'autoixpert-documents').remove([doc.storage_path]);
+      }
+      await sb.from('autoixpert_documents').delete().eq('id', realId);
+      setAxDocuments((prev) => prev.filter((d) => d.id !== realId));
+    } catch (e) {
+      alert('Silme hatası: ' + (e?.message || ''));
+    }
+  };
+
+  // Dokümanı yeni dosyayla değiştir (manuel + AutoiXpert)
+  const replaceDocFile = (doc) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.png,.jpg,.jpeg,.doc,.docx';
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const sb = getSupabase();
+        if (!sb) throw new Error('Supabase yok');
+        if (doc._autoixpert) {
+          const buf = await file.arrayBuffer();
+          const { error: upErr } = await sb.storage.from(doc.storage_bucket).upload(doc.storage_path, buf, { contentType: file.type || 'application/pdf', upsert: true });
+          if (upErr) throw upErr;
+          const realId = doc.id?.startsWith('ax_') ? doc.id.slice(3) : doc.id;
+          await sb.from('autoixpert_documents').update({ size_bytes: file.size, mimetype: file.type || 'application/pdf', downloaded_at: new Date().toISOString() }).eq('id', realId);
+          setAxDocuments((prev) => prev.map((d) => d.id === realId ? { ...d, size_bytes: file.size, mimetype: file.type || 'application/pdf' } : d));
+          alert('Doküman değiştirildi.');
+        } else {
+          const uploaded = await uploadCustomerDocument(file, customer.id, DOC_BUCKET);
+          if (!uploaded) throw new Error('Yükleme başarısız');
+          if (doc.storage_path && doc.storage_bucket) {
+            await sb.storage.from(doc.storage_bucket).remove([doc.storage_path]).catch(() => {});
+          }
+          await sb.from('customer_documents').update({
+            name: file.name,
+            size: uploaded.size,
+            mime: uploaded.mime,
+            storage_path: uploaded.storage_path,
+            storage_bucket: uploaded.storage_bucket,
+            data: uploaded.data,
+            uploaded_at: new Date().toISOString().slice(0, 10),
+          }).eq('id', doc.id);
+          setDb((prev) => ({
+            ...prev,
+            customer_documents: (prev.customer_documents || []).map((d) =>
+              d.id === doc.id ? { ...d, name: file.name, size: uploaded.size, mime: uploaded.mime, storage_path: uploaded.storage_path, storage_bucket: uploaded.storage_bucket, data: uploaded.data, uploaded_at: new Date().toISOString().slice(0, 10) } : d
+            ),
+          }));
+          alert('Doküman değiştirildi.');
+        }
+      } catch (err) {
+        alert('Değiştirme hatası: ' + (err?.message || ''));
+      }
+    };
+    input.click();
+  };
 
   const handleFilePick = (e) => {
     const files = Array.from(e.target.files || []);
@@ -6340,19 +7110,97 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
         className="fixed inset-0 flex flex-col"
         style={{ zIndex: 71, width: '100vw', height: '100dvh',
           background: `linear-gradient(180deg, ${C.surface2} 0%, ${C.surface} 100%)` }}>
-        {/* Header */}
-        <div className="p-4 sm:p-6 flex items-start justify-between gap-3" style={{ borderBottom: `1px solid ${C.border}` }}>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs uppercase mb-2" style={{ color: C.neon, letterSpacing: '0.2em' }}>
-              {customer.type === 'kurumsal' ? 'Kurumsal Firma' : 'Bireysel Müşteri'}
-            </p>
-            <h2 className="text-xl sm:text-2xl font-semibold truncate" style={{ color: C.text, letterSpacing: '-0.01em' }}>
-              {customer.type === 'kurumsal' ? customer.company : customer.full_name}
-            </h2>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs sm:text-sm" style={{ color: C.textDim }}>
-              <span className="flex items-center gap-1.5 min-w-0"><MailIcon size={14} /> <span className="truncate">{customer.email}</span></span>
-              <span className="flex items-center gap-1.5"><PhoneIcon size={14} /> {customer.phone}</span>
-            </div>
+        {/* Header — Kreatif tasarım: gradient hero + avatar + zarif pillerler */}
+        <div className="relative overflow-hidden" style={{ borderBottom: `1px solid ${C.border}` }}>
+          {/* Decorative gradient orbs */}
+          <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full pointer-events-none"
+            style={{ background: customer.type === 'kurumsal'
+              ? 'radial-gradient(circle, rgba(14,165,233,0.18) 0%, transparent 70%)'
+              : 'radial-gradient(circle, rgba(227,6,19,0.18) 0%, transparent 70%)',
+              filter: 'blur(20px)' }} />
+          <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full pointer-events-none"
+            style={{ background: customer.type === 'kurumsal'
+              ? 'radial-gradient(circle, rgba(99,102,241,0.10) 0%, transparent 70%)'
+              : 'radial-gradient(circle, rgba(245,158,11,0.10) 0%, transparent 70%)',
+              filter: 'blur(30px)' }} />
+
+          <div className="relative p-4 sm:p-7 flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 flex items-start gap-4">
+            {/* Avatar — gradient initials */}
+            {(() => {
+              const name = customer.type === 'kurumsal' ? (customer.company || '') : (customer.full_name || '');
+              const initials = name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+              const isKurum = customer.type === 'kurumsal';
+              return (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+                  className="hidden sm:flex flex-shrink-0 w-16 h-16 rounded-2xl items-center justify-center font-bold text-2xl text-white relative overflow-hidden"
+                  style={{
+                    background: isKurum
+                      ? 'linear-gradient(135deg, #0EA5E9 0%, #6366F1 100%)'
+                      : 'linear-gradient(135deg, #E30613 0%, #F59E0B 100%)',
+                    boxShadow: isKurum
+                      ? '0 8px 24px -8px rgba(14,165,233,0.5), inset 0 1px 0 rgba(255,255,255,0.3)'
+                      : '0 8px 24px -8px rgba(227,6,19,0.5), inset 0 1px 0 rgba(255,255,255,0.3)',
+                  }}>
+                  <span className="relative z-10" style={{ letterSpacing: '-0.05em' }}>{initials}</span>
+                  <div className="absolute inset-0 opacity-30"
+                    style={{ background: 'linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.4) 50%, transparent 60%)' }} />
+                </motion.div>
+              );
+            })()}
+
+            <div className="min-w-0 flex-1">
+              {/* Type badge */}
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full mb-2"
+                style={{
+                  background: customer.type === 'kurumsal' ? 'rgba(14,165,233,0.10)' : 'rgba(227,6,19,0.08)',
+                  border: `1px solid ${customer.type === 'kurumsal' ? 'rgba(14,165,233,0.25)' : 'rgba(227,6,19,0.20)'}`,
+                }}>
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse"
+                  style={{ background: customer.type === 'kurumsal' ? C.cyan : C.neon }} />
+                <p className="text-[10px] uppercase font-bold tracking-widest"
+                  style={{ color: customer.type === 'kurumsal' ? C.cyan : C.neon, letterSpacing: '0.2em' }}>
+                  {customer.type === 'kurumsal' ? 'Kurumsal Firma' : 'Bireysel Müşteri'}
+                </p>
+              </div>
+
+              {/* Name with gradient effect */}
+              <h2 className="text-2xl sm:text-3xl font-bold truncate leading-tight"
+                style={{
+                  background: customer.type === 'kurumsal'
+                    ? 'linear-gradient(135deg, #0F172A 0%, #0EA5E9 100%)'
+                    : 'linear-gradient(135deg, #0F172A 0%, #E30613 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  letterSpacing: '-0.02em',
+                }}>
+                {customer.type === 'kurumsal' ? customer.company : customer.full_name}
+              </h2>
+
+              {/* Contact pills */}
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                {customer.email && (
+                  <a href={`mailto:${customer.email}`}
+                    className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all hover:scale-[1.02] hover:shadow-md"
+                    style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim, border: `1px solid ${C.border}` }}>
+                    <MailIcon size={12} className="group-hover:scale-110 transition-transform" style={{ color: C.neon }} />
+                    <span className="truncate max-w-[200px]">{customer.email}</span>
+                  </a>
+                )}
+                {customer.phone && (
+                  <a href={`tel:${customer.phone}`}
+                    className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all hover:scale-[1.02] hover:shadow-md"
+                    style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim, border: `1px solid ${C.border}` }}>
+                    <PhoneIcon size={12} className="group-hover:scale-110 transition-transform" style={{ color: '#10B981' }} />
+                    <span>{customer.phone}</span>
+                  </a>
+                )}
+              </div>
+
             {/* Yetkili Avukat & Sigorta — header pills (visible across all tabs) */}
             <div className="flex flex-wrap items-center gap-2 mt-3">
               {(() => {
@@ -6463,31 +7311,78 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                 );
               })()}
             </div>
+            </div>
           </div>
           {/* Ana sayfa / cikis butonu - mevcut adminin musteri listesine doner */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={onClose}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all hover:scale-[1.02]"
-              style={{ background: 'rgba(227,6,19,0.07)', color: C.text,
-                border: `1px solid ${C.neon}55` }}>
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all hover:scale-[1.02] hover:shadow-md"
+              style={{
+                background: 'linear-gradient(135deg, rgba(227,6,19,0.08) 0%, rgba(245,158,11,0.06) 100%)',
+                color: C.text,
+                border: `1px solid ${C.neon}40`,
+              }}>
               <ArrowRight size={14} style={{ transform: 'rotate(180deg)' }} />
               Ana Sayfa
             </button>
             <button onClick={onClose} aria-label="Kapat"
-              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-black/5 transition"
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-black/5 hover:rotate-90 transition-all"
               style={{ color: C.textDim, border: `1px solid ${C.border}` }}>
               <XClose size={16} />
             </button>
           </div>
+          </div>
         </div>
+        {/* Plaka switcher — bir plaka seçince diğer sekmelerin verisi sadece o
+            araca filtrelenir. "Tümü" → filtre kapatılır. */}
+        {myVehicles.length > 0 && (
+          <div className="px-3 sm:px-6 py-2.5 flex items-center gap-2 overflow-x-auto"
+            style={{ borderTop: `1px solid ${C.border}`, background: 'rgba(0,0,0,0.02)', scrollbarWidth: 'none' }}>
+            <span className="text-[11px] uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim, letterSpacing: '0.12em' }}>
+              Plaka:
+            </span>
+            <button
+              onClick={() => setSelectedVehicleId(null)}
+              className="px-3 py-1 rounded-full text-xs font-medium transition whitespace-nowrap"
+              style={{
+                background: !selectedVehicleId ? C.neon : 'transparent',
+                color: !selectedVehicleId ? '#fff' : C.textDim,
+                border: `1px solid ${!selectedVehicleId ? C.neon : C.border}`,
+              }}
+            >
+              Tümü ({myVehicles.length})
+            </button>
+            {myVehicles.map(v => {
+              const isActive = selectedVehicleId === v.id;
+              const plateRaw = v.plate || '— —';
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => setSelectedVehicleId(isActive ? null : v.id)}
+                  title={`${v.brand || ''} ${v.model || ''}`.trim() || 'Araç'}
+                  className="px-3 py-1 rounded-full text-xs font-mono font-bold transition whitespace-nowrap"
+                  style={{
+                    background: isActive ? C.neon : 'transparent',
+                    color: isActive ? '#fff' : C.text,
+                    border: `1px solid ${isActive ? C.neon : C.border}`,
+                  }}
+                >
+                  {plateRaw}
+                </button>
+              );
+            })}
+          </div>
+        )}
         {/* Tabs */}
         <div className="px-3 sm:px-6 flex gap-0.5 sm:gap-1 overflow-x-auto" style={{ borderBottom: `1px solid ${C.border}`, scrollbarWidth: 'none' }}>
           {[
             { k: 'araclar', l: 'Araçlar', cnt: myVehicles.length, icon: CarIcon },
-            { k: 'belgeler', l: 'Belgeler', cnt: myDocs.length, icon: FolderIcon },
+            { k: 'belgeler', l: 'Belgeler', cnt: myDocs.length + axDocuments.length, icon: FolderIcon },
+            { k: 'fotograflar', l: 'Fotoğraflar', cnt: axPhotos.length, icon: ImageIcon },
             { k: 'ekspertiz', l: 'Ekspertiz', cnt: myAppraisals.length, icon: Wrench },
+            { k: 'autoixpert', l: 'AutoiXpert', cnt: myCustomerAppraisals.length, icon: ClipboardIcon },
             { k: 'mesajlar', l: 'Mesajlar', cnt: (db.messages || []).filter(m => m.contact_id === customer.id).length, icon: MessageIcon },
-            { k: 'faturalar', l: 'Faturalar', cnt: myInvoices.length, icon: Receipt },
+            { k: 'faturalar', l: 'Faturalar', cnt: myInvoices.length + axInvoices.length, icon: Receipt },
             { k: 'bilgi', l: 'Bilgiler', cnt: null, icon: SettingsIcon },
           ].map(t => (
             <button key={t.k} onClick={() => { setTab(t.k); if (t.k !== 'belgeler') setPreviewDoc(null); if (t.k !== 'ekspertiz') setPreviewAppraisal(null); }}
@@ -6524,27 +7419,44 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
               ) : (
                 <div className="space-y-3">
                   {myVehicles.map(v => {
-                    const apr = myAppraisals.find(a => a.vehicle_id === v.id);
-                    const stage = STAGES.find(s => s.key === (apr?.status || 'bekliyor'));
-                    const vDocs = myDocs.filter(d => d.vehicle_id === v.id);
+                    const apr = (db.appraisals || []).find(a => a.vehicle_id === v.id);
+                    const stage = STAGES.find(s => s.key === (apr?.status || 'bekliyor')) || STAGES[0];
+                    const vDocs = (db.customer_documents || []).filter(d => d.customer_id === customer.id && d.vehicle_id === v.id);
+                    const isSelected = selectedVehicleId === v.id;
                     return (
-                      <div key={v.id} className="rounded-2xl p-5" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
+                      <div key={v.id}
+                        onClick={() => setSelectedVehicleId(isSelected ? null : v.id)}
+                        className="rounded-2xl p-5 cursor-pointer transition-all"
+                        style={{
+                          background: isSelected ? `${C.neon}10` : 'rgba(0,0,0,0.03)',
+                          border: `${isSelected ? '2px' : '1px'} solid ${isSelected ? C.neon : C.border}`,
+                          boxShadow: isSelected ? `0 0 0 4px ${C.neon}1A` : 'none',
+                        }}>
                         <div className="flex items-start justify-between mb-3">
                           <div>
                             <p className="font-mono text-lg tracking-wider" style={{ color: C.text }}>{v.plate}</p>
                             <p className="text-sm" style={{ color: C.textDim }}>{v.brand} {v.model} · {v.year}</p>
                             <p className="text-xs mt-1 font-mono" style={{ color: C.textDim }}>Şasi: {v.chassis}</p>
                           </div>
-                          <span className="text-xs px-3 py-1 rounded-full"
-                            style={{ background: `${stage.color}20`, color: stage.color, border: `1px solid ${stage.color}44` }}>
-                            {stage.label}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {isSelected && (
+                              <span className="text-[10px] uppercase font-bold px-2 py-1 rounded-full"
+                                style={{ background: C.neon, color: '#fff', letterSpacing: '0.08em' }}>
+                                Aktif
+                              </span>
+                            )}
+                            <span className="text-xs px-3 py-1 rounded-full"
+                              style={{ background: `${stage.color}20`, color: stage.color, border: `1px solid ${stage.color}44` }}>
+                              {stage.label}
+                            </span>
+                          </div>
                         </div>
                         {vDocs.length > 0 && (
                           <div className="flex items-center gap-2 mt-3 mb-3">
                             <FolderIcon size={12} style={{ color: C.textDim }} />
                             <span className="text-xs" style={{ color: C.textDim }}>{vDocs.length} belge</span>
-                            <button onClick={() => { setTab('belgeler'); }} className="text-xs underline" style={{ color: C.neon }}>Görüntüle</button>
+                            <button onClick={(e) => { e.stopPropagation(); setSelectedVehicleId(v.id); setTab('belgeler'); }}
+                              className="text-xs underline" style={{ color: C.neon }}>Görüntüle</button>
                           </div>
                         )}
                         <div className="mt-3">
@@ -6665,8 +7577,8 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                 })}
               </div>
 
-              {/* Document list */}
-              {filteredDocs.length === 0 ? (
+              {/* Document list — manuel + AutoiXpert PDF'ler */}
+              {allVisibleDocs.length === 0 ? (
                 <div className="rounded-2xl p-10 text-center" style={{ border: `1px dashed ${C.border}` }}>
                   <FolderIcon size={40} style={{ color: C.textDim, margin: '0 auto 12px' }} />
                   <p style={{ color: C.textDim }} className="text-sm">Henüz belge yüklenmemiş.</p>
@@ -6674,8 +7586,11 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {filteredDocs.map(doc => {
-                    const dtInfo = getDocTypeInfo(doc.type);
+                  {allVisibleDocs.map(doc => {
+                    const isAx = !!doc._autoixpert;
+                    const dtInfo = isAx
+                      ? { label: 'AutoiXpert', color: '#3B82F6', group: 'AutoiXpert' }
+                      : getDocTypeInfo(doc.type);
                     const veh = db.vehicles.find(v => v.id === doc.vehicle_id);
                     const isActive = previewDoc?.id === doc.id;
                     const isPdf = doc.mime === 'application/pdf' || doc.name.endsWith('.pdf');
@@ -6684,7 +7599,11 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                       <motion.div key={doc.id}
                         whileHover={{ scale: 1.01 }}
                         className="rounded-xl p-4 cursor-pointer transition-all"
-                        onClick={() => { isRuhsatDoc(doc.type) ? setRuhsatPanelDoc(doc) : setPreviewDoc(doc); }}
+                        onClick={() => {
+                          if (isAx) return openAxDoc(doc);
+                          if (isRuhsatDoc(doc.type)) return setRuhsatPanelDoc(doc);
+                          setPreviewDoc(doc);
+                        }}
                         style={{
                           background: isActive ? `${C.neon}08` : 'rgba(0,0,0,0.03)',
                           border: `1px solid ${isActive ? C.neon + '44' : C.border}`,
@@ -6716,7 +7635,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                           </div>
                           {/* Actions */}
                           <div className="flex items-center gap-1">
-                            {isRuhsatDoc(doc.type) && (
+                            {!isAx && isRuhsatDoc(doc.type) && (
                               <button onClick={(e) => { e.stopPropagation(); setRuhsatPanelDoc(doc); }}
                                 className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] font-medium hover:bg-black/5 transition"
                                 title="Ruhsat Detayı"
@@ -6724,12 +7643,17 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                                 <FileText size={12} /> Ruhsat
                               </button>
                             )}
-                            <button onClick={(e) => { e.stopPropagation(); setPreviewDoc(doc); }}
+                            <button onClick={(e) => { e.stopPropagation(); isAx ? openAxDoc(doc) : setPreviewDoc(doc); }}
                               className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                               title="Görüntüle" style={{ color: C.neon }}>
                               <EyeIcon size={15} />
                             </button>
-                            <button onClick={(e) => { e.stopPropagation(); deleteDoc(doc.id); }}
+                            <button onClick={(e) => { e.stopPropagation(); replaceDocFile(doc); }}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-blue-500/10 transition"
+                              title="Değiştir (yeni dosya yükle)" style={{ color: '#3B82F6' }}>
+                              <EditIcon size={15} />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); isAx ? deleteAxDoc(doc) : deleteDoc(doc.id); }}
                               className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-500/10 transition"
                               title="Sil" style={{ color: '#EF4444' }}>
                               <TrashIcon size={15} />
@@ -6745,37 +7669,97 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
             </div>
           )}
 
+          {tab === 'fotograflar' && (
+            <CustomerPhotosTab photos={axPhotos} />
+          )}
+
           {tab === 'ekspertiz' && (
             <div className="space-y-4">
               {myAppraisals.length === 0 && <p className="text-sm" style={{ color: C.textDim }}>Ekspertiz kaydı yok.</p>}
-              {myAppraisals.map(ap => (
-                <AppraisalCard key={ap.id} ap={ap} customer={customer} db={db} setDb={setDb} currentUser={currentUser}
-                  isPreviewing={previewAppraisal?.id === ap.id}
-                  onPreview={() => {
-                    try {
-                      const v = db.vehicles.find(vh => vh.id === ap.vehicle_id);
-                      const paintMap = (db.paint_maps || {})[v?.id] || {};
-                      const result = generateGutachtenPDF({
-                        vehicle: v, customer, appraisal: ap, paintData: paintMap, db,
-                        output: 'dataurl',
-                      });
-                      if (result?.dataUrl) {
-                        setPreviewAppraisal({ id: ap.id, dataUrl: result.dataUrl, filename: result.filename, vehicle: v, appraisal: ap });
-                      }
-                    } catch (err) {
-                      console.error('PDF preview error:', err);
-                      alert('PDF önizleme hatası: ' + err.message);
-                    }
-                  }} />
-              ))}
+              {myAppraisals.map(ap => {
+                const axGutachten = ap.autoixpert_report_id
+                  ? axDocuments.find(d => d.report_id === ap.autoixpert_report_id && d.type === 'report')
+                  : null;
+                return (
+                  <div key={ap.id}>
+                    <AppraisalCard ap={ap} customer={customer} db={db} setDb={setDb} currentUser={currentUser}
+                      isPreviewing={previewAppraisal?.id === ap.id}
+                      onPreview={() => {
+                        try {
+                          const v = db.vehicles.find(vh => vh.id === ap.vehicle_id);
+                          const paintMap = (db.paint_maps || {})[v?.id] || {};
+                          const result = generateGutachtenPDF({
+                            vehicle: v, customer, appraisal: ap, paintData: paintMap, db,
+                            output: 'dataurl',
+                          });
+                          if (result?.dataUrl) {
+                            setPreviewAppraisal({ id: ap.id, dataUrl: result.dataUrl, filename: result.filename, vehicle: v, appraisal: ap });
+                          }
+                        } catch (err) {
+                          console.error('PDF preview error:', err);
+                          alert('PDF önizleme hatası: ' + err.message);
+                        }
+                      }} />
+                    {axGutachten && (
+                      <button onClick={() => openAxDoc(axGutachten)}
+                        className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition hover:shadow-md"
+                        style={{ background: '#3B82F608', border: `1px solid #3B82F644`, color: '#3B82F6' }}>
+                        <FileText size={14} /> AutoiXpert Gutachten Aç ({ap.report_token || ap.autoixpert_report_id})
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+          )}
+          {tab === 'autoixpert' && (
+            <CustomerAutoiXpertTab reports={axReports} />
           )}
           {tab === 'mesajlar' && (
             <MessagesTab customer={customer} db={db} setDb={setDb} />
           )}
           {tab === 'faturalar' && (
             <div className="space-y-2">
-              {myInvoices.length === 0 && <p className="text-sm" style={{ color: C.textDim }}>Fatura bulunmuyor.</p>}
+              {myInvoices.length === 0 && axInvoices.length === 0 && <p className="text-sm" style={{ color: C.textDim }}>Fatura bulunmuyor.</p>}
+              {/* AutoiXpert Rechnungen */}
+              {axInvoices.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs uppercase tracking-widest mb-2" style={{ color: '#3B82F6', letterSpacing: '0.15em' }}>AutoiXpert Rechnungen</p>
+                  <div className="space-y-2">
+                    {axInvoices.map(inv => {
+                      const invoicePdf = axDocuments.find(d => d._ax_type === 'invoice' && d.report_token && true); // type=invoice doc — eşleşme zayıf, en yakın bul
+                      const matchPdf = axDocuments.find(d => d.type === 'invoice');
+                      return (
+                        <div key={inv.id} className="flex items-center gap-3 p-4 rounded-xl"
+                          style={{ border: `1px solid #3B82F633`, background: 'rgba(59,130,246,0.04)' }}>
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#3B82F615', color: '#3B82F6' }}>
+                            <Receipt size={18} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-mono text-sm truncate" style={{ color: C.text }}>{inv.number || inv.id}</p>
+                            <p className="text-xs" style={{ color: C.textDim }}>
+                              {inv.date || '—'}
+                              {inv.is_fully_canceled ? ' · ❌ İptal' : (inv.has_outstanding_payments ? ` · ⚠ Ödenmedi (${inv.current_unpaid_amount} €)` : ' · ✓ Ödendi')}
+                            </p>
+                          </div>
+                          <div className="text-right whitespace-nowrap">
+                            <p className="font-mono font-bold" style={{ color: C.text }}>{inv.total_gross?.toLocaleString('de-DE') || '—'} €</p>
+                            <p className="text-xs" style={{ color: C.textDim }}>Net: {inv.total_net?.toLocaleString('de-DE') || '—'}</p>
+                          </div>
+                          {matchPdf && (
+                            <button onClick={() => openAxDoc(matchPdf)}
+                              className="h-8 px-3 rounded-lg flex items-center gap-1.5 text-xs font-medium transition"
+                              style={{ background: '#3B82F6', color: '#fff' }}>
+                              <FileText size={12} /> PDF
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {/* Manuel Faturalar */}
               {[...myInvoices]
                 .sort((a, b) => {
                   if (!!b.favorite !== !!a.favorite) return (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0);
@@ -7859,6 +8843,7 @@ function AdminTuvTracking({ db, setDb }) {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState('all');
   const [ownerType, setOwnerType] = useState('all'); // all | bireysel | kurumsal
+  const [viewMode, setViewMode] = useState('list'); // 'grid' | 'list'
 
   const dateField = mode === 'tuv' ? 'tuv_date' : 'insurance_date';
   const modeLabel = mode === 'tuv' ? 'TÜV (Hauptuntersuchung)' : 'Sigorta';
@@ -7928,7 +8913,7 @@ function AdminTuvTracking({ db, setDb }) {
     if (!editVehicle) return;
     setDb(prev => ({
       ...prev,
-      vehicles: (prev.vehicles || []).map(x => x.id === editVehicle.id ? { ...x, [dateField]: editDate || '' } : x),
+      vehicles: (prev.vehicles || []).map(x => x.id === editVehicle.id ? { ...x, [dateField]: editDate || null } : x),
     }));
     setEditVehicle(null);
     setEditDate('');
@@ -8091,6 +9076,23 @@ function AdminTuvTracking({ db, setDb }) {
             className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
             style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }} />
         </div>
+
+        {/* View mode switcher */}
+        <div className="inline-flex rounded-xl p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
+          {[
+            { k: 'grid', l: 'Izgara', icon: GridIcon },
+            { k: 'list', l: 'Liste',  icon: ListIcon },
+          ].map(v => {
+            const active = viewMode === v.k;
+            return (
+              <button key={v.k} type="button" onClick={() => setViewMode(v.k)} title={v.l}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{ background: active ? C.text : 'transparent', color: active ? C.surface : C.textDim }}>
+                <v.icon size={13} />{v.l}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Mini Takvim — kompakt yıl + ay strip */}
@@ -8194,6 +9196,104 @@ function AdminTuvTracking({ db, setDb }) {
           <p className="text-xs" style={{ color: C.textDim }}>
             Müşteri kartlarına araç eklediğinde TÜV/Sigorta tarihleri burada otomatik gözükür
           </p>
+        </div>
+      ) : viewMode === 'list' ? (
+        <div className="rounded-2xl overflow-hidden" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ background: 'rgba(0,0,0,0.03)', borderBottom: `1px solid ${C.border}` }}>
+                  <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Plaka</th>
+                  <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Tip</th>
+                  <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Araç</th>
+                  <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Müşteri</th>
+                  <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Telefon</th>
+                  {mode === 'insurance' && (
+                    <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Sigorta</th>
+                  )}
+                  <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>{modeShort} Tarihi</th>
+                  <th className="px-3 py-2.5 text-center text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Kalan</th>
+                  <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Durum</th>
+                  <th className="px-3 py-2.5 text-right text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Aksiyon</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(({ v, owner, days, insurer }, idx) => {
+                  const status = tuvStatusInfo(days, C);
+                  const dval = v[dateField];
+                  const ownerName = owner?.type === 'kurumsal' ? (owner.company || owner.full_name) : owner?.full_name;
+                  const dateStr = dval ? new Date(dval).toLocaleDateString('tr-TR') : '—';
+                  return (
+                    <tr key={v.id}
+                      style={{
+                        borderBottom: idx === filtered.length - 1 ? 'none' : `1px solid ${C.border}`,
+                        background: days != null && days < 0 ? 'rgba(239,68,68,0.03)' : 'transparent',
+                      }}>
+                      <td className="px-3 py-2.5">
+                        <span className="font-mono font-bold tracking-wider" style={{ color: C.text }}>{formatPlate(v.plate)}</span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {owner && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] uppercase tracking-wider"
+                            style={{
+                              background: owner.type === 'kurumsal' ? '#3B82F615' : '#10B98115',
+                              color: owner.type === 'kurumsal' ? '#3B82F6' : '#10B981',
+                            }}>
+                            {owner.type === 'kurumsal' ? <Building size={9} /> : <UsersIcon size={9} />}
+                            {owner.type === 'kurumsal' ? 'Firma' : 'Bireysel'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5" style={{ color: C.text }}>
+                        <span className="text-xs">{v.brand} {v.model}</span>
+                        {v.year && <span className="text-[11px] ml-1" style={{ color: C.textDim }}>· {v.year}</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-xs truncate max-w-[180px]" style={{ color: C.text }}>{ownerName || '—'}</td>
+                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: C.textDim }}>{owner?.phone || '—'}</td>
+                      {mode === 'insurance' && (
+                        <td className="px-3 py-2.5 text-xs" style={{ color: C.textDim }}>{insurer?.company || '—'}</td>
+                      )}
+                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: dval ? status.color : C.textDim }}>{dateStr}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        {days != null ? (
+                          <span className="inline-flex flex-col items-center justify-center px-2 py-0.5 rounded-md font-mono"
+                            style={{ background: status.bg, border: `1px solid ${status.color}33`, color: status.color, minWidth: 50 }}>
+                            <span className="text-sm font-bold leading-none">{days < 0 ? Math.abs(days) : days}</span>
+                            <span className="text-[8px] uppercase tracking-wider" style={{ opacity: 0.85 }}>
+                              {days < 0 ? 'geçti' : days === 0 ? 'bugün' : 'gün'}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] uppercase tracking-wider" style={{ color: C.textDim }}>—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
+                          style={{ background: status.bg, color: status.color, border: `1px solid ${status.color}33` }}>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: status.color }} />
+                          {status.label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => { setEditVehicle(v); setEditDate(dval || ''); }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition hover:bg-black/5"
+                            style={{ color: C.text, border: `1px solid ${C.border}` }}>
+                            <EditIcon size={10} /> Tarih
+                          </button>
+                          <button onClick={() => setNotifyVehicle(v)} disabled={!dval}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition disabled:opacity-40"
+                            style={{ background: `${C.neon}10`, color: C.neon, border: `1px solid ${C.neon}30` }}>
+                            <MessageIcon size={10} /> Bildir
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -8558,7 +9658,8 @@ function AdminGallery({ db, setDb }) {
   const findCustomer = (id) => customers.find(c => c.id === id);
   const findLawyer = (id) => lawyers.find(l => l.id === id);
 
-  // Dosya okuma — base64'e çevir, modal için bekleme listesine ekle
+  // Dosya okuma — preview için base64'e çevir, gerçek File nesnesini de tut
+  // (Storage upload commit aşamasında file objesi gerekli — base64 sadece preview)
   const readFiles = (fileList) => {
     const files = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
     if (!files.length) return;
@@ -8567,9 +9668,10 @@ function AdminGallery({ db, setDb }) {
       reader.onload = () => resolve({
         tmpId: 'tmp' + uid(),
         name: file.name,
-        data: reader.result,
+        data: reader.result,        // sadece preview/önizleme — DB'ye gitmeyecek
         size: file.size,
         mime: file.type,
+        _file: file,                // gerçek File — Supabase Storage upload için
       });
       reader.readAsDataURL(file);
     }));
@@ -8607,15 +9709,12 @@ function AdminGallery({ db, setDb }) {
     readFiles(e.dataTransfer?.files);
   };
 
-  // Bekleyen yüklemeleri DB'ye işle
-  const commitPendingUploads = () => {
-    if (!pendingUploads || !pendingUploads.files?.length) return;
-    const meta = pendingUploads.meta;
-    const tagsList = (meta.tags || '').split(',').map(t => t.trim()).filter(Boolean);
-    const newPhotos = pendingUploads.files.map(f => ({
+  // Tek dosyayı Supabase Storage'a yükler (live mode); fallback: base64 saklar.
+  // Sayfa yenilenince de görünmesi için storage_path + public_url kalıcılaştırılır.
+  const buildPhotoRecord = async (f, meta, tagsList) => {
+    const base = {
       id: 'ph' + uid(),
       name: f.name,
-      data: f.data,
       size: f.size,
       mime: f.mime,
       note: meta.note || '',
@@ -8625,32 +9724,60 @@ function AdminGallery({ db, setDb }) {
       lawyer_id: meta.lawyer_id || null,
       uploaded_at: new Date().toISOString(),
       date: new Date().toISOString().slice(0, 10),
-    }));
+    };
+
+    // Live mode: Supabase Storage'a yükle, kalıcı path/url al
+    if (DataService.isLive() && f._file) {
+      try {
+        const uploaded = await uploadCustomerDocument(f._file, meta.customer_id || 'gallery', 'gallery');
+        if (uploaded && uploaded.storage_path) {
+          return {
+            ...base,
+            storage_path: uploaded.storage_path,
+            storage_bucket: uploaded.storage_bucket || 'gallery',
+            url: uploaded.public_url || null,
+            public_url: uploaded.public_url || null,
+            data: f.data, // önizleme için yerel base64 — sayfa yenilenince enrichRecordWithStorageUrl url'i dolduracak
+          };
+        }
+      } catch (e) {
+        console.warn('[AdminGallery] Storage upload failed, base64 fallback:', e?.message);
+      }
+    }
+    // Fallback: yalnızca base64 (localStorage modu veya storage hatası)
+    return { ...base, data: f.data };
+  };
+
+  // Bekleyen yüklemeleri DB'ye işle (etiketleyerek)
+  const commitPendingUploads = async () => {
+    if (!pendingUploads || !pendingUploads.files?.length) return;
+    const meta = pendingUploads.meta;
+    const tagsList = (meta.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+    const newPhotos = await Promise.all(
+      pendingUploads.files.map(f => buildPhotoRecord(f, meta, tagsList))
+    );
     setDb(prev => ({ ...prev, gallery: [...(prev.gallery || []), ...newPhotos] }));
     setPendingUploads([]);
   };
 
-  const skipTaggingAndCommit = () => {
+  // Bekleyen yüklemeleri etiketsiz DB'ye işle
+  const skipTaggingAndCommit = async () => {
     if (!pendingUploads?.files?.length) { setPendingUploads([]); return; }
-    const newPhotos = pendingUploads.files.map(f => ({
-      id: 'ph' + uid(),
-      name: f.name,
-      data: f.data,
-      size: f.size,
-      mime: f.mime,
-      note: '',
-      tags: [],
-      category: 'general',
-      customer_id: null,
-      lawyer_id: null,
-      uploaded_at: new Date().toISOString(),
-      date: new Date().toISOString().slice(0, 10),
-    }));
+    const meta = { customer_id: null, lawyer_id: null, category: 'general', note: '', tags: '' };
+    const newPhotos = await Promise.all(
+      pendingUploads.files.map(f => buildPhotoRecord(f, meta, []))
+    );
     setDb(prev => ({ ...prev, gallery: [...(prev.gallery || []), ...newPhotos] }));
     setPendingUploads([]);
   };
 
   const deletePhoto = (id) => {
+    const photo = photos.find(p => p.id === id);
+    // Storage'dan da temizle (yetim dosya bırakma) — DB tarafından bağımsız
+    if (photo?.storage_path && DataService.isLive()) {
+      StorageService.deleteFile(photo.storage_bucket || 'gallery', photo.storage_path)
+        .catch(e => console.warn('[AdminGallery] Storage delete failed:', e?.message));
+    }
     setDb(prev => ({ ...prev, gallery: (prev.gallery || []).filter(p => p.id !== id) }));
     if (viewPhoto?.id === id) setViewPhoto(null);
     setSelectedIds(prev => prev.filter(x => x !== id));
@@ -8673,6 +9800,16 @@ function AdminGallery({ db, setDb }) {
   const bulkDelete = () => {
     if (!selectedIds.length) return;
     if (!confirm(`${selectedIds.length} fotoğraf silinecek. Emin misin?`)) return;
+    // Storage'dan da temizle
+    if (DataService.isLive()) {
+      selectedIds.forEach(id => {
+        const p = photos.find(x => x.id === id);
+        if (p?.storage_path) {
+          StorageService.deleteFile(p.storage_bucket || 'gallery', p.storage_path)
+            .catch(e => console.warn('[AdminGallery] Storage bulk delete failed:', e?.message));
+        }
+      });
+    }
     setDb(prev => ({ ...prev, gallery: (prev.gallery || []).filter(p => !selectedIds.includes(p.id)) }));
     setSelectedIds([]);
   };
@@ -8861,8 +9998,9 @@ function AdminGallery({ db, setDb }) {
           boxShadow: isSel ? `0 8px 24px ${C.neon}30` : 'none',
         }}
         onClick={() => setViewPhoto(photo)}>
-        <img src={photo.data} alt={photo.name}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+        <img src={photo.data || photo.url} alt={photo.name} loading="lazy"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }} />
 
         {/* Kategori şeridi — sol üst */}
         <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
@@ -9182,8 +10320,9 @@ function AdminGallery({ db, setDb }) {
                   }}>
                   {isSel && <Check size={12} style={{ color: '#fff' }} />}
                 </button>
-                <img src={photo.data} alt={photo.name}
-                  className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                <img src={photo.data || photo.url} alt={photo.name} loading="lazy"
+                  className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-medium"
@@ -9201,7 +10340,7 @@ function AdminGallery({ db, setDb }) {
                   </div>
                   {photo.note && <p className="text-xs truncate mt-1 italic" style={{ color: C.textDim }}>"{photo.note}"</p>}
                 </div>
-                <a href={photo.data} download={photo.name} onClick={(e) => e.stopPropagation()}
+                <a href={photo.data || photo.url} download={photo.name} onClick={(e) => e.stopPropagation()}
                   className="p-2 rounded-lg" style={{ color: C.textDim }} title="İndir">
                   <DownloadIcon size={14} />
                 </a>
@@ -9303,8 +10442,9 @@ function AdminGallery({ db, setDb }) {
 
               {/* Görüntü */}
               <div className="flex-1 min-w-0 flex items-center justify-center bg-black/60 p-4 relative" style={{ minHeight: 320 }}>
-                <img src={viewPhoto.data} alt={viewPhoto.name}
-                  className="max-w-full max-h-[80vh] object-contain rounded-lg" />
+                <img src={viewPhoto.data || viewPhoto.url} alt={viewPhoto.name}
+                  className="max-w-full max-h-[80vh] object-contain rounded-lg"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs"
                   style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>
                   {currentIdx + 1} / {filtered.length}
@@ -9402,7 +10542,7 @@ function AdminGallery({ db, setDb }) {
                 </div>
 
                 <div className="p-4 flex gap-2" style={{ borderTop: `1px solid ${C.border}` }}>
-                  <a href={viewPhoto.data} download={viewPhoto.name}
+                  <a href={viewPhoto.data || viewPhoto.url} download={viewPhoto.name}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium"
                     style={{ background: `${C.neon}15`, border: `1px solid ${C.neon}40`, color: C.neon }}>
                     <DownloadIcon size={14} /> İndir
@@ -10433,7 +11573,6 @@ function LawyerApp({ user, onLogout, onHome }) {
     { key: 'diff_report', label: 'Fark Raporu', icon: AlertTriangle },
     { key: 'client_summary', label: 'Müvekkil Özeti', icon: ClipboardIcon },
     { key: 'reports', label: 'Ekspertiz Raporları', icon: Wrench },
-    { key: 'autoixpert', label: 'AutoiXpert', icon: Database },
     { key: 'upload', label: 'Dosya Yükle', icon: UploadIcon },
     { key: 'metrics', label: 'Performans', icon: TrendingUp },
   ];
@@ -11856,7 +12995,6 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
           </>
         )}
 
-        {section === 'autoixpert' && <AdminAutoiXpert mode="lawyer" />}
       </main>
       <MobileBottomNav items={lawyerNavItems} active={section} onChange={setSection}
         onHome={onHome} onLogout={handleLogout} />
@@ -12368,6 +13506,7 @@ function AdminApp({ user, onLogout, onHome }) {
         {section === 'gallery' && <AdminGallery db={db} setDb={setDb} />}
         {section === 'reminders' && <AdminReminders db={db} setDb={setDb} />}
         {section === 'communications' && <CommunicationsPanel db={db} />}
+        {section === 'autoixpert' && (user?.email || '').trim().toLowerCase() === 'cevikademm@gmail.com' && <AdminAutoiXpert mode="admin" />}
         {section === 'settings' && <AdminSettings user={user} db={db} setDb={setDb} />}
 
 
