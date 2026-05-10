@@ -2428,18 +2428,23 @@ function useDB() {
         // 2) Supabase'den tam veriyi yükle
         const data = await DataService.loadAll();
         if (mounted && data) {
-          // DEFANSIF MERGE: Supabase boş ama lokalde veri varsa lokal korunur.
-          // Sebep: müşteri Supabase projesini değiştirdiğinde yeni proje boş gelir;
-          // localStorage'daki birikmiş veriyi silmemek için lokal'i overlay'liyoruz.
+          // DEFANSIF UNION MERGE: Supabase'de olmayan lokal-only kayıtları koru.
+          // Sebep: müşteri Supabase projesini değiştirdiğinde / RLS yetkisi yoksa /
+          // yeni eklenen kayıt henüz sync olmamışken — kayıpları önlüyor.
+          // Realtime subscription DELETE event'lerini ayrı işliyor; bu union
+          // gerçek silmelerle çakışmaz çünkü subscription tarafında çıkarılırlar.
           setDb((prev) => {
             const merged = { ...prev, ...data };
             for (const key of Object.keys(data)) {
               const remoteArr = Array.isArray(data[key]) ? data[key] : null;
               const localArr  = Array.isArray(prev[key]) ? prev[key] : null;
-              if (remoteArr && remoteArr.length === 0 && localArr && localArr.length > 0) {
-                // Supabase boş, lokal dolu → lokali tut
-                merged[key] = localArr;
-                console.log(`[useDB] '${key}': Supabase boş, lokal ${localArr.length} kayıt korundu`);
+              if (!remoteArr || !localArr) continue;
+              // ID'ye göre union: remote öncelikli + lokal-only ekstralar
+              const remoteIds = new Set(remoteArr.map(r => r?.id).filter(Boolean));
+              const localOnly = localArr.filter(r => r?.id && !remoteIds.has(r.id));
+              if (localOnly.length > 0) {
+                merged[key] = [...remoteArr, ...localOnly];
+                console.log(`[useDB] '${key}': ${localOnly.length} lokal-only kayıt korundu (toplam ${merged[key].length})`);
               }
             }
             return merged;
@@ -4552,6 +4557,14 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
       // Bireysel/kurumsal: ruhsattan gelen veriler — hem customer hem vehicle oluştur
       // Boş string'ler yerine null gönder — DB'de unique/check constraint çakışmasın
       const orNull = (v) => (v == null || String(v).trim() === '') ? null : v;
+      // Adres composition — kullanıcı PLZ/Şehir/Sokak ayrı doldurduysa address'i compose et
+      const composedAddress = orNull(form.address) || (() => {
+        const parts = [];
+        if (form.street) parts.push(form.street);
+        const cityLine = [form.zip, form.city].filter(Boolean).join(' ');
+        if (cityLine) parts.push(cityLine);
+        return parts.length ? parts.join(', ') : null;
+      })();
       const customerId = 'c' + uid();
       const cust = {
         id: customerId,
@@ -4560,7 +4573,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
         full_name: orNull(form.full_name),
         email:     orNull(form.email),
         phone:     orNull(form.phone),
-        address:   orNull(form.address),
+        address:   composedAddress,
         street:    orNull(form.street),
         zip:       orNull(form.zip),
         city:      orNull(form.city),
@@ -4959,10 +4972,16 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
                     <TextInput value={form.phone || ''} onChange={set('phone')} placeholder="+90 5xx xxx xx xx" required />
                   </Field>
                   <div className="md:col-span-2">
-                    <Field label="Adres">
-                      <TextInput value={form.address || ''} onChange={set('address')} placeholder="Mah. / Cad. / No / İlçe / İl" />
+                    <Field label="Adres / Sokak">
+                      <TextInput value={form.street || form.address || ''} onChange={set('street')} placeholder="Sokak adı + Numara, örn. Amselweg 24" />
                     </Field>
                   </div>
+                  <Field label="Posta Kodu (PLZ)">
+                    <TextInput value={form.zip || ''} onChange={set('zip')} placeholder="52223" />
+                  </Field>
+                  <Field label="Şehir">
+                    <TextInput value={form.city || ''} onChange={set('city')} placeholder="Stolberg" />
+                  </Field>
                 </div>
               </div>
 

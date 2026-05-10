@@ -83,6 +83,7 @@ export default function TerminPlanlayici({ db, setDb, currentUser }) {
   const [services, setServices] = useState([]);
   const [settings, setSettings] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createSlot, setCreateSlot] = useState(null); // takvim'de boş alana tıklayınca pre-fill
   const [editApt, setEditApt] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -169,7 +170,8 @@ export default function TerminPlanlayici({ db, setDb, currentUser }) {
         <>
           {tab === 'calendar' && (
             <CalendarView db={db} setDb={setDb} availability={availability} settings={settings}
-              onEditApt={setEditApt} />
+              onEditApt={setEditApt}
+              onCreateAtSlot={(date, time) => { setCreateSlot({ date, time }); setCreateOpen(true); }} />
           )}
           {tab === 'availability' && (
             <AvailabilityEditor adminId={adminId} availability={availability} onChange={reload} />
@@ -184,9 +186,9 @@ export default function TerminPlanlayici({ db, setDb, currentUser }) {
       )}
 
       {/* Yeni Randevu modal */}
-      <AppointmentCreateModal open={createOpen} onClose={() => setCreateOpen(false)}
+      <AppointmentCreateModal open={createOpen} onClose={() => { setCreateOpen(false); setCreateSlot(null); }}
         db={db} setDb={setDb} services={services} availability={availability} settings={settings}
-        currentUser={currentUser} />
+        currentUser={currentUser} preset={createSlot} />
 
       {/* Düzenle modal — edit aynı modal'da prefill */}
       <AppointmentCreateModal open={!!editApt} onClose={() => setEditApt(null)}
@@ -197,7 +199,7 @@ export default function TerminPlanlayici({ db, setDb, currentUser }) {
 }
 
 // ─── Calendar View (Haftalık + Günlük) ─────────────────────────
-function CalendarView({ db, setDb, availability, settings, onEditApt }) {
+function CalendarView({ db, setDb, availability, settings, onEditApt, onCreateAtSlot }) {
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
   const isCompact = isMobile || isTablet;  // ≤1023px — week mode kapali
@@ -214,16 +216,36 @@ function CalendarView({ db, setDb, availability, settings, onEditApt }) {
   const weekStart = useMemo(() => startOfWeek(anchor), [anchor]);
   const weekDays = useMemo(() => [...Array(7)].map((_, i) => addDays(weekStart, i)), [weekStart]);
 
-  // Saat aralığını çalışma saatlerinden hesapla (en erken → en geç)
-  const [minMin, maxMin] = useMemo(() => {
-    if (!availability.length) return [8 * 60, 19 * 60];
-    let mi = Infinity, ma = -Infinity;
-    availability.forEach(a => {
-      mi = Math.min(mi, timeToMinutes(a.start_time));
-      ma = Math.max(ma, timeToMinutes(a.end_time));
+  // Takvimdeki tüm randevuları topla (saat aralığı genişletmek için kullanılacak)
+  const allApts = useMemo(() => {
+    return (db.appointments || []).filter(a => {
+      if (!a.date || !a.time) return false;
+      const d = new Date(a.date);
+      if (mode === 'day') return toISO(d) === toISO(anchor);
+      return d >= weekStart && d < addDays(weekStart, 7);
     });
+  }, [db.appointments, mode, anchor, weekStart]);
+
+  // Saat aralığı: çalışma saatleri + görünür randevuların saatleri.
+  // Mevcut çalışma saatleri DIŞINDA randevu varsa onlar da görünür olsun.
+  const [minMin, maxMin] = useMemo(() => {
+    let mi = 8 * 60, ma = 19 * 60;
+    if (availability.length) {
+      mi = Math.min(...availability.map(a => timeToMinutes(a.start_time)));
+      ma = Math.max(...availability.map(a => timeToMinutes(a.end_time)));
+    }
+    // Randevular grid dışına taşıyorsa genişlet
+    allApts.forEach(a => {
+      const start = timeToMinutes(a.time);
+      const end = start + (a.duration_minutes || 30);
+      if (start < mi) mi = start;
+      if (end > ma) ma = end;
+    });
+    // 30dk buffer
+    mi = Math.max(0, mi - 30);
+    ma = Math.min(24 * 60, ma + 30);
     return [Math.floor(mi / 60) * 60, Math.ceil(ma / 60) * 60];
-  }, [availability]);
+  }, [availability, allApts]);
 
   const hours = useMemo(() => {
     const arr = [];
@@ -234,14 +256,7 @@ function CalendarView({ db, setDb, availability, settings, onEditApt }) {
   const slotMin = settings?.slot_duration_minutes || 30;
   const pxPerMin = 1.2; // 1 dakika = 1.2px
 
-  const apts = useMemo(() => {
-    return (db.appointments || []).filter(a => {
-      if (!a.date) return false;
-      const d = new Date(a.date);
-      if (mode === 'day') return toISO(d) === toISO(anchor);
-      return d >= weekStart && d < addDays(weekStart, 7);
-    });
-  }, [db.appointments, mode, anchor, weekStart]);
+  const apts = allApts;
 
   const goToday = () => setAnchor(new Date());
   const goPrev = () => setAnchor(addDays(anchor, mode === 'day' ? -1 : -7));
@@ -339,8 +354,20 @@ function CalendarView({ db, setDb, availability, settings, onEditApt }) {
                 const dayApts = apts.filter(a => toISO(new Date(a.date)) === toISO(d));
                 const dow = d.getDay();
                 const dayAvl = availability.filter(a => a.day_of_week === dow);
+                const handleColClick = (e) => {
+                  if (!onCreateAtSlot) return;
+                  // Tıklanan bir buton/randevu kartıysa bypass
+                  if (e.target.closest('button')) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const y = e.clientY - rect.top;
+                  const min = Math.max(0, Math.round(((y / pxPerMin) + minMin) / 15) * 15); // 15dk yuvarla
+                  const hh = Math.floor(min / 60), mm = min % 60;
+                  const time = `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+                  onCreateAtSlot(toISO(d), time);
+                };
                 return (
-                  <div key={di} className="relative"
+                  <div key={di} className="relative cursor-pointer hover:bg-black/[0.015]"
+                    onClick={handleColClick}
                     style={{ borderLeft: `1px solid ${C.border}`, background: toISO(d) === toISO(new Date()) ? 'rgba(227,6,19,0.02)' : 'transparent' }}>
                     {/* Saat çizgileri */}
                     {hours.map((h, i) => (
@@ -730,7 +757,7 @@ function GoogleCalendarPanel({ settings, onChange }) {
 }
 
 // ─── Yeni Randevu / Düzenle Modalı ─────────────────────────────
-function AppointmentCreateModal({ open, onClose, db, setDb, services, availability, settings, currentUser, editApt }) {
+function AppointmentCreateModal({ open, onClose, db, setDb, services, availability, settings, currentUser, editApt, preset }) {
   const [form, setForm] = useState({});
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -757,8 +784,8 @@ function AppointmentCreateModal({ open, onClose, db, setDb, services, availabili
     } else {
       const first = services[0];
       setForm({
-        date: toISO(new Date()),
-        time: '',
+        date: preset?.date || toISO(new Date()),
+        time: preset?.time || '',
         service: first?.label || '',
         service_id: first?.id || '',
         duration_minutes: first?.duration_minutes || 30,
@@ -769,7 +796,7 @@ function AppointmentCreateModal({ open, onClose, db, setDb, services, availabili
         notes: '', status: 'onaylandi',
       });
     }
-  }, [open, editApt, services, settings]);
+  }, [open, editApt, services, settings, preset]);
 
   // Müşteri seçilince ad/email/phone otomatik doldur
   const onCustomerChange = (customerId) => {
