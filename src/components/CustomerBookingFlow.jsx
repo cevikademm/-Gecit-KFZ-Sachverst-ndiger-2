@@ -166,30 +166,35 @@ export default function CustomerBookingFlow({ open, onClose, onBook, customer, v
         <DoneView appointment={{ service, date: selectedDate, slot: selectedSlot, form }} onClose={onClose} />
       ) : (
         <>
-          {/* Step indicator */}
-          <div className="flex items-center justify-between mb-6">
-            {[1, 2, 3, 4].map((n, i) => {
-              const active = step === n;
-              const done = step > n;
-              return (
-                <React.Fragment key={n}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                      style={{
-                        background: active ? C.neon : done ? 'rgba(16,185,129,0.15)' : 'rgba(0,0,0,0.05)',
-                        color: active ? '#fff' : done ? '#10B981' : C.textDim,
-                        border: `1px solid ${active ? C.neon : done ? '#10B981' : C.border}`,
-                      }}>
-                      {done ? <Check size={12} /> : n}
+          {/* Step indicator — mobilde sadece daireler, üstünde aktif step label */}
+          <div className="mb-6">
+            <p className="text-xs font-semibold text-center mb-2 sm:hidden" style={{ color: C.neon, letterSpacing: '0.1em' }}>
+              {step === 1 ? 'HİZMET' : step === 2 ? 'TARİH' : step === 3 ? 'SAAT' : 'ONAY'}
+            </p>
+            <div className="flex items-center justify-between">
+              {[1, 2, 3, 4].map((n, i) => {
+                const active = step === n;
+                const done = step > n;
+                return (
+                  <React.Fragment key={n}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                        style={{
+                          background: active ? C.neon : done ? 'rgba(16,185,129,0.15)' : 'rgba(0,0,0,0.05)',
+                          color: active ? '#fff' : done ? '#10B981' : C.textDim,
+                          border: `1px solid ${active ? C.neon : done ? '#10B981' : C.border}`,
+                        }}>
+                        {done ? <Check size={12} /> : n}
+                      </div>
+                      <span className="text-xs hidden sm:inline" style={{ color: active ? C.text : C.textDim }}>
+                        {n === 1 ? 'Hizmet' : n === 2 ? 'Tarih' : n === 3 ? 'Saat' : 'Onay'}
+                      </span>
                     </div>
-                    <span className="text-xs hidden sm:inline" style={{ color: active ? C.text : C.textDim }}>
-                      {n === 1 ? 'Hizmet' : n === 2 ? 'Tarih' : n === 3 ? 'Saat' : 'Onay'}
-                    </span>
-                  </div>
-                  {n < 4 && <div className="flex-1 h-px mx-2" style={{ background: done ? '#10B981' : C.border }} />}
-                </React.Fragment>
-              );
-            })}
+                    {n < 4 && <div className="flex-1 h-px mx-2" style={{ background: done ? '#10B981' : C.border }} />}
+                  </React.Fragment>
+                );
+              })}
+            </div>
           </div>
 
           <AnimatePresence mode="wait">
@@ -276,7 +281,7 @@ export default function CustomerBookingFlow({ open, onClose, onBook, customer, v
                         <button key={i} type="button"
                           onClick={() => isAvailable && !isPast && setSelectedDate(iso)}
                           disabled={isPast || !isAvailable}
-                          className="aspect-square rounded-lg flex flex-col items-center justify-center transition relative"
+                          className="aspect-square min-h-[44px] rounded-lg flex flex-col items-center justify-center transition relative"
                           style={{
                             background: isSelected ? C.neon : isAvailable ? 'rgba(16,185,129,0.06)' : 'transparent',
                             border: `1px solid ${isSelected ? C.neon : isAvailable ? 'rgba(16,185,129,0.30)' : 'transparent'}`,

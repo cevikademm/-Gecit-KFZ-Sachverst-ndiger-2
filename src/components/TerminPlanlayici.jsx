@@ -17,6 +17,30 @@ import {
 const DOW_LABELS = ['Pzr', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 const DOW_LABELS_LONG = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
+// Local responsive breakpoint hook'u — App.jsx içindeki ile aynı mantık
+function useIsMobile() {
+  const [m, setM] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const h = (e) => setM(e.matches);
+    mq.addEventListener ? mq.addEventListener('change', h) : mq.addListener(h);
+    return () => { mq.removeEventListener ? mq.removeEventListener('change', h) : mq.removeListener(h); };
+  }, []);
+  return m;
+}
+function useIsTablet() {
+  const [m, setM] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px) and (max-width: 1023px)').matches);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 768px) and (max-width: 1023px)');
+    const h = (e) => setM(e.matches);
+    mq.addEventListener ? mq.addEventListener('change', h) : mq.addListener(h);
+    return () => { mq.removeEventListener ? mq.removeEventListener('change', h) : mq.removeListener(h); };
+  }, []);
+  return m;
+}
+
 function startOfWeek(d) {
   const x = new Date(d);
   const dow = x.getDay(); // 0=Pzr
@@ -88,36 +112,37 @@ export default function TerminPlanlayici({ db, setDb, currentUser }) {
 
   useEffect(() => { reload(); }, [reload]);
 
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
+
   const TABS = [
-    { k: 'calendar',     l: 'Takvim',           icon: CalendarIcon },
-    { k: 'availability', l: 'Çalışma Saatleri', icon: ClockIcon },
-    { k: 'services',     l: 'Hizmetler',        icon: Wrench },
-    { k: 'google',       l: 'Google Calendar',  icon: GlobeIcon },
+    { k: 'calendar',     l: 'Takvim',     mLabel: 'Takvim',  icon: CalendarIcon },
+    { k: 'availability', l: 'Çalışma Saatleri', mLabel: 'Saatler', icon: ClockIcon },
+    { k: 'services',     l: 'Hizmetler',  mLabel: 'Hizmet',  icon: Wrench },
+    { k: 'google',       l: 'Google Calendar', mLabel: 'GCal', icon: GlobeIcon },
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 md:space-y-5">
       {/* Topbar */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold" style={{ color: C.text, letterSpacing: '-0.02em' }}>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold" style={{ color: C.text, letterSpacing: '-0.02em' }}>
             Termin Planlayıcı
           </h1>
-          <p className="text-sm mt-1" style={{ color: C.textDim }}>
+          <p className="text-xs md:text-sm mt-1 hidden sm:block" style={{ color: C.textDim }}>
             Randevular, çalışma saatleri, hizmet kataloğu ve Google Calendar senkronizasyonu
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition hover:scale-[1.02]"
-            style={{ background: C.neon, color: '#fff', boxShadow: `0 6px 18px ${C.glow}` }}>
-            <PlusIcon size={16} /> Yeni Randevu
-          </button>
-        </div>
+        <button onClick={() => setCreateOpen(true)}
+          className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition hover:scale-[1.02] flex-shrink-0"
+          style={{ background: C.neon, color: '#fff', boxShadow: `0 6px 18px ${C.glow}` }}>
+          <PlusIcon size={14} /> <span className="hidden sm:inline">Yeni Randevu</span><span className="sm:hidden">Yeni</span>
+        </button>
       </div>
 
-      {/* Tab strip */}
-      <div role="tablist" className="inline-flex items-center gap-1 p-1 rounded-xl overflow-x-auto"
+      {/* Tab strip — mobilde scroll */}
+      <div role="tablist" className="flex items-center gap-1 p-1 rounded-xl overflow-x-auto -mx-1 px-1 scrollbar-hide"
         style={{ background: C.surface, border: `1px solid ${C.border}`, maxWidth: '100%' }}>
         {TABS.map(t => {
           const Icon = t.icon;
@@ -125,13 +150,13 @@ export default function TerminPlanlayici({ db, setDb, currentUser }) {
           return (
             <button key={t.k} role="tab" aria-selected={active}
               onClick={() => setTab(t.k)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition whitespace-nowrap flex-shrink-0"
               style={{
                 background: active ? C.neon : 'transparent',
                 color: active ? '#fff' : C.text,
                 boxShadow: active ? `0 4px 12px ${C.glow}` : 'none',
               }}>
-              <Icon size={14} /> {t.l}
+              <Icon size={13} /> <span>{isMobile ? t.mLabel : t.l}</span>
             </button>
           );
         })}
@@ -173,8 +198,18 @@ export default function TerminPlanlayici({ db, setDb, currentUser }) {
 
 // ─── Calendar View (Haftalık + Günlük) ─────────────────────────
 function CalendarView({ db, setDb, availability, settings, onEditApt }) {
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
+  const isCompact = isMobile || isTablet;  // ≤1023px — week mode kapali
   const [anchor, setAnchor] = useState(new Date());
-  const [mode, setMode] = useState('week'); // week | day | list
+  // Mobilde/tablette 'day' varsayılan — haftalık 7 sütun dar ekrana sığmaz
+  const [mode, setModeState] = useState(isCompact ? 'day' : 'week'); // week | day | list
+  const setMode = (m) => setModeState(m);
+  useEffect(() => {
+    // Compact'a geçerse week → day
+    if (isCompact && mode === 'week') setModeState('day');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCompact]);
 
   const weekStart = useMemo(() => startOfWeek(anchor), [anchor]);
   const weekDays = useMemo(() => [...Array(7)].map((_, i) => addDays(weekStart, i)), [weekStart]);
@@ -212,41 +247,44 @@ function CalendarView({ db, setDb, availability, settings, onEditApt }) {
   const goPrev = () => setAnchor(addDays(anchor, mode === 'day' ? -1 : -7));
   const goNext = () => setAnchor(addDays(anchor, mode === 'day' ? 1 : 7));
 
+  // Compact (≤1023px) — week modu gizli
+  const MODE_OPTIONS = isCompact
+    ? [{ k: 'day', l: 'Gün' }, { k: 'list', l: 'Liste' }]
+    : [{ k: 'week', l: 'Hafta' }, { k: 'day', l: 'Gün' }, { k: 'list', l: 'Liste' }];
+
   return (
     <div className="space-y-3">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between flex-wrap gap-3 p-3 rounded-xl"
+      {/* Toolbar — mobilde 2 satır olabilir */}
+      <div className="flex items-center justify-between flex-wrap gap-2 p-2.5 sm:p-3 rounded-xl"
         style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-        <div className="flex items-center gap-1">
-          <button onClick={goPrev} className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-black/5"
+        <div className="flex items-center gap-1 min-w-0 flex-1">
+          <button onClick={goPrev} className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center hover:bg-black/5 flex-shrink-0"
             style={{ color: C.text, border: `1px solid ${C.border}` }} aria-label="Önceki">
             <ArrowLeft size={14} />
           </button>
           <button onClick={goToday}
-            className="px-3 h-9 rounded-lg text-xs font-medium hover:bg-black/5"
+            className="px-2 sm:px-3 h-8 sm:h-9 rounded-lg text-[11px] sm:text-xs font-medium hover:bg-black/5 flex-shrink-0"
             style={{ color: C.neon, background: `${C.neon}10`, border: `1px solid ${C.neon}30` }}>
             Bugün
           </button>
-          <button onClick={goNext} className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-black/5"
+          <button onClick={goNext} className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center hover:bg-black/5 flex-shrink-0"
             style={{ color: C.text, border: `1px solid ${C.border}` }} aria-label="Sonraki">
             <ArrowRight size={14} />
           </button>
-          <h3 className="ml-3 text-base font-semibold" style={{ color: C.text }}>
+          <h3 className="ml-2 sm:ml-3 text-sm sm:text-base font-semibold truncate" style={{ color: C.text }}>
             {mode === 'day'
-              ? fmtDateLong(anchor)
+              ? (isMobile
+                  ? new Date(anchor).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', weekday: 'short' })
+                  : fmtDateLong(anchor))
               : `${fmtDate(weekStart)} – ${fmtDate(addDays(weekStart, 6))}`}
           </h3>
         </div>
-        <div className="inline-flex rounded-lg p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
-          {[
-            { k: 'week', l: 'Hafta' },
-            { k: 'day',  l: 'Gün' },
-            { k: 'list', l: 'Liste' },
-          ].map(m => {
+        <div className="inline-flex rounded-lg p-0.5 sm:p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
+          {MODE_OPTIONS.map(m => {
             const active = mode === m.k;
             return (
               <button key={m.k} onClick={() => setMode(m.k)}
-                className="px-3 py-1.5 rounded-md text-xs font-medium transition"
+                className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-xs font-medium transition"
                 style={{ background: active ? C.text : 'transparent', color: active ? C.surface : C.textDim }}>
                 {m.l}
               </button>
@@ -259,7 +297,7 @@ function CalendarView({ db, setDb, availability, settings, onEditApt }) {
       {(mode === 'week' || mode === 'day') && (
         <div className="rounded-xl overflow-hidden" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
           <div className="grid" style={{
-            gridTemplateColumns: mode === 'week' ? '64px repeat(7, 1fr)' : '64px 1fr',
+            gridTemplateColumns: mode === 'week' ? '48px repeat(7, 1fr)' : '48px 1fr',
             borderBottom: `1px solid ${C.border}`,
           }}>
             <div></div>
@@ -280,7 +318,7 @@ function CalendarView({ db, setDb, availability, settings, onEditApt }) {
           </div>
           <div className="relative" style={{ height: (maxMin - minMin) * pxPerMin }}>
             <div className="grid h-full" style={{
-              gridTemplateColumns: mode === 'week' ? '64px repeat(7, 1fr)' : '64px 1fr',
+              gridTemplateColumns: mode === 'week' ? '48px repeat(7, 1fr)' : '48px 1fr',
             }}>
               {/* Saat etiketleri */}
               <div className="relative">
@@ -387,24 +425,26 @@ function AppointmentList({ apts, db, setDb, onEdit }) {
         const col = STATUS_COLOR[a.status] || STATUS_COLOR.aktif;
         return (
           <button key={a.id} onClick={() => onEdit(a)}
-            className="w-full text-left px-4 py-3 hover:bg-black/[0.02] transition flex items-center gap-4"
+            className="w-full text-left px-3 sm:px-4 py-3 hover:bg-black/[0.02] transition flex items-center gap-2 sm:gap-4"
             style={{ borderBottom: i < sorted.length - 1 ? `1px solid ${C.border}` : 'none' }}>
-            <div className="w-12 text-center flex-shrink-0">
-              <p className="text-base font-bold" style={{ color: C.text }}>{new Date(a.date).getDate()}</p>
-              <p className="text-[10px] uppercase" style={{ color: C.textDim }}>{new Date(a.date).toLocaleDateString('tr-TR', { month: 'short' })}</p>
+            <div className="w-10 sm:w-12 text-center flex-shrink-0">
+              <p className="text-sm sm:text-base font-bold" style={{ color: C.text }}>{new Date(a.date).getDate()}</p>
+              <p className="text-[9px] sm:text-[10px] uppercase" style={{ color: C.textDim }}>{new Date(a.date).toLocaleDateString('tr-TR', { month: 'short' })}</p>
             </div>
-            <div className="w-16 font-mono text-sm flex-shrink-0" style={{ color: C.textDim }}>{a.time}</div>
+            <div className="w-12 sm:w-16 font-mono text-xs sm:text-sm flex-shrink-0" style={{ color: C.textDim }}>{a.time}</div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate" style={{ color: C.text }}>{a.service || 'Randevu'}</p>
-              <p className="text-xs truncate" style={{ color: C.textDim }}>
+              <p className="text-xs sm:text-sm font-medium truncate" style={{ color: C.text }}>{a.service || 'Randevu'}</p>
+              <p className="text-[11px] sm:text-xs truncate" style={{ color: C.textDim }}>
                 {c?.full_name || c?.company || a.attendee_name || a.attendee_email || '—'}
                 {a.plate && ` · ${a.plate}`}
               </p>
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+            <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-medium flex-shrink-0 hidden sm:inline-block"
               style={{ background: col.bg, color: col.fg, border: `1px solid ${col.fg}33` }}>
               {col.label}
             </span>
+            <span className="w-2 h-2 rounded-full flex-shrink-0 sm:hidden"
+              style={{ background: col.fg }} title={col.label} />
           </button>
         );
       })}
@@ -467,19 +507,21 @@ function AvailabilityEditor({ adminId, availability, onChange }) {
               <div className="space-y-2">
                 {daySlots.map(s => (
                   <div key={s.id} className="flex items-center gap-1.5">
-                    <input type="time" value={s.start_time}
-                      onChange={(e) => updateSlot(s.id, { start_time: e.target.value })}
-                      className="flex-1 px-2 py-1.5 rounded-md text-xs font-mono outline-none"
-                      style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
-                    <span style={{ color: C.textDim }}>→</span>
-                    <input type="time" value={s.end_time}
-                      onChange={(e) => updateSlot(s.id, { end_time: e.target.value })}
-                      className="flex-1 px-2 py-1.5 rounded-md text-xs font-mono outline-none"
-                      style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text }} />
+                    <div className="flex-1 grid grid-cols-2 sm:flex sm:items-center gap-1.5 min-w-0">
+                      <input type="time" value={s.start_time}
+                        onChange={(e) => updateSlot(s.id, { start_time: e.target.value })}
+                        className="w-full sm:flex-1 px-2 py-2 rounded-md text-xs font-mono outline-none"
+                        style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text, minWidth: 0 }} />
+                      <span className="hidden sm:inline" style={{ color: C.textDim }}>→</span>
+                      <input type="time" value={s.end_time}
+                        onChange={(e) => updateSlot(s.id, { end_time: e.target.value })}
+                        className="w-full sm:flex-1 px-2 py-2 rounded-md text-xs font-mono outline-none"
+                        style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}`, color: C.text, minWidth: 0 }} />
+                    </div>
                     <button onClick={() => removeSlot(s.id)}
-                      className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-red-500/10"
+                      className="w-9 h-9 rounded-md flex items-center justify-center hover:bg-red-500/10 flex-shrink-0"
                       style={{ color: '#EF4444' }} title="Sil">
-                      <TrashIcon size={12} />
+                      <TrashIcon size={14} />
                     </button>
                   </div>
                 ))}
@@ -821,12 +863,12 @@ function AppointmentCreateModal({ open, onClose, db, setDb, services, availabili
         {/* Hizmet */}
         <div>
           <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: C.textDim }}>Hizmet</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {services.map(s => {
               const active = form.service_id === s.id;
               return (
                 <button key={s.id} type="button" onClick={() => onServiceChange(s.id)}
-                  className="p-3 rounded-lg text-left transition"
+                  className="p-3 rounded-lg text-left transition min-h-[60px]"
                   style={{
                     background: active ? `${s.color}15` : 'rgba(0,0,0,0.03)',
                     border: `1.5px solid ${active ? s.color : C.border}`,

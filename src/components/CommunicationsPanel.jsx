@@ -302,6 +302,10 @@ function TabBtn({ active, onClick, children }) {
 function MailComposer({ db }) {
   const [selectedTemplate, setSelectedTemplate] = useState(TEMPLATES[0]);
   const [recipients, setRecipients] = useState([]);
+  const [ccList, setCcList] = useState([]); // array of email strings
+  const [bccList, setBccList] = useState([]);
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [ctaLabel, setCtaLabel] = useState('');
@@ -312,6 +316,9 @@ function MailComposer({ db }) {
   const [recipientPickerOpen, setRecipientPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [previewMode, setPreviewMode] = useState('text');
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [attachments, setAttachments] = useState([]); // [{ name, size, type }]
+  const bodyRef = React.useRef(null);
 
   const customers = (db?.customers || []).filter(c => c?.email);
   const vehicles = db?.vehicles || [];
@@ -336,18 +343,6 @@ function MailComposer({ db }) {
     });
   }, [customerOptions, search]);
 
-  useEffect(() => {
-    setSubject(selectedTemplate.subject);
-    setBody(selectedTemplate.body);
-    setCtaLabel(selectedTemplate.ctaLabel || '');
-    setCtaUrl(selectedTemplate.ctaUrl || '');
-  }, [selectedTemplate.id]);
-
-  const usedPlaceholders = useMemo(() => {
-    const matches = `${subject}\n${body}`.match(/\{\{(\w+)\}\}/g) || [];
-    return Array.from(new Set(matches.map(m => m.slice(2, -2))));
-  }, [subject, body]);
-
   const firstRecipientData = useMemo(() => {
     const first = recipients[0];
     if (!first) return null;
@@ -364,6 +359,35 @@ function MailComposer({ db }) {
       yil: veh?.year || '',
     };
   }, [recipients, vehicles]);
+
+  // Şablon değişimi: subject/body'yi template ham haliyle yenile, alıcı varsa hemen doldur
+  useEffect(() => {
+    let nextSubject = selectedTemplate.subject || '';
+    let nextBody = selectedTemplate.body || '';
+    if (firstRecipientData) {
+      const data = { ...firstRecipientData, ...extraVars };
+      nextSubject = fillTemplate(nextSubject, data);
+      nextBody = fillTemplate(nextBody, data);
+    }
+    setSubject(nextSubject);
+    setBody(nextBody);
+    setCtaLabel(selectedTemplate.ctaLabel || '');
+    setCtaUrl(selectedTemplate.ctaUrl || '');
+  }, [selectedTemplate.id]);
+
+  // Müşteri / extra var değişimi: mevcut subject/body içindeki kalan {{...}} placeholder'larını doldur
+  // (kullanıcının manuel düzenlemeleri korunur — sadece hâlâ ham olan placeholder'lar değişir)
+  useEffect(() => {
+    if (!firstRecipientData) return;
+    const data = { ...firstRecipientData, ...extraVars };
+    setSubject((prev) => fillTemplate(prev, data));
+    setBody((prev) => fillTemplate(prev, data));
+  }, [recipients[0]?.id, extraVars.tarih, extraVars.saat]);
+
+  const usedPlaceholders = useMemo(() => {
+    const matches = `${subject}\n${body}`.match(/\{\{(\w+)\}\}/g) || [];
+    return Array.from(new Set(matches.map(m => m.slice(2, -2))));
+  }, [subject, body]);
 
   const renderedSubject = useMemo(
     () => fillTemplate(subject, { ...firstRecipientData, ...extraVars }),
@@ -409,6 +433,8 @@ function MailComposer({ db }) {
         try {
           await sendMail({
             to: r.email,
+            cc: ccList.length ? ccList : undefined,
+            bcc: bccList.length ? bccList : undefined,
             subject: personalSubject,
             message: personalBody,
             ctaLabel: ctaLabel || undefined,
@@ -422,6 +448,9 @@ function MailComposer({ db }) {
       if (errors.length === 0) {
         setResult({ ok: true, msg: `✓ ${sentCount} alıcıya kişiselleştirilmiş e-posta gönderildi.` });
         setRecipients([]);
+        setCcList([]);
+        setBccList([]);
+        setAttachments([]);
       } else {
         setResult({
           ok: sentCount > 0,
@@ -435,242 +464,448 @@ function MailComposer({ db }) {
     }
   };
 
+  // Toolbar: değişkeni cursor pozisyonuna ekle.
+  // Alıcı seçili ise placeholder yerine direkt değeri (ad, plaka, vb.) ekler.
+  const insertVariable = (key) => {
+    const liveValue = (firstRecipientData && firstRecipientData[key]) || extraVars[key] || '';
+    const insert = liveValue ? String(liveValue) : `{{${key}}}`;
+    const ta = bodyRef.current;
+    if (!ta) { setBody((b) => b + insert); return; }
+    const start = ta.selectionStart ?? body.length;
+    const end = ta.selectionEnd ?? body.length;
+    const next = body.slice(0, start) + insert + body.slice(end);
+    setBody(next);
+    setTimeout(() => {
+      ta.focus();
+      const pos = start + insert.length;
+      ta.setSelectionRange(pos, pos);
+    }, 0);
+  };
+
+  const onAttachFile = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setAttachments((prev) => [...prev, ...files.map((f) => ({ name: f.name, size: f.size, type: f.type }))]);
+    e.target.value = '';
+  };
+  const removeAttachment = (idx) => setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  const formatBytes = (n) => n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
+
+  // Cc/Bcc için Enter'da email ekle
+  const addEmailToList = (input, list, setList) => {
+    const v = (input || '').trim();
+    if (!v.includes('@')) return;
+    if (list.includes(v)) return;
+    setList([...list, v]);
+  };
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 16, alignItems: 'start' }}>
       <TemplateSidebar
         templates={TEMPLATES}
         selectedId={selectedTemplate.id}
         onSelect={setSelectedTemplate}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, minWidth: 0 }}>
-        <Card>
-          <SectionTitle icon="👥" text={`Alıcılar (${recipients.length})`}>
-            <button type="button" onClick={() => setRecipientPickerOpen(o => !o)}
-              style={pillBtn(recipientPickerOpen)}>
-              {recipientPickerOpen ? 'Kapat' : `Müşteriden seç (${customerOptions.length})`}
-            </button>
-          </SectionTitle>
-
-          {recipients.length > 0 ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-              {recipients.map(r => (
-                <span key={r.id} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '4px 6px 4px 10px', borderRadius: 999,
-                  background: C.brandSoft, border: `1px solid ${C.brandBorder}`,
-                  fontSize: 12, color: C.brand, fontWeight: 500,
+      <div style={{ minWidth: 0 }}>
+        {/* ─ Compose pencere — Gmail/Outlook tarzı dikey form ───────────── */}
+        <div style={{
+          background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.06)', overflow: 'hidden',
+        }}>
+          {/* Compose header */}
+          <div style={{
+            padding: '12px 18px', background: '#F7F7F9', borderBottom: `1px solid ${C.border}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: C.text }}>
+              <span style={{ fontSize: 14 }}>✉️</span> Yeni Mesaj
+              {recipients.length > 0 && (
+                <span style={{
+                  fontSize: 11, padding: '2px 8px', borderRadius: 999,
+                  background: C.brandSoft, color: C.brand, fontWeight: 600,
                 }}>
-                  <span>{r.full_name || r.email}</span>
-                  <button type="button" onClick={() => removeRecipient(r.id)}
-                    style={{
-                      width: 18, height: 18, borderRadius: '50%',
-                      border: 'none', background: 'rgba(225,29,46,0.15)',
-                      color: C.brand, cursor: 'pointer', fontSize: 11, lineHeight: 1,
-                    }}>×</button>
+                  {recipients.length} alıcı
                 </span>
-              ))}
+              )}
             </div>
-          ) : (
-            <div style={emptyHint}>
-              Henüz alıcı yok. Sağdaki "Müşteriden seç" düğmesinden ekleyebilir, veya manuel e-posta yazabilirsin.
+            <div style={{ display: 'flex', gap: 4 }}>
+              {!showCc && (
+                <button type="button" onClick={() => setShowCc(true)} style={miniLinkBtn}>+ Cc</button>
+              )}
+              {!showBcc && (
+                <button type="button" onClick={() => setShowBcc(true)} style={miniLinkBtn}>+ Bcc</button>
+              )}
             </div>
-          )}
+          </div>
 
-          <input
-            type="text"
-            placeholder="veya e-posta yapıştır (Enter ile ekle)"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && e.currentTarget.value.includes('@')) {
-                const v = e.currentTarget.value.trim();
-                addRecipient({ id: `manual-${Date.now()}`, full_name: v, email: v });
-                e.currentTarget.value = '';
-              }
-            }}
-            style={inputStyle({ marginTop: 8 })}
-          />
+          {/* From row */}
+          <FormRow label="Kimden">
+            <div style={{ fontSize: 13, color: C.text, padding: '6px 0' }}>
+              Gecit KFZ Sachverständigenbüro <span style={{ color: C.textMute }}>&lt;Gecit@kfzgutachter.ac&gt;</span>
+            </div>
+          </FormRow>
 
-          {recipientPickerOpen && (
-            <div style={{ marginTop: 10 }}>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="🔍 Ara: ad, email, plaka, şirket..."
-                style={inputStyle({ marginBottom: 8 })}
-              />
-              <div style={{
-                maxHeight: 280, overflow: 'auto',
-                border: `1px solid ${C.border}`, borderRadius: 10, padding: 4,
-              }}>
-                {filteredOptions.length === 0 && (
-                  <div style={{ padding: 16, textAlign: 'center', color: C.textMute, fontSize: 13 }}>
-                    Eşleşme yok
+          {/* To row — chips + manual + customer picker */}
+          <FormRow label="Kime *">
+            <div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, minHeight: 28 }}>
+                {recipients.map((r) => (
+                  <span key={r.id} style={chipStyle()}>
+                    {r.full_name || r.email}
+                    <button type="button" onClick={() => removeRecipient(r.id)} style={chipCloseBtn}>×</button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  placeholder={recipients.length === 0 ? 'E-posta yaz veya müşteriden seç...' : 'e-posta ekle (Enter)'}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.currentTarget.value.includes('@')) {
+                      const v = e.currentTarget.value.trim();
+                      addRecipient({ id: `manual-${Date.now()}`, full_name: v, email: v });
+                      e.currentTarget.value = '';
+                      e.preventDefault();
+                    }
+                  }}
+                  style={{
+                    flex: 1, minWidth: 160, border: 'none', outline: 'none',
+                    fontSize: 13, padding: '6px 4px', background: 'transparent', color: C.text,
+                  }}
+                />
+                <button type="button" onClick={() => setRecipientPickerOpen((o) => !o)}
+                  style={{
+                    fontSize: 11, padding: '5px 10px', borderRadius: 6,
+                    background: recipientPickerOpen ? C.brand : '#FFFFFF', color: recipientPickerOpen ? '#fff' : C.brand,
+                    border: `1px solid ${C.brand}`, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap',
+                  }}>
+                  📇 Müşteriler ({customerOptions.length})
+                </button>
+              </div>
+
+              {recipientPickerOpen && (
+                <div style={{ marginTop: 8, padding: 8, border: `1px solid ${C.border}`, borderRadius: 8, background: '#FAFAFB' }}>
+                  <input value={search} onChange={(e) => setSearch(e.target.value)}
+                    placeholder="🔍 Ara: ad, email, plaka, şirket..."
+                    style={inputStyle({ marginBottom: 6, fontSize: 12 })} />
+                  <div style={{ maxHeight: 220, overflow: 'auto', borderRadius: 6 }}>
+                    {filteredOptions.length === 0 && (
+                      <div style={{ padding: 12, textAlign: 'center', color: C.textMute, fontSize: 12 }}>Eşleşme yok</div>
+                    )}
+                    {filteredOptions.map(({ customer: c, vehicle: v }) => {
+                      const selected = recipients.some((r) => r.id === c.id);
+                      return (
+                        <button key={c.id} type="button"
+                          onClick={() => (selected ? removeRecipient(c.id) : addRecipient(c))}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            width: '100%', padding: '6px 8px', borderRadius: 6,
+                            background: selected ? C.brandSoft : 'transparent',
+                            border: `1px solid ${selected ? C.brandBorder : 'transparent'}`,
+                            cursor: 'pointer', textAlign: 'left', marginBottom: 2,
+                          }}>
+                          <div style={{
+                            width: 24, height: 24, borderRadius: '50%',
+                            background: selected ? C.brand : C.borderSoft,
+                            color: selected ? '#FFF' : C.textDim,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 10, fontWeight: 700, flexShrink: 0,
+                          }}>
+                            {(c.full_name || c.email || '?').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 500, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {c.full_name || '—'}{c.company && <span style={{ color: C.textMute, fontWeight: 400 }}> · {c.company}</span>}
+                            </div>
+                            <div style={{ fontSize: 10.5, color: C.textDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {c.email}{v ? ` · 🚗 ${v.plate || ''}` : ''}
+                            </div>
+                          </div>
+                          {selected && <span style={{ color: C.brand, fontSize: 14 }}>✓</span>}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-                {filteredOptions.map(({ customer: c, vehicle: v }) => {
-                  const selected = recipients.some(r => r.id === c.id);
-                  return (
-                    <button key={c.id} type="button"
-                      onClick={() => selected ? removeRecipient(c.id) : addRecipient(c)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        width: '100%', padding: '8px 10px', borderRadius: 8,
-                        background: selected ? C.brandSoft : 'transparent',
-                        border: `1px solid ${selected ? C.brandBorder : 'transparent'}`,
-                        cursor: 'pointer', textAlign: 'left',
-                      }}
-                      onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = C.borderSoft; }}
-                      onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = 'transparent'; }}>
-                      <div style={{
-                        width: 30, height: 30, borderRadius: '50%',
-                        background: selected ? C.brand : C.borderSoft,
-                        color: selected ? '#FFF' : C.textDim,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 12, fontWeight: 600, flexShrink: 0,
-                      }}>
-                        {(c.full_name || c.email || '?').slice(0, 2).toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {c.full_name || '—'}
-                          {c.company && <span style={{ color: C.textMute, fontWeight: 400 }}> · {c.company}</span>}
-                        </div>
-                        <div style={{ fontSize: 11, color: C.textDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {c.email}{v ? ` · 🚗 ${v.plate || ''} ${v.brand || ''} ${v.model || ''}` : ''}
-                        </div>
-                      </div>
-                      {selected && <span style={{ color: C.brand, fontSize: 16, fontWeight: 600 }}>✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
+                </div>
+              )}
             </div>
+          </FormRow>
+
+          {/* Cc */}
+          {showCc && (
+            <FormRow label="Cc" onRemove={() => { setShowCc(false); setCcList([]); }}>
+              <EmailChipsInput list={ccList} setList={setCcList} placeholder="cc@ornek.com" />
+            </FormRow>
           )}
-        </Card>
 
-        <Card>
-          <SectionTitle icon="🎨" text="Şablonu Düzenle" />
+          {/* Bcc */}
+          {showBcc && (
+            <FormRow label="Bcc" onRemove={() => { setShowBcc(false); setBccList([]); }}>
+              <EmailChipsInput list={bccList} setList={setBccList} placeholder="bcc@ornek.com (gizli)" />
+            </FormRow>
+          )}
 
-          <Field label="Konu *">
+          {/* Subject */}
+          <FormRow label="Konu *">
             <input value={subject} onChange={(e) => setSubject(e.target.value)}
-              placeholder="Örn: Randevunuz onaylandı"
-              style={inputStyle()} />
-          </Field>
+              placeholder="Konu satırı"
+              style={{
+                width: '100%', border: 'none', outline: 'none',
+                fontSize: 14, padding: '8px 0', background: 'transparent', color: C.text, fontWeight: 500,
+              }} />
+          </FormRow>
 
-          <Field label="Mesaj *">
-            <textarea value={body} onChange={(e) => setBody(e.target.value)}
-              rows={9}
-              placeholder="Mesaj gövdesi. {{ad}}, {{plaka}}, {{tarih}} gibi değişkenler kullanılabilir."
-              style={inputStyle({ resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.55, fontSize: 13.5 })} />
-          </Field>
+          {/* Toolbar */}
+          <div style={{
+            padding: '8px 18px', background: '#FAFAFB', borderBottom: `1px solid ${C.border}`,
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6,
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: C.textDim, marginRight: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Değişken Ekle:
+            </span>
+            {['ad', 'email', 'plaka', 'marka', 'model', 'tarih', 'saat'].map((k) => {
+              const liveValue = (firstRecipientData && firstRecipientData[k]) || extraVars[k] || '';
+              const hasValue = !!liveValue;
+              return (
+                <button key={k} type="button" onClick={() => insertVariable(k)}
+                  title={hasValue ? `${k} = ${liveValue} (ekle)` : `{{${k}}} ekle`}
+                  style={{
+                    fontSize: 11, padding: '4px 8px', borderRadius: 5,
+                    background: hasValue ? 'rgba(34,197,94,0.08)' : '#FFFFFF',
+                    color: hasValue ? C.ok : C.text,
+                    border: `1px solid ${hasValue ? 'rgba(34,197,94,0.35)' : C.border}`,
+                    cursor: 'pointer', fontFamily: 'ui-monospace, monospace',
+                  }}>
+                  {`{{${k}}}`}{hasValue && <span style={{ marginLeft: 4, fontFamily: 'inherit' }}>✓</span>}
+                </button>
+              );
+            })}
+            <span style={{ flex: 1 }} />
+            <label style={{
+              fontSize: 12, padding: '5px 10px', borderRadius: 6,
+              background: '#FFFFFF', color: C.text, border: `1px solid ${C.border}`,
+              cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}>
+              📎 Ek Ekle
+              <input type="file" multiple onChange={onAttachFile} style={{ display: 'none' }} />
+            </label>
+          </div>
 
-          {usedPlaceholders.length > 0 && (
-            <div style={{ marginTop: 6, marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 500, color: C.textDim, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Kullanılan değişkenler
+          {/* Body */}
+          <div style={{ padding: '12px 18px' }}>
+            <textarea ref={bodyRef} value={body} onChange={(e) => setBody(e.target.value)}
+              rows={12}
+              placeholder="Mesajınızı buraya yazın…&#10;&#10;İpucu: Üstteki değişken butonlarıyla {{ad}}, {{plaka}}, {{tarih}} gibi alanlar ekleyebilirsiniz."
+              style={{
+                width: '100%', border: 'none', outline: 'none', resize: 'vertical',
+                fontSize: 14, lineHeight: 1.6, color: C.text,
+                fontFamily: 'inherit', minHeight: 240, background: 'transparent',
+              }} />
+
+            {/* Attachments */}
+            {attachments.length > 0 && (
+              <div style={{
+                marginTop: 12, padding: 10, border: `1px dashed ${C.border}`, borderRadius: 8,
+                display: 'flex', flexWrap: 'wrap', gap: 6,
+              }}>
+                {attachments.map((a, i) => (
+                  <span key={i} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '4px 6px 4px 10px', borderRadius: 6,
+                    background: C.borderSoft, fontSize: 12, color: C.text,
+                  }}>
+                    📎 {a.name} <span style={{ color: C.textMute, fontSize: 11 }}>({formatBytes(a.size)})</span>
+                    <button type="button" onClick={() => removeAttachment(i)}
+                      style={{
+                        width: 16, height: 16, borderRadius: '50%', border: 'none',
+                        background: 'rgba(0,0,0,0.08)', color: C.textDim, cursor: 'pointer', fontSize: 10, lineHeight: 1,
+                      }}>×</button>
+                  </span>
+                ))}
+                <span style={{ width: '100%', fontSize: 10, color: C.textMute, marginTop: 4 }}>
+                  Not: Ek dosya gönderimi şu anda mail servisi tarafında devre dışı — yakında aktif olacak.
+                </span>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {usedPlaceholders.map(ph => (
+            )}
+
+            {/* Placeholder uyarıları + tarih/saat input */}
+            {usedPlaceholders.length > 0 && (
+              <div style={{ marginTop: 10, fontSize: 11, color: C.textDim }}>
+                <strong style={{ color: C.text, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>Kullanılan değişkenler:</strong>{' '}
+                {usedPlaceholders.map((ph) => (
                   <span key={ph} style={{
-                    fontSize: 11, padding: '3px 8px', borderRadius: 6,
+                    display: 'inline-block', marginRight: 4, padding: '2px 7px', borderRadius: 4,
                     background: ['tarih', 'saat'].includes(ph) ? '#FEF3C7' : C.borderSoft,
                     color: ['tarih', 'saat'].includes(ph) ? '#A16207' : C.textDim,
                     fontFamily: 'ui-monospace, monospace',
                   }}>
                     {`{{${ph}}}`}
-                    {firstRecipientData?.[ph] && <span style={{ marginLeft: 6, color: C.ok }}>✓</span>}
+                    {firstRecipientData?.[ph] && <span style={{ marginLeft: 4, color: C.ok }}>✓</span>}
                   </span>
                 ))}
+                {(usedPlaceholders.includes('tarih') || usedPlaceholders.includes('saat')) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                    {usedPlaceholders.includes('tarih') && (
+                      <input placeholder="Tarih (örn: 12 Mart 2026)" value={extraVars.tarih}
+                        onChange={(e) => setExtraVars((v) => ({ ...v, tarih: e.target.value }))}
+                        style={inputStyle({ fontSize: 12, padding: '6px 10px' })} />
+                    )}
+                    {usedPlaceholders.includes('saat') && (
+                      <input placeholder="Saat (örn: 10:30)" value={extraVars.saat}
+                        onChange={(e) => setExtraVars((v) => ({ ...v, saat: e.target.value }))}
+                        style={inputStyle({ fontSize: 12, padding: '6px 10px' })} />
+                    )}
+                  </div>
+                )}
               </div>
-              {usedPlaceholders.includes('tarih') && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
-                  <input
-                    placeholder="Tarih (örn: 12 Mart 2026)"
-                    value={extraVars.tarih}
-                    onChange={(e) => setExtraVars(v => ({ ...v, tarih: e.target.value }))}
-                    style={inputStyle({ fontSize: 12, padding: '7px 10px' })}
-                  />
-                  <input
-                    placeholder="Saat (örn: 10:30)"
-                    value={extraVars.saat}
-                    onChange={(e) => setExtraVars(v => ({ ...v, saat: e.target.value }))}
-                    style={inputStyle({ fontSize: 12, padding: '7px 10px' })}
-                  />
+            )}
+
+            {/* CTA — collapsed by default visually compact */}
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ fontSize: 12, color: C.textDim, cursor: 'pointer', userSelect: 'none' }}>
+                ➕ Aksiyon Butonu Ekle (opsiyonel)
+              </summary>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.7fr', gap: 8, marginTop: 8 }}>
+                <input value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)}
+                  placeholder="Buton yazısı (Detaylar)" style={inputStyle({ fontSize: 12 })} />
+                <input value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)}
+                  placeholder="https://kfzgutachter.ac/..." style={inputStyle({ fontSize: 12 })} />
+              </div>
+            </details>
+          </div>
+
+          {/* Footer — Gönder + sekonder eylemler */}
+          <div style={{
+            padding: '12px 18px', background: '#FAFAFB', borderTop: `1px solid ${C.border}`,
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          }}>
+            <button onClick={submit} disabled={!canSend} style={primaryBtn(!canSend)}>
+              {busy ? 'Gönderiliyor…' : recipients.length > 1 ? `📨 ${recipients.length} kişiye gönder` : '📨 Gönder'}
+            </button>
+            <button type="button" onClick={() => setPreviewOpen((o) => !o)}
+              style={{
+                padding: '9px 14px', background: '#FFFFFF', color: C.text,
+                border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, fontWeight: 500,
+                cursor: 'pointer',
+              }}>
+              👁 {previewOpen ? 'Önizlemeyi Kapat' : 'Önizleme'}
+            </button>
+            {result && <ResultBanner ok={result.ok} msg={result.msg} />}
+          </div>
+        </div>
+
+        {/* ─ Önizleme — toggle açıldığında ───────────────────────────── */}
+        {previewOpen && (
+          <div style={{ marginTop: 12 }}>
+            <Card>
+              <SectionTitle icon="👁" text="Önizleme">
+                <div style={{ display: 'flex', gap: 4, padding: 3, background: C.borderSoft, borderRadius: 7 }}>
+                  <button type="button" onClick={() => setPreviewMode('text')} style={previewBtn(previewMode === 'text')}>Metin</button>
+                  <button type="button" onClick={() => setPreviewMode('html')} style={previewBtn(previewMode === 'html')}>HTML</button>
+                </div>
+              </SectionTitle>
+              {recipients.length === 0 ? (
+                <div style={emptyHint}>İlk alıcıyı seçtiğinde önizleme onun verisiyle (ad, plaka, marka...) otomatik dolar.</div>
+              ) : (
+                <div style={{
+                  fontSize: 11, color: C.textMute, marginBottom: 8,
+                  padding: '6px 10px', background: C.borderSoft, borderRadius: 6,
+                }}>
+                  💡 Önizleme <strong style={{ color: C.text }}>{recipients[0].full_name}</strong> için yapılıyor.
+                  {recipients.length > 1 && <> Kalan {recipients.length - 1} alıcıya kendi verilerine göre kişiselleştirilecek.</>}
                 </div>
               )}
-            </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 8 }}>
-            <Field label="Buton (opsiyonel)">
-              <input value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)}
-                placeholder="Detaylar"
-                style={inputStyle({ fontSize: 13 })} />
-            </Field>
-            <Field label="Buton URL">
-              <input value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)}
-                placeholder="https://kfzgutachter.ac/..."
-                style={inputStyle({ fontSize: 13 })} />
-            </Field>
+              {previewMode === 'text' && (
+                <EmailPreviewText
+                  from="Gecit KFZ Sachverständigenbüro <Gecit@kfzgutachter.ac>"
+                  to={recipients[0]?.email || '...'}
+                  subject={renderedSubject || '(konu yok)'}
+                  body={renderedBody || '(mesaj yok)'}
+                  ctaLabel={ctaLabel} ctaUrl={ctaUrl}
+                />
+              )}
+              {previewMode === 'html' && (
+                <EmailPreviewHtml
+                  subject={renderedSubject || '(konu yok)'}
+                  body={renderedBody || '(mesaj yok)'}
+                  ctaLabel={ctaLabel} ctaUrl={ctaUrl}
+                />
+              )}
+            </Card>
           </div>
-        </Card>
-
-        <div style={{ gridColumn: '1 / -1' }}>
-          <Card>
-            <SectionTitle icon="👁" text="Canlı Önizleme">
-              <div style={{ display: 'flex', gap: 4, padding: 3, background: C.borderSoft, borderRadius: 7 }}>
-                <button type="button" onClick={() => setPreviewMode('text')}
-                  style={previewBtn(previewMode === 'text')}>Metin</button>
-                <button type="button" onClick={() => setPreviewMode('html')}
-                  style={previewBtn(previewMode === 'html')}>HTML görünüm</button>
-              </div>
-            </SectionTitle>
-
-            {recipients.length === 0 ? (
-              <div style={emptyHint}>
-                İlk alıcıyı seçtiğinde önizleme onun verisiyle (ad, plaka, marka...) otomatik dolar.
-              </div>
-            ) : (
-              <div style={{
-                fontSize: 11, color: C.textMute, marginBottom: 8,
-                padding: '6px 10px', background: C.borderSoft, borderRadius: 6,
-              }}>
-                💡 Önizleme <strong style={{ color: C.text }}>{recipients[0].full_name}</strong> için yapılıyor.
-                Kalan {recipients.length - 1} alıcıya kendi verilerine göre kişiselleştirilmiş gönderilecek.
-              </div>
-            )}
-
-            {previewMode === 'text' && (
-              <EmailPreviewText
-                from="Gecit KFZ Sachverständigenbüro <Gecit@kfzgutachter.ac>"
-                to={recipients[0]?.email || '...'}
-                subject={renderedSubject || '(konu yok)'}
-                body={renderedBody || '(mesaj yok)'}
-                ctaLabel={ctaLabel}
-                ctaUrl={ctaUrl}
-              />
-            )}
-            {previewMode === 'html' && (
-              <EmailPreviewHtml
-                subject={renderedSubject || '(konu yok)'}
-                body={renderedBody || '(mesaj yok)'}
-                ctaLabel={ctaLabel}
-                ctaUrl={ctaUrl}
-              />
-            )}
-          </Card>
-        </div>
-
-        <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12, padding: '4px 4px' }}>
-          <button onClick={submit} disabled={!canSend} style={primaryBtn(!canSend)}>
-            {busy ? 'Gönderiliyor…' : recipients.length > 1 ? `📨 ${recipients.length} kişiye gönder` : '📨 Gönder'}
-          </button>
-          {result && <ResultBanner ok={result.ok} msg={result.msg} />}
-        </div>
+        )}
       </div>
     </div>
   );
 }
+
+// ─── Compose form yardımcı bileşenleri ────────────────────────────────
+function FormRow({ label, children, onRemove }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+      padding: '8px 18px', borderBottom: `1px solid ${C.borderSoft}`,
+    }}>
+      <div style={{
+        width: 64, fontSize: 12, fontWeight: 500, color: C.textDim,
+        paddingTop: 8, flexShrink: 0,
+      }}>{label}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+      {onRemove && (
+        <button type="button" onClick={onRemove} title="Bu alanı gizle"
+          style={{
+            width: 22, height: 22, borderRadius: '50%', border: 'none',
+            background: 'rgba(0,0,0,0.06)', color: C.textDim, cursor: 'pointer',
+            fontSize: 12, lineHeight: 1, flexShrink: 0, marginTop: 6,
+          }}>×</button>
+      )}
+    </div>
+  );
+}
+
+function EmailChipsInput({ list, setList, placeholder }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, minHeight: 28 }}>
+      {list.map((email, i) => (
+        <span key={i} style={chipStyle()}>
+          {email}
+          <button type="button" onClick={() => setList(list.filter((_, j) => j !== i))} style={chipCloseBtn}>×</button>
+        </span>
+      ))}
+      <input
+        type="text" placeholder={placeholder}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ',') && e.currentTarget.value.includes('@')) {
+            const v = e.currentTarget.value.trim().replace(/,$/, '');
+            if (!list.includes(v)) setList([...list, v]);
+            e.currentTarget.value = '';
+            e.preventDefault();
+          }
+        }}
+        style={{
+          flex: 1, minWidth: 160, border: 'none', outline: 'none',
+          fontSize: 13, padding: '6px 4px', background: 'transparent', color: C.text,
+        }}
+      />
+    </div>
+  );
+}
+
+const chipStyle = () => ({
+  display: 'inline-flex', alignItems: 'center', gap: 6,
+  padding: '3px 6px 3px 10px', borderRadius: 999,
+  background: C.brandSoft, border: `1px solid ${C.brandBorder}`,
+  fontSize: 12, color: C.brand, fontWeight: 500,
+});
+const chipCloseBtn = {
+  width: 16, height: 16, borderRadius: '50%', border: 'none',
+  background: 'rgba(225,29,46,0.15)', color: C.brand, cursor: 'pointer',
+  fontSize: 10, lineHeight: 1,
+};
+const miniLinkBtn = {
+  fontSize: 12, padding: '4px 8px', borderRadius: 6,
+  background: 'transparent', color: C.brand, border: 'none',
+  cursor: 'pointer', fontWeight: 500,
+};
 
 function TemplateSidebar({ templates, selectedId, onSelect }) {
   return (

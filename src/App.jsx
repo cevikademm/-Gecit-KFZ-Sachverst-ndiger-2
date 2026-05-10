@@ -31,7 +31,8 @@ import CommunicationsPanel from './components/CommunicationsPanel.jsx';
 import TerminPlanlayici from './components/TerminPlanlayici.jsx';
 import CustomerBookingFlow from './components/CustomerBookingFlow.jsx';
 import PhotoEditor from './components/PhotoEditor.jsx';
-import { parseRuhsatMock } from './utils/ruhsatParser.js';
+import { parseRuhsatMock, getRuhsatGroups } from './utils/ruhsatParser.js';
+import { parseRuhsatWithClaude } from './utils/ruhsatOcrClient.js';
 import { useLang } from './i18n/LangContext.jsx';
 
 const RUHSAT_DOC_TYPES = ['fahrzeugschein', 'fahrzeugbrief'];
@@ -2427,7 +2428,22 @@ function useDB() {
         // 2) Supabase'den tam veriyi yükle
         const data = await DataService.loadAll();
         if (mounted && data) {
-          setDb(data);
+          // DEFANSIF MERGE: Supabase boş ama lokalde veri varsa lokal korunur.
+          // Sebep: müşteri Supabase projesini değiştirdiğinde yeni proje boş gelir;
+          // localStorage'daki birikmiş veriyi silmemek için lokal'i overlay'liyoruz.
+          setDb((prev) => {
+            const merged = { ...prev, ...data };
+            for (const key of Object.keys(data)) {
+              const remoteArr = Array.isArray(data[key]) ? data[key] : null;
+              const localArr  = Array.isArray(prev[key]) ? prev[key] : null;
+              if (remoteArr && remoteArr.length === 0 && localArr && localArr.length > 0) {
+                // Supabase boş, lokal dolu → lokali tut
+                merged[key] = localArr;
+                console.log(`[useDB] '${key}': Supabase boş, lokal ${localArr.length} kayıt korundu`);
+              }
+            }
+            return merged;
+          });
           setLiveReady(true);
         }
       } catch (e) {
@@ -3841,7 +3857,8 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
 
       {/* List view — AutoiXpert benzeri ferah satır görünümü */}
       {list.length > 0 && viewMode === 'list' && (
-        <GlassCard padding="p-0">
+        <GlassCard padding="p-0" className="overflow-x-auto">
+        <div style={{ minWidth: 880 }}>
           {/* Sütun başlıkları */}
           <div className="hidden md:grid items-center text-[10px] uppercase tracking-widest px-6 py-3"
             style={{
@@ -4012,9 +4029,26 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                           {brand}{model ? <span style={{ color: C.textDim }}> {model}</span> : null}
                         </p>
                       </>
-                    ) : (
-                      <span className="text-xs italic" style={{ color: C.textDim, opacity: 0.6 }}>Kein Hersteller / Kein Modell</span>
-                    )}
+                    ) : (() => {
+                      // Fallback: AutoiXpert rapor tipi (örn. "Nur Rep.-Best." = Reparaturbestätigung).
+                      // Bu tip raporlarda marka/model bilinçli olarak boş bırakılır.
+                      const latestAppr = apprs.length > 0
+                        ? apprs.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0]
+                        : null;
+                      const tag = latestAppr?.report_token || latestAppr?.report_type || null;
+                      if (tag) {
+                        return (
+                          <span
+                            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md truncate"
+                            style={{ color: C.textDim, background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}
+                            title="Fahrzeugdaten in AutoiXpert nicht erfasst (typisch für reine Reparaturbestätigungen)">
+                            <FileText size={11} style={{ opacity: 0.7 }} />
+                            {tag}
+                          </span>
+                        );
+                      }
+                      return <span className="text-xs italic" style={{ color: C.textDim, opacity: 0.6 }}>Kein Hersteller / Kein Modell</span>;
+                    })()}
                   </div>
                   {c.created_at && (() => {
                     try {
@@ -4100,6 +4134,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
               </motion.div>
             );
           })}
+        </div>
         </GlassCard>
       )}
 
@@ -7286,10 +7321,78 @@ function MessagesTab({ customer, db, setDb }) {
   );
 }
 
+// Müşterinin tüm fotoğraflarını birleştirir:
+//   (a) AutoiXpert (axPhotos)
+//   (b) damage_photos (manuel + ruhsat upload)
+//   (c) customer_documents'teki Ruhsat & resim formatındaki belgeler
+// Sayede Belgeler/Ruhsat sekmesine yüklenen ruhsat foto otomatik
+// olarak Fotoğraflar'da da görünür — extra senkronizasyona gerek yok.
+// Hem tab içeriği hem badge sayacı bu helper'ı kullanır.
+function buildMergedPhotosForCustomer(db, customer, axPhotos) {
+  if (!customer) return [];
+  const myVehicleIds = (db?.vehicles || [])
+    .filter(v => v.owner_id === customer.id)
+    .map(v => v.id);
+
+  // (b) damage_photos
+  const localPhotos = (db?.damage_photos || [])
+    .filter(p => {
+      const ownedViaCustomer = p.customer_id === customer.id;
+      const ownedViaVehicle  = p.vehicle_id && myVehicleIds.includes(p.vehicle_id);
+      const hasSource = p.url || p.storage_path;
+      return (ownedViaCustomer || ownedViaVehicle) && hasSource;
+    })
+    .map(p => ({
+      id: p.id,
+      url: p.url || null,
+      storage_path: p.storage_path || null,
+      storage_bucket: p.storage_bucket || 'documents',
+      mime: p.mime || null,
+      report_token: p.label?.split(' — ')[0] || 'Yerel Fotoğraflar',
+      title: p.label || p.part || 'Fotoğraf',
+      original_name: p.label || '',
+      included_in_report: false,
+      downloaded_at: p.created_at,
+      _local: true,
+    }));
+
+  // (c) customer_documents → Ruhsat ve resim dosyaları
+  const seenPaths = new Set(localPhotos.map(p => p.storage_path).filter(Boolean));
+  const docPhotos = (db?.customer_documents || [])
+    .filter(d => {
+      if (d.customer_id !== customer.id) return false;
+      const isRuhsat = isRuhsatDoc(d.type);
+      const isImage = (d.mime || '').startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(d.name || '');
+      if (!(isRuhsat || isImage)) return false;
+      if (!(d.data || d.storage_path)) return false;
+      if (d.storage_path && seenPaths.has(d.storage_path)) return false; // duplicate önle
+      return true;
+    })
+    .map(d => ({
+      id: 'doc_as_photo_' + d.id,
+      url: d.data || null,
+      storage_path: d.storage_path || null,
+      storage_bucket: d.storage_bucket || 'documents',
+      mime: d.mime || null,
+      report_token: isRuhsatDoc(d.type) ? 'Ruhsat (Fahrzeugschein)' : 'Belgeler',
+      title: d.name || 'Belge',
+      original_name: d.name || '',
+      included_in_report: false,
+      downloaded_at: d.uploaded_at || d.created_at,
+      _local: true,
+      _fromDoc: true,
+    }));
+
+  return [...localPhotos, ...docPhotos, ...(axPhotos || [])];
+}
+
 function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
   const [tab, setTab] = useState('araclar');
   const [ruhsatOpen, setRuhsatOpen] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
+  // Preview için signed URL (data null olduğunda Supabase Storage'tan çekilir)
+  const [previewSignedUrl, setPreviewSignedUrl] = useState(null);
+  const [previewError, setPreviewError] = useState(null);
   const [axReports, setAxReports] = useState(null); // [] | null henüz yüklenmedi
   const [axDocuments, setAxDocuments] = useState([]); // AutoiXpert PDF'ler (Druck)
   const [axInvoices, setAxInvoices] = useState([]);   // AutoiXpert faturaları
@@ -7298,6 +7401,37 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   // Müşteri değiştiğinde plaka filtresini sıfırla
   useEffect(() => { setSelectedVehicleId(null); }, [customer?.id]);
+
+  // previewDoc değişince signed URL fetch et (data null ise + storage_path varsa)
+  useEffect(() => {
+    setPreviewSignedUrl(null);
+    setPreviewError(null);
+    if (!previewDoc) return;
+    if (previewDoc.data) return;
+    if (!previewDoc.storage_path) return;
+    let cancelled = false;
+    (async () => {
+      const sb = getSupabase();
+      if (!sb) {
+        if (!cancelled) setPreviewError('Supabase bağlantısı yok');
+        return;
+      }
+      try {
+        const bucket = previewDoc.storage_bucket || 'documents';
+        const { data: signed, error } = await sb.storage.from(bucket).createSignedUrl(previewDoc.storage_path, 3600);
+        if (cancelled) return;
+        if (error) {
+          setPreviewError(`Dosya alınamadı: ${error.message}`);
+          return;
+        }
+        if (signed?.signedUrl) setPreviewSignedUrl(signed.signedUrl);
+        else setPreviewError('Signed URL üretilemedi');
+      } catch (e) {
+        if (!cancelled) setPreviewError(e?.message || 'Bilinmeyen hata');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [previewDoc?.id, previewDoc?.storage_path, previewDoc?.storage_bucket]);
 
   // AutoiXpert raporları: customer'ın bağlı olduğu raporlar (plaka filtresi uygulanır)
   const myCustomerAppraisals = useMemo(() => {
@@ -7380,6 +7514,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
   const [ruhsatPanelDoc, setRuhsatPanelDoc] = useState(null);
   const [previewAppraisal, setPreviewAppraisal] = useState(null);
   const [docFilter, setDocFilter] = useState('all');
+  const [docSignedMap, setDocSignedMap] = useState({}); // doc.id → signedUrl (private bucket görüntüsü için)
   const fileInputRef = useRef(null);
   if (!customer) return null;
   // Müşterinin tüm araçları — plaka switcher her zaman bunların hepsini gösterir.
@@ -7404,6 +7539,35 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
     if (!selectedVehicleId) return true;
     return d.vehicle_id === selectedVehicleId;
   });
+  // Sadece Ruhsat (Fahrzeugschein/Fahrzeugbrief) belgeleri — özel sekme için
+  const myRuhsatDocs = myDocs.filter(d => isRuhsatDoc(d.type));
+
+  // Private bucket'taki ruhsat / belge dosyaları için signed URL'i lazy fetch et
+  // (img src senkron olduğu için resolveDocUrl'i state map'ine yazıyoruz)
+  useEffect(() => {
+    const needFetch = myRuhsatDocs.filter(
+      (d) => !docSignedMap[d.id] && !d.data && !d.public_url && d.storage_path
+    );
+    if (!needFetch.length) return;
+    let cancelled = false;
+    (async () => {
+      const sb = getSupabase();
+      if (!sb) return;
+      const updates = {};
+      await Promise.all(needFetch.map(async (d) => {
+        try {
+          const bucket = d.storage_bucket || DOC_BUCKET;
+          const { data, error } = await sb.storage.from(bucket).createSignedUrl(d.storage_path, 3600);
+          if (error) { console.warn('[ruhsat signedUrl]', d.id, error.message); return; }
+          if (data?.signedUrl) updates[d.id] = data.signedUrl;
+        } catch (err) { console.warn('[ruhsat signedUrl] exception', d.id, err); }
+      }));
+      if (!cancelled && Object.keys(updates).length) {
+        setDocSignedMap((prev) => ({ ...prev, ...updates }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [myRuhsatDocs.map(d => d.id).join('|')]);
   const filteredDocs = docFilter === 'all' ? myDocs
     : docFilter.startsWith('group:') ? myDocs.filter(d => {
         const cat = DOC_CATEGORIES.find(c => c.key === d.type);
@@ -7599,19 +7763,50 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
         uploaded_at: new Date().toISOString().slice(0, 10),
       };
       if (isRuhsatDoc(uploadCategory)) {
-        doc.ruhsatData = parseRuhsatMock(file);
+        // Claude Haiku 4.5 ile gerçek OCR — fallback olarak mock'a düşer
+        const ocrResult = await parseRuhsatWithClaude(file);
+        doc.ruhsatData = ocrResult?.data || parseRuhsatMock(file);
+        doc.ruhsatOcrSource = ocrResult?.source || 'mock';
+        doc.ruhsatOcrConfidence = ocrResult?.confidence ?? null;
+        if (ocrResult?.error) {
+          console.warn('[Ruhsat OCR]', ocrResult.error, '→ fallback:', ocrResult.source);
+        }
       }
+      // Ruhsat (Fahrzeugschein) kategorisi → damage_photos'a da yaz
+      // (Fotoğraflar sekmesinde aynı dosya gözüksün).
+      const isRuhsat = isRuhsatDoc(uploadCategory);
+      const ruhsatPhoto = isRuhsat ? {
+        id: 'dp_doc_' + uid(),
+        customer_id: customer.id,   // müşteri bazlı eşleme için
+        vehicle_id: myVehicles[0]?.id || '',
+        appraisal_id: '',
+        type: 'document',
+        label: `${catLabel} — ${file.name}`,
+        part: 'document_ruhsat',
+        mime: uploaded.mime,
+        url: uploaded.data || null,
+        storage_path: uploaded.storage_path,
+        storage_bucket: uploaded.storage_bucket,
+        created_at: new Date().toISOString().slice(0, 10),
+      } : null;
+
       setDb(withLog(
-        prev => ({ ...prev, customer_documents: [...(prev.customer_documents || []), doc] }),
+        prev => ({
+          ...prev,
+          customer_documents: [...(prev.customer_documents || []), doc],
+          damage_photos: ruhsatPhoto
+            ? [...(prev.damage_photos || []), ruhsatPhoto]
+            : (prev.damage_photos || []),
+        }),
         makeLogEntry({
           user: currentUser,
           action: 'doc_upload',
           target: { kind: 'customer', id: customer.id, label: customerLabel },
-          details: `${file.name} (${catLabel}) → ${customerLabel}`,
+          details: `${file.name} (${catLabel}) → ${customerLabel}${isRuhsat ? ' [+ Fotoğraflar]' : ''}`,
           metadata: { doc_id: doc.id, category: uploadCategory, size: file.size, storage_path: doc.storage_path },
         })
       ));
-      if (isRuhsatDoc(uploadCategory)) {
+      if (isRuhsat) {
         setRuhsatPanelDoc(doc);
       }
     }
@@ -7874,8 +8069,8 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
         {/* Plaka switcher — bir plaka seçince diğer sekmelerin verisi sadece o
             araca filtrelenir. "Tümü" → filtre kapatılır. */}
         {myVehicles.length > 0 && (
-          <div className="px-3 sm:px-6 py-2.5 flex items-center gap-2 overflow-x-auto"
-            style={{ borderTop: `1px solid ${C.border}`, background: 'rgba(0,0,0,0.02)', scrollbarWidth: 'none' }}>
+          <div className="px-3 sm:px-6 py-2.5 flex items-center gap-2 overflow-x-auto scrollbar-hide"
+            style={{ borderTop: `1px solid ${C.border}`, background: 'rgba(0,0,0,0.02)' }}>
             <span className="text-[11px] uppercase tracking-wider whitespace-nowrap" style={{ color: C.textDim, letterSpacing: '0.12em' }}>
               Plaka:
             </span>
@@ -7912,18 +8107,19 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
           </div>
         )}
         {/* Tabs */}
-        <div className="px-3 sm:px-6 flex gap-0.5 sm:gap-1 overflow-x-auto" style={{ borderBottom: `1px solid ${C.border}`, scrollbarWidth: 'none' }}>
+        <div className="px-3 sm:px-6 flex gap-0.5 sm:gap-1 overflow-x-auto scrollbar-hide" style={{ borderBottom: `1px solid ${C.border}` }}>
           {[
             { k: 'araclar', l: 'Araçlar', cnt: myVehicles.length, icon: CarIcon },
+            { k: 'ruhsat', l: 'Ruhsat', cnt: myRuhsatDocs.length, icon: FileText },
             { k: 'belgeler', l: 'Belgeler', cnt: myDocs.length + axDocuments.length, icon: FolderIcon },
-            { k: 'fotograflar', l: 'Fotoğraflar', cnt: axPhotos.length, icon: ImageIcon },
+            { k: 'fotograflar', l: 'Fotoğraflar', cnt: buildMergedPhotosForCustomer(db, customer, axPhotos).length, icon: ImageIcon },
             { k: 'ekspertiz', l: 'Ekspertiz', cnt: myAppraisals.length, icon: Wrench },
             { k: 'autoixpert', l: 'AutoiXpert', cnt: myCustomerAppraisals.length, icon: ClipboardIcon },
             { k: 'mesajlar', l: 'Mesajlar', cnt: (db.messages || []).filter(m => m.contact_id === customer.id).length, icon: MessageIcon },
             { k: 'faturalar', l: 'Faturalar', cnt: myInvoices.length + axInvoices.length, icon: Receipt },
             { k: 'bilgi', l: 'Bilgiler', cnt: null, icon: SettingsIcon },
           ].map(t => (
-            <button key={t.k} onClick={() => { setTab(t.k); if (t.k !== 'belgeler') setPreviewDoc(null); if (t.k !== 'ekspertiz') setPreviewAppraisal(null); }}
+            <button key={t.k} onClick={() => { setTab(t.k); if (t.k !== 'belgeler' && t.k !== 'ruhsat') setPreviewDoc(null); if (t.k !== 'ekspertiz') setPreviewAppraisal(null); }}
               className="px-2.5 sm:px-4 py-3 text-xs sm:text-sm transition-colors relative flex items-center gap-1.5 sm:gap-2 whitespace-nowrap flex-shrink-0"
               style={{ color: tab === t.k ? C.text : C.textDim }}>
               <t.icon size={14} />
@@ -7940,6 +8136,200 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
           {/* Left panel — tabs content */}
           <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${previewDoc ? 'border-r' : ''}`}
             style={{ borderColor: C.border, minWidth: 0, paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+
+          {/* ── RUHSAT TAB ── */}
+          {tab === 'ruhsat' && (
+            <div>
+              <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                <div>
+                  <p className="text-sm font-bold" style={{ color: C.text }}>
+                    Fahrzeugscheine ({myRuhsatDocs.length})
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
+                    Müşterinin yüklü ruhsat/Fahrzeugschein belgeleri
+                  </p>
+                </div>
+                <AdminButton variant="primary" size="sm" onClick={() => setRuhsatOpen(true)}>
+                  <UploadIcon size={14} /> Ruhsat ile Araç Ekle
+                </AdminButton>
+              </div>
+
+              {myRuhsatDocs.length === 0 ? (
+                <div className="rounded-2xl p-10 text-center" style={{ border: `1px dashed ${C.border}` }}>
+                  <FileText size={40} style={{ color: C.textDim, margin: '0 auto 12px' }} />
+                  <p style={{ color: C.textDim }} className="text-sm">Henüz Ruhsat belgesi yok.</p>
+                  <p style={{ color: C.textDim }} className="text-xs mt-1">
+                    "Ruhsat ile Araç Ekle" ile foto yükle veya Belgeler sekmesinden Fahrzeugschein kategorisi seç.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {myRuhsatDocs.map((doc) => {
+                    const linkedVehicle = (db.vehicles || []).find(v => v.id === doc.vehicle_id);
+                    const isImage = doc.mime?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(doc.name || '');
+                    const isPdf = doc.mime === 'application/pdf' || doc.name?.endsWith('.pdf');
+                    const imgSrc = doc.data || doc.public_url || docSignedMap[doc.id] || null;
+                    const ruhsatData = doc.ruhsatData || parseRuhsatMock(doc);
+                    const groups = getRuhsatGroups(ruhsatData);
+
+                    return (
+                      <div key={doc.id} className="rounded-2xl overflow-hidden"
+                        style={{
+                          background: C.surface,
+                          border: `1px solid ${C.border}`,
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                        }}>
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-4 flex-wrap gap-2"
+                          style={{ borderBottom: `1px solid ${C.border}`, background: 'rgba(0,0,0,0.02)' }}>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div style={{
+                              width: 40, height: 40, borderRadius: 10,
+                              background: 'rgba(6,182,212,0.12)', color: '#0E7490',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              flexShrink: 0,
+                            }}>
+                              <FileText size={20} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold truncate" style={{ color: C.text }} title={doc.name}>
+                                {doc.name}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span style={{
+                                  fontSize: 9, padding: '2px 6px', borderRadius: 4, fontWeight: 700,
+                                  background: 'rgba(6,182,212,0.12)', color: '#0E7490',
+                                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                                }}>
+                                  Fahrzeugschein
+                                </span>
+                                {linkedVehicle && (
+                                  <span style={{ fontSize: 10, fontFamily: 'monospace', color: C.textDim, fontWeight: 600 }}>
+                                    🚗 {linkedVehicle.plate}
+                                  </span>
+                                )}
+                                <span className="text-[10px]" style={{ color: C.textDim }}>
+                                  {formatSize(doc.size)} · {doc.uploaded_at || doc.created_at}
+                                </span>
+                                {doc.ruhsatOcrSource && doc.ruhsatOcrSource !== 'mock' && doc.ruhsatOcrSource !== 'mock_fallback' && (
+                                  <span style={{
+                                    fontSize: 9, padding: '2px 6px', borderRadius: 4,
+                                    background: 'rgba(34,197,94,0.12)', color: '#15803D',
+                                    fontWeight: 700, letterSpacing: '0.04em',
+                                  }} title={`OCR: ${doc.ruhsatOcrSource}, güven: ${(doc.ruhsatOcrConfidence ?? 0).toFixed(2)}`}>
+                                    AI OCR ✓
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <button type="button" onClick={() => setPreviewDoc(doc)}
+                            className="text-xs px-3 py-1.5 rounded-lg transition-all"
+                            style={{
+                              background: 'rgba(0,0,0,0.05)',
+                              color: C.text,
+                              border: `1px solid ${C.border}`,
+                              cursor: 'pointer',
+                            }}>
+                            Tam ekran aç →
+                          </button>
+                        </div>
+
+                        {/* 2-sütun: SOL = 91-alan listesi, SAĞ = orijinal görsel */}
+                        <div className="grid gap-0" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 420px)' }}>
+                          {/* SOL — 91 alanlı liste */}
+                          <div className="p-4 overflow-y-auto" style={{ maxHeight: 640, borderRight: `1px solid ${C.border}` }}>
+                            {groups.map((g) => (
+                              <div key={g.title} className="mb-4">
+                                <div style={{
+                                  fontSize: 10, fontWeight: 700, color: C.textDim,
+                                  letterSpacing: '0.12em', textTransform: 'uppercase',
+                                  marginBottom: 8, paddingBottom: 4,
+                                  borderBottom: `1px solid ${C.border}`,
+                                }}>
+                                  {g.title}
+                                </div>
+                                <div className="grid gap-1" style={{ gridTemplateColumns: '60px 1fr 1.4fr' }}>
+                                  {g.rows.map((r, i) => {
+                                    const isEmpty = !r.value || r.value === '—' || r.value === '';
+                                    return (
+                                      <React.Fragment key={r.code + i}>
+                                        <div style={{
+                                          fontSize: 10, fontWeight: 600, color: C.textDim,
+                                          fontFamily: 'monospace', padding: '4px 0',
+                                        }}>{r.code}</div>
+                                        <div style={{
+                                          fontSize: 11, color: C.textDim,
+                                          padding: '4px 8px 4px 0',
+                                        }} title={r.de}>{r.tr}</div>
+                                        <div style={{
+                                          fontSize: 12, color: isEmpty ? C.textDim : C.text,
+                                          fontWeight: isEmpty ? 400 : 500,
+                                          opacity: isEmpty ? 0.5 : 1,
+                                          padding: '4px 0', wordBreak: 'break-word',
+                                        }}>{r.value || '—'}</div>
+                                      </React.Fragment>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* SAĞ — orijinal görsel */}
+                          <div className="p-3" style={{ background: 'rgba(0,0,0,0.03)' }}>
+                            <div style={{
+                              width: '100%', minHeight: 320, maxHeight: 620,
+                              borderRadius: 10, overflow: 'hidden',
+                              background: '#1F2937',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              {isImage && imgSrc ? (
+                                <img src={imgSrc} alt={doc.name}
+                                  style={{
+                                    width: '100%', height: '100%', maxHeight: 620,
+                                    objectFit: 'contain', cursor: 'pointer',
+                                  }}
+                                  onClick={() => setPreviewDoc(doc)}
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                              ) : isPdf ? (
+                                <div style={{ textAlign: 'center', color: '#fff', padding: 40 }}>
+                                  <FileText size={64} style={{ opacity: 0.6, margin: '0 auto 12px' }} />
+                                  <div style={{ fontSize: 11, opacity: 0.7, letterSpacing: '0.1em' }}>PDF DOSYASI</div>
+                                  <button type="button" onClick={() => setPreviewDoc(doc)}
+                                    className="mt-3 text-xs px-3 py-1.5 rounded-lg"
+                                    style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                                    Önizle
+                                  </button>
+                                </div>
+                              ) : isImage && doc.storage_path ? (
+                                <div style={{ textAlign: 'center', color: '#fff', padding: 40 }}>
+                                  <div className="animate-pulse" style={{ fontSize: 32, marginBottom: 8 }}>📄</div>
+                                  <div style={{ fontSize: 11, opacity: 0.7, letterSpacing: '0.1em' }}>RUHSAT YÜKLENİYOR…</div>
+                                </div>
+                              ) : (
+                                <div style={{ textAlign: 'center', color: '#fff', padding: 40 }}>
+                                  <FileText size={64} style={{ opacity: 0.6, margin: '0 auto 12px' }} />
+                                  <div style={{ fontSize: 11, opacity: 0.7, letterSpacing: '0.1em' }}>RUHSAT</div>
+                                  <div style={{ fontSize: 10, opacity: 0.5, marginTop: 6 }}>
+                                    Görsel kaynağı bulunamadı
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[10px] mt-2 text-center" style={{ color: C.textDim }}>
+                              Görsele tıkla → tam ekran
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {tab === 'araclar' && (
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -8208,26 +8598,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
           )}
 
           {tab === 'fotograflar' && (() => {
-            // axPhotos (AutoiXpert) + damage_photos (yerel — ruhsat upload vb.) birleştir.
-            // Yerel fotolar zaten data URL içerir → CustomerPhotosTab p.url fallback ile gösterir.
-            const myVehicleIds = (db.vehicles || [])
-              .filter(v => v.owner_id === customer.id)
-              .map(v => v.id);
-            const localPhotos = (db.damage_photos || [])
-              .filter(p => myVehicleIds.includes(p.vehicle_id) && p.url)
-              .map(p => ({
-                id: p.id,
-                url: p.url,
-                storage_path: null,
-                storage_bucket: null,
-                report_token: p.label || 'Yerel Fotoğraflar',
-                title: p.label || p.part || 'Fotoğraf',
-                original_name: p.label || '',
-                included_in_report: false,
-                downloaded_at: p.created_at,
-                _local: true,
-              }));
-            const mergedPhotos = [...localPhotos, ...(axPhotos || [])];
+            const mergedPhotos = buildMergedPhotosForCustomer(db, customer, axPhotos);
             return <CustomerPhotosTab photos={mergedPhotos} />;
           })()}
 
@@ -8442,9 +8813,11 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Download button */}
-                  {previewDoc.data && (
-                    <a href={previewDoc.data} download={previewDoc.name}
+                  {/* Download button — data veya signed URL hazırsa */}
+                  {(previewDoc.data || previewSignedUrl) && (
+                    <a href={previewDoc.data || previewSignedUrl} download={previewDoc.name}
+                      target={previewSignedUrl && !previewDoc.data ? '_blank' : undefined}
+                      rel={previewSignedUrl && !previewDoc.data ? 'noreferrer' : undefined}
                       className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                       style={{ color: C.neon }} title="İndir">
                       <DownloadIcon size={16} />
@@ -8473,48 +8846,81 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
               {/* Preview content */}
               <div className="flex-1 overflow-auto p-4 flex items-center justify-center"
                 style={{ background: 'rgba(0,0,0,0.3)' }}>
-                {previewDoc.data ? (
-                  (() => {
-                    const isPdf = previewDoc.mime === 'application/pdf' || previewDoc.name.endsWith('.pdf');
-                    const isImage = previewDoc.mime?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(previewDoc.name);
-                    if (isPdf) {
-                      return (
-                        <iframe src={previewDoc.data} className="w-full h-full rounded-lg"
-                          style={{ border: 'none', minHeight: 500, background: 'white' }} />
-                      );
-                    }
-                    if (isImage) {
-                      return (
-                        <img src={previewDoc.data} alt={previewDoc.name}
-                          className="max-w-full max-h-full object-contain rounded-lg"
-                          style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }} />
-                      );
-                    }
+                {(() => {
+                  // Görüntüleme kaynağı: önce data URL (lokal mode / küçük dosya),
+                  // sonra Supabase Storage signed URL (live mode).
+                  const previewUrl = previewDoc.data || previewSignedUrl;
+                  const isPdf = previewDoc.mime === 'application/pdf' || previewDoc.name?.endsWith('.pdf');
+                  const isImage = previewDoc.mime?.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp)$/i.test(previewDoc.name || '');
+
+                  // URL henüz hazır değil — storage_path var ama signed URL fetch ediliyor
+                  if (!previewUrl && previewDoc.storage_path && !previewError) {
                     return (
                       <div className="text-center p-10">
-                        <FileText size={48} style={{ color: C.textDim, margin: '0 auto 16px' }} />
-                        <p className="text-sm" style={{ color: C.textDim }}>Bu dosya türü önizleme desteklemiyor.</p>
-                        {previewDoc.data && (
-                          <a href={previewDoc.data} download={previewDoc.name}
-                            className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg text-sm"
-                            style={{ background: `${C.neon}20`, color: C.neon }}>
-                            <DownloadIcon size={14} /> Dosyayı İndir
-                          </a>
-                        )}
+                        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+                          className="w-12 h-12 mx-auto mb-4 rounded-full"
+                          style={{ border: `3px solid ${C.border}`, borderTopColor: C.neon }} />
+                        <p className="text-sm" style={{ color: C.textDim }}>Dosya yükleniyor…</p>
                       </div>
                     );
-                  })()
-                ) : (
-                  <div className="text-center p-10">
-                    <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-                      style={{ background: 'rgba(227,6,19,0.07)' }}>
-                      <FileText size={36} style={{ color: C.neon }} />
+                  }
+
+                  // Hata varsa göster
+                  if (previewError) {
+                    return (
+                      <div className="text-center p-10">
+                        <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+                          style={{ background: 'rgba(220,38,38,0.10)' }}>
+                          <FileText size={36} style={{ color: '#DC2626' }} />
+                        </div>
+                        <p className="text-sm font-medium mb-2" style={{ color: C.text }}>{previewDoc.name}</p>
+                        <p className="text-xs" style={{ color: '#B91C1C' }}>⚠️ {previewError}</p>
+                        <p className="text-xs mt-3" style={{ color: C.textDim }}>Boyut: {formatSize(previewDoc.size)}</p>
+                      </div>
+                    );
+                  }
+
+                  // Veri yok ve storage path de yok → demo placeholder
+                  if (!previewUrl) {
+                    return (
+                      <div className="text-center p-10">
+                        <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+                          style={{ background: 'rgba(227,6,19,0.07)' }}>
+                          <FileText size={36} style={{ color: C.neon }} />
+                        </div>
+                        <p className="text-sm font-medium mb-2" style={{ color: C.text }}>{previewDoc.name}</p>
+                        <p className="text-xs" style={{ color: C.textDim }}>Bu belge demo verisidir. Gerçek dosya yüklendiğinde burada görüntülenecek.</p>
+                        <p className="text-xs mt-3" style={{ color: C.textDim }}>Boyut: {formatSize(previewDoc.size)}</p>
+                      </div>
+                    );
+                  }
+
+                  // URL hazır → uygun viewer
+                  if (isPdf) {
+                    return (
+                      <iframe src={previewUrl} className="w-full h-full rounded-lg"
+                        style={{ border: 'none', minHeight: 500, background: 'white' }} />
+                    );
+                  }
+                  if (isImage) {
+                    return (
+                      <img src={previewUrl} alt={previewDoc.name}
+                        className="max-w-full max-h-full object-contain rounded-lg"
+                        style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }} />
+                    );
+                  }
+                  return (
+                    <div className="text-center p-10">
+                      <FileText size={48} style={{ color: C.textDim, margin: '0 auto 16px' }} />
+                      <p className="text-sm" style={{ color: C.textDim }}>Bu dosya türü önizleme desteklemiyor.</p>
+                      <a href={previewUrl} download={previewDoc.name} target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg text-sm"
+                        style={{ background: `${C.neon}20`, color: C.neon }}>
+                        <DownloadIcon size={14} /> Dosyayı Aç
+                      </a>
                     </div>
-                    <p className="text-sm font-medium mb-2" style={{ color: C.text }}>{previewDoc.name}</p>
-                    <p className="text-xs" style={{ color: C.textDim }}>Bu belge demo verisidir. Gerçek dosya yüklendiğinde burada görüntülenecek.</p>
-                    <p className="text-xs mt-3" style={{ color: C.textDim }}>Boyut: {formatSize(previewDoc.size)}</p>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
               {/* Vehicle association */}
               <div className="p-4" style={{ borderTop: `1px solid ${C.border}` }}>
@@ -8568,11 +8974,13 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
           } : null;
           const ruhsatPhoto = ruhsatImage ? {
             id: 'dp_ruhsat_' + uid(),
+            customer_id: customer.id,   // müşteri bazlı filtreleme
             vehicle_id: vehicle.id,
             appraisal_id: apprId,
             type: 'document',
             label: 'Fahrzeugschein (Ruhsat)',
             part: 'document_ruhsat',
+            mime: ruhsatImage?.startsWith('data:image/png') ? 'image/png' : 'image/jpeg',
             url: ruhsatImage,
             storage_path: null,
             created_at: today,
@@ -9264,15 +9672,18 @@ async function saveTuvPdfToCustomerDocs({ vehicle, customer, message, channel, d
   }
 }
 
-function TuvNotifyModal({ open, onClose, vehicle, customer, db }) {
+function TuvNotifyModal({ open, onClose, vehicle, customer, db, setDb, currentUser }) {
   const tuvTemplates = (db.whatsapp_templates || []).filter(t => (t.trigger || '').startsWith('tuv_'));
   const days = tuvDaysUntil(vehicle?.tuv_date);
   const defaultTplId = days == null ? '' : days < 0 ? 'wt_tuv_gecmis' : days <= 30 ? 'wt_tuv30' : 'wt_tuv60';
   const [tplId, setTplId] = useState(defaultTplId);
   const [message, setMessage] = useState('');
+  const [savedHint, setSavedHint] = useState(null); // { channel, filename, error? }
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setSavedHint(null);
     const tpl = tuvTemplates.find(t => t.id === tplId) || tuvTemplates[0];
     if (!tpl) { setMessage(''); return; }
     const ctx = {
@@ -9285,21 +9696,45 @@ function TuvNotifyModal({ open, onClose, vehicle, customer, db }) {
     setMessage(fillTuvTemplate(tpl.message, ctx));
   }, [open, tplId, vehicle?.id]);
 
+  // Her gönderim/indirim akışı önce PDF'i belgelere kaydeder, sonra ilgili eylemi yapar
+  const persistPdfThen = async (channel, action) => {
+    setBusy(true);
+    try {
+      const saved = await saveTuvPdfToCustomerDocs({ vehicle, customer, message, channel, db, setDb, currentUser });
+      if (saved) setSavedHint({ channel, filename: saved.name });
+      else setSavedHint({ channel, filename: null, error: true });
+    } catch (e) {
+      console.error('TÜV PDF kayıt hata:', e);
+      setSavedHint({ channel, filename: null, error: true });
+    } finally {
+      setBusy(false);
+      try { action && action(); } catch (e) { console.error(e); }
+    }
+  };
+
   const sendWhatsApp = () => {
     if (!customer?.phone) { alert('Müşterinin telefon numarası tanımlı değil.'); return; }
     const phone = customer.phone.replace(/[^0-9+]/g, '').replace('+', '');
     if (!phone) { alert('Geçerli bir telefon numarası bulunamadı.'); return; }
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    persistPdfThen('WhatsApp', () => window.open(url, '_blank'));
+  };
+
+  const sendMail = () => {
+    if (!customer?.email) { alert('Müşterinin e-posta adresi tanımlı değil.'); return; }
+    const subject = `TÜV Hatırlatması — ${vehicle?.plate || ''}${vehicle?.tuv_date ? ` (${new Date(vehicle.tuv_date).toLocaleDateString('tr-TR')})` : ''}`;
+    const url = `mailto:${customer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    persistPdfThen('E-Posta', () => window.open(url, '_blank'));
   };
 
   const downloadPDF = () => {
-    try {
-      generateTuvNotificationPDF({ vehicle, customer, message });
-    } catch (err) {
-      console.error('TÜV PDF error:', err);
-      alert('PDF oluşturulurken hata: ' + err.message);
-    }
+    persistPdfThen('PDF İndir', () => {
+      try { generateTuvNotificationPDF({ vehicle, customer, message }); }
+      catch (err) {
+        console.error('TÜV PDF error:', err);
+        alert('PDF oluşturulurken hata: ' + err.message);
+      }
+    });
   };
 
   return (
@@ -9322,13 +9757,34 @@ function TuvNotifyModal({ open, onClose, vehicle, customer, db }) {
         </Field>
         <div className="text-xs p-3 rounded-xl" style={{ background: 'rgba(227,6,19,0.04)', border: `1px solid ${C.border}`, color: C.textDim }}>
           <strong style={{ color: C.text }}>Alıcı:</strong> {customer?.full_name || customer?.company || '—'}
+          {customer?.email ? ` · ${customer.email}` : ' · (e-posta yok)'}
           {customer?.phone ? ` · ${customer.phone}` : ' · (telefon yok)'}
         </div>
+        {savedHint && (
+          <div className="text-xs p-3 rounded-xl flex items-start gap-2"
+            style={{
+              background: savedHint.error ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)',
+              border: `1px solid ${savedHint.error ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
+              color: savedHint.error ? '#B91C1C' : '#047857',
+            }}>
+            {savedHint.error
+              ? <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+              : <Check size={14} style={{ flexShrink: 0, marginTop: 1 }} />}
+            <span>
+              {savedHint.error
+                ? `PDF belgelere kaydedilemedi (${savedHint.channel}) — Konsolu kontrol edin.`
+                : <>PDF "<strong>{savedHint.filename}</strong>" → <strong>{customer?.full_name || customer?.company || 'müşteri'} → Belgeler</strong>'e kaydedildi ({savedHint.channel}).</>}
+            </span>
+          </div>
+        )}
         <div className="flex justify-between gap-2 pt-3" style={{ borderTop: `1px solid ${C.border}` }}>
           <AdminButton onClick={onClose}>Kapat</AdminButton>
-          <div className="flex gap-2">
-            <AdminButton onClick={downloadPDF}><DownloadIcon size={14} /> PDF İndir</AdminButton>
-            <AdminButton variant="primary" onClick={sendWhatsApp} disabled={!customer?.phone}>
+          <div className="flex gap-2 flex-wrap">
+            <AdminButton onClick={downloadPDF} disabled={busy}><DownloadIcon size={14} /> PDF İndir</AdminButton>
+            <AdminButton onClick={sendMail} disabled={!customer?.email || busy}>
+              <MailIcon size={14} /> E-Posta Gönder
+            </AdminButton>
+            <AdminButton variant="primary" onClick={sendWhatsApp} disabled={!customer?.phone || busy}>
               <MessageIcon size={14} /> WhatsApp Gönder
             </AdminButton>
           </div>
@@ -9339,10 +9795,11 @@ function TuvNotifyModal({ open, onClose, vehicle, customer, db }) {
 }
 
 // ─── Bulk TÜV mail/PDF modal ───
-function BulkTuvActionsModal({ open, onClose, vehicles, db }) {
+function BulkTuvActionsModal({ open, onClose, vehicles, db, setDb, currentUser }) {
   const [tplId, setTplId] = useState('auto');
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [savedSummary, setSavedSummary] = useState(null); // { channel, ok, fail }
 
   const tuvTemplates = (db.whatsapp_templates || []).filter(t => (t.trigger || '').startsWith('tuv_'));
 
@@ -9368,22 +9825,51 @@ function BulkTuvActionsModal({ open, onClose, vehicles, db }) {
   const withEmail = items.filter(it => it.owner?.email);
   const withPhone = items.filter(it => it.owner?.phone);
 
+  // Toplu PDF üretirken hem indirir hem her müşterinin belgelerine kaydeder
   const generateAllPDFs = async () => {
-    setRunning(true); setProgress(0);
+    setRunning(true); setProgress(0); setSavedSummary(null);
+    let ok = 0, fail = 0;
     for (let i = 0; i < items.length; i++) {
       const { v, owner, message } = items[i];
-      try { generateTuvNotificationPDF({ vehicle: v, customer: owner, message }); }
-      catch (e) { console.error('Bulk PDF error:', e); }
+      try {
+        if (owner?.id) {
+          const saved = await saveTuvPdfToCustomerDocs({ vehicle: v, customer: owner, message, channel: 'PDF (toplu)', db, setDb, currentUser });
+          if (saved) ok++; else fail++;
+        }
+        generateTuvNotificationPDF({ vehicle: v, customer: owner, message });
+      } catch (e) { console.error('Bulk PDF error:', e); fail++; }
       setProgress(i + 1);
-      await new Promise(r => setTimeout(r, 300)); // tarayıcının ardışık download'ı algılaması için
+      await new Promise(r => setTimeout(r, 300));
     }
     setRunning(false);
+    setSavedSummary({ channel: 'PDF (toplu)', ok, fail });
   };
 
-  const openAllMails = () => {
+  // Mail/WhatsApp toplu açılışı: her aracın PDF'ini ilgili müşterinin belgelerine ekler
+  const persistChannel = async (channel, recipients) => {
+    let ok = 0, fail = 0;
+    for (const it of recipients) {
+      if (!it.owner?.id) { fail++; continue; }
+      try {
+        const saved = await saveTuvPdfToCustomerDocs({
+          vehicle: it.v, customer: it.owner, message: it.message, channel, db, setDb, currentUser,
+        });
+        if (saved) ok++; else fail++;
+      } catch (e) { console.error('Bulk persist error:', e); fail++; }
+    }
+    setSavedSummary({ channel, ok, fail });
+  };
+
+  const openAllMails = async () => {
     if (!withEmail.length) { alert('E-posta adresi olan müşteri yok.'); return; }
-    const ok = window.confirm(`${withEmail.length} adet e-posta penceresi açılacak. Pop-up engelleyiciyi kapattığından emin ol. Devam edilsin mi?`);
+    const ok = window.confirm(`${withEmail.length} adet e-posta penceresi açılacak ve her birinin PDF'i ilgili müşterinin Belgeler sekmesine kaydedilecek. Devam edilsin mi?`);
     if (!ok) return;
+    setSavedSummary(null);
+    setRunning(true); setProgress(0);
+    // Önce belgelere kaydet (sıralı, hata yönetimi için)
+    await persistChannel('E-Posta (toplu)', withEmail);
+    setRunning(false);
+    // Sonra mailto pencerelerini aç
     withEmail.forEach((it, idx) => {
       setTimeout(() => {
         const url = `mailto:${it.owner.email}?subject=${encodeURIComponent(it.subject)}&body=${encodeURIComponent(it.message)}`;
@@ -9392,10 +9878,14 @@ function BulkTuvActionsModal({ open, onClose, vehicles, db }) {
     });
   };
 
-  const openAllWhatsApp = () => {
+  const openAllWhatsApp = async () => {
     if (!withPhone.length) { alert('Telefon numarası olan müşteri yok.'); return; }
-    const ok = window.confirm(`${withPhone.length} adet WhatsApp sekmesi açılacak. Devam edilsin mi?`);
+    const ok = window.confirm(`${withPhone.length} adet WhatsApp sekmesi açılacak ve her birinin PDF'i ilgili müşterinin Belgeler sekmesine kaydedilecek. Devam edilsin mi?`);
     if (!ok) return;
+    setSavedSummary(null);
+    setRunning(true); setProgress(0);
+    await persistChannel('WhatsApp (toplu)', withPhone);
+    setRunning(false);
     withPhone.forEach((it, idx) => {
       setTimeout(() => {
         const phone = it.owner.phone.replace(/[^0-9+]/g, '').replace('+', '');
@@ -9465,8 +9955,8 @@ function BulkTuvActionsModal({ open, onClose, vehicles, db }) {
         {running && (
           <div className="rounded-xl p-3" style={{ background: 'rgba(227,6,19,0.05)', border: `1px solid ${C.border}` }}>
             <div className="flex items-center justify-between text-xs mb-2">
-              <span style={{ color: C.text }}>PDF üretiliyor...</span>
-              <span style={{ color: C.neon }}>{progress} / {items.length}</span>
+              <span style={{ color: C.text }}>PDF kaydediliyor / üretiliyor...</span>
+              <span style={{ color: C.neon }}>{progress > 0 ? `${progress} / ${items.length}` : '...'}</span>
             </div>
             <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.05)' }}>
               <div className="h-full transition-all" style={{
@@ -9477,8 +9967,25 @@ function BulkTuvActionsModal({ open, onClose, vehicles, db }) {
           </div>
         )}
 
+        {savedSummary && !running && (
+          <div className="text-xs p-3 rounded-xl flex items-start gap-2"
+            style={{
+              background: savedSummary.fail > 0 ? 'rgba(245,158,11,0.08)' : 'rgba(16,185,129,0.08)',
+              border: `1px solid ${savedSummary.fail > 0 ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.3)'}`,
+              color: savedSummary.fail > 0 ? '#92400E' : '#047857',
+            }}>
+            {savedSummary.fail > 0
+              ? <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+              : <Check size={14} style={{ flexShrink: 0, marginTop: 1 }} />}
+            <span>
+              <strong>{savedSummary.channel}:</strong> {savedSummary.ok} müşterinin Belgeler sekmesine PDF eklendi
+              {savedSummary.fail > 0 ? ` · ${savedSummary.fail} başarısız (sahibi olmayan veya upload hatası)` : ''}.
+            </span>
+          </div>
+        )}
+
         <div className="text-[11px] p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', color: '#F59E0B' }}>
-          <strong>Not:</strong> Mail ve WhatsApp toplu açma için tarayıcının pop-up engelleyicisi devre dışı olmalı. Mail varsayılan e-posta uygulamanı (Outlook, Mail vs.) açar.
+          <strong>Not:</strong> Mail/WhatsApp toplu açma için tarayıcının pop-up engelleyicisi devre dışı olmalı. PDF'ler önce her müşterinin <strong>Belgeler → HU Bericht</strong> kategorisine yüklenir, sonra mail/WhatsApp pencereleri açılır.
         </div>
 
         <div className="flex flex-wrap justify-between gap-2 pt-3" style={{ borderTop: `1px solid ${C.border}` }}>
@@ -9512,7 +10019,9 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState('all');
   const [ownerType, setOwnerType] = useState('all'); // all | bireysel | kurumsal
-  const [viewMode, setViewMode] = useState('list'); // 'grid' | 'list'
+  // Mobilde default 'grid' — 10 sütunlu list mobilde dolaşılamıyor
+  const isMobile = useIsMobile();
+  const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) ? 'grid' : 'list');
 
   const dateField = mode === 'tuv' ? 'tuv_date' : 'insurance_date';
   const modeLabel = mode === 'tuv' ? 'TÜV (Hauptuntersuchung)' : 'Sigorta';
@@ -9653,7 +10162,7 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
         </motion.div>
 
         {/* Sağ: Kritik uyarı kartları */}
-        <div className="lg:col-span-2 grid grid-cols-3 gap-3">
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { label: 'Süresi Dolmuş', value: counts.expired, color: '#EF4444', icon: AlertTriangle, key: 'expired' },
             { label: '30 Gün İçinde', value: counts['30'], color: '#F59E0B', icon: ClockIcon, key: '30' },
@@ -10087,6 +10596,8 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
         vehicle={notifyVehicle}
         customer={notifyVehicle ? (db.customers || []).find(c => c.id === notifyVehicle.owner_id) : null}
         db={db}
+        setDb={setDb}
+        currentUser={currentUser}
       />
 
       <BulkTuvActionsModal
@@ -10094,6 +10605,8 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
         onClose={() => setBulkOpen(false)}
         vehicles={filtered.filter(r => r.v[dateField]).map(r => r.v)}
         db={db}
+        setDb={setDb}
+        currentUser={currentUser}
       />
     </>
   );
