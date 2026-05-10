@@ -1456,15 +1456,19 @@ const SupabaseOps = {
   async upsert(table, record) {
     const sb = getSupabase();
     if (!sb) return null;
-    const { data, error } = await sb.from(TABLE_MAP[table] || table).upsert(record).select();
+    // PK çakışmasında merge — duplikat row'lar eski hâli ile güncellenir
+    const { data, error } = await sb
+      .from(TABLE_MAP[table] || table)
+      .upsert(record, { onConflict: 'id', ignoreDuplicates: false })
+      .select();
     if (error) {
-      console.error(`[Gecit-KFZ] Upsert ${table} FAILED:`, {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-        record_keys: Object.keys(record || {}),
-      });
+      // Tek satırda görünsün diye flatten — Object{} gizleme yok
+      console.error(
+        `[Gecit-KFZ] Upsert ${table} FAILED · code=${error.code || '?'} · ${error.message}` +
+        (error.details ? ` · details=${error.details}` : '') +
+        (error.hint ? ` · hint=${error.hint}` : '') +
+        ` · keys=[${Object.keys(record || {}).join(',')}]`
+      );
     }
     return data?.[0] || null;
   },
