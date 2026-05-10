@@ -12,6 +12,9 @@ ALIASES=(
   "gecit-kfz-sachverst-ndiger-2.vercel.app"
 )
 
+echo "==> Pull env vars (kritik: VITE_* build'e gomulsun)"
+vercel pull --environment=production --yes >/dev/null 2>&1
+
 echo "==> Build (production)"
 rm -rf .vercel/output
 vercel build --prod 2>&1 | grep -E "built|Error|✓" | tail -3

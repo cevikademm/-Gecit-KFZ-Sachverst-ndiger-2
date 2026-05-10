@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS public.appointments (
   service      TEXT,
   date         TEXT        NOT NULL,
   time         TEXT,
-  status       TEXT        DEFAULT 'aktif' CHECK (status IN ('aktif', 'iptal', 'tamamlandi')),
+  status       TEXT        DEFAULT 'aktif' CHECK (status IN ('aktif', 'bekliyor', 'onaylandi', 'iptal', 'tamamlandi')),
   notes        TEXT,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

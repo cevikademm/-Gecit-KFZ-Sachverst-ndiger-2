@@ -2318,7 +2318,13 @@ function useDB() {
             continue;
           }
           const existingIds = new Set((existing || []).map((r) => r.id));
-          const orphans = localRows.filter((r) => r?.id && !existingIds.has(r.id));
+          // NOT NULL ihlali olacak kayıtları daha sokmadan ele
+          const requiredText = ['vehicle_notes', 'reminders', 'customer_notes'].includes(table);
+          const orphans = localRows.filter((r) => {
+            if (!r?.id || existingIds.has(r.id)) return false;
+            if (requiredText && !String(r.text || '').trim()) return false;
+            return true;
+          });
           if (orphans.length > 0) {
             console.log(`[migrate] ${table}: ${orphans.length} yerel kayıt Supabase'e gönderiliyor`);
             for (const orphan of orphans) {
