@@ -2267,6 +2267,20 @@ const KNOWN_COLUMNS = {
 // 1. Sadece şemadaki kolonları gönder (tuv_date gibi extras strip)
 // 2. storage_path varsa base64 data alanını gönderme
 // 3. Lokal-only meta alanları (_signedUrl vb) strip
+// 4. Boş string ('') değerleri null'a çevir — UNIQUE/CHECK constraint çakışmasını önler
+//    (özellikle customers.email gibi nullable+unique alanlarda kritik)
+const NULLIFY_EMPTY_FIELDS = new Set([
+  'email', 'phone', 'phone2', 'tax_no', 'tax_id', 'tax_office',
+  'tc', 'birthdate', 'address', 'street', 'zip', 'city', 'country',
+  'vin', 'chassis', 'first_registration_date', 'tuv_date', 'insurance_date',
+  'document_issue_date', 'engine_number', 'tire_size', 'tire_size_drive_axle',
+  'emission_class', 'emission_type_approval', 'document_number',
+  'issuing_authority', 'behoerden_schluessel', 'verfahrenskennung',
+  'vehicle_class', 'body_type_code', 'usage_type', 'fahrzeugart',
+  'typ_variante_version', 'handelsbezeichnung', 'eu_type_approval',
+  'halter_anschrift', 'fuel_type', 'color', 'fuel', 'notes',
+  'hsn', 'tsn', 'first_reg', 'shape',
+]);
 function sanitizeRecordForSync(table, record) {
   if (!record) return record;
   const allowed = KNOWN_COLUMNS[table];
@@ -2280,6 +2294,14 @@ function sanitizeRecordForSync(table, record) {
     }
   }
 
+  // Boş string ('') → null. Sadece bilinen "nullable" alanlar için.
+  // Bu sayede aynı boş email iki müşteride bile UNIQUE constraint çakışmaz.
+  for (const key of Object.keys(out)) {
+    if (out[key] === '' && NULLIFY_EMPTY_FIELDS.has(key)) {
+      out[key] = null;
+    }
+  }
+
   // Storage'a yüklenmiş binary için data alanını gönderme (büyük base64)
   if ((table === 'customer_documents' || table === 'damage_photos' || table === 'gallery')
       && record.storage_path && out.data) {
@@ -2289,19 +2311,55 @@ function sanitizeRecordForSync(table, record) {
   return out;
 }
 
+// FK bağımlılık sırası — parent önce, child sonra (paralel sync FK ihlal eder)
+const SYNC_TABLE_ORDER = [
+  'user_profiles', 'customers', 'lawyers', 'insurers',           // 0. seviye (parentless)
+  'vehicles', 'lawyer_assignments', 'insurance_assignments',     // 1. seviye (customer'a bağlı)
+  'appraisals', 'paint_maps', 'lawyer_cases', 'insurance_claims',// 2. seviye (vehicle/customer)
+  'invoices', 'damage_photos', 'damage_timeline',                // 3. seviye (appraisal'e bağlı olabilir)
+  'court_dates', 'insurance_offers',
+  'customer_documents', 'customer_notes', 'vehicle_notes',
+  'messages', 'notifications', 'activity_logs', 'satisfaction_surveys',
+  'objection_templates', 'file_flows', 'whatsapp_templates',
+  'gallery', 'reminders', 'live_feed', 'appointments',
+];
+function sortOpsForFK(ops) {
+  const idx = (t) => {
+    const i = SYNC_TABLE_ORDER.indexOf(t);
+    return i === -1 ? 999 : i;
+  };
+  return [...ops].sort((a, b) => {
+    // delete'ler tersine sırada (child önce, parent sonra)
+    if (a.op === 'delete' && b.op === 'delete') return idx(b.table) - idx(a.table);
+    if (a.op === 'delete') return 1;
+    if (b.op === 'delete') return -1;
+    return idx(a.table) - idx(b.table);
+  });
+}
+
 async function syncToSupabase(ops) {
   if (!ops || ops.length === 0) return;
-  // Fire-and-forget; her başarısız operasyon konsola yazılır ama UI'yi etkilemez
-  const results = await Promise.allSettled(ops.map(async (o) => {
-    if (o.op === 'upsert') {
-      const sanitized = sanitizeRecordForSync(o.table, o.record);
-      return SupabaseOps.upsert(o.table, sanitized);
+  // FK sırasına göre SEQUENTIAL — customer önce, vehicle sonra, appraisal en son.
+  // Paralel olunca FK violation oluşuyordu (vehicles_owner_id_fkey).
+  const sortedOps = sortOpsForFK(ops);
+  const results = [];
+  for (const o of sortedOps) {
+    try {
+      let res = null;
+      if (o.op === 'upsert') {
+        const sanitized = sanitizeRecordForSync(o.table, o.record);
+        res = await SupabaseOps.upsert(o.table, sanitized);
+      } else if (o.op === 'delete') {
+        res = await SupabaseOps.remove(o.table, o.id);
+      }
+      results.push({ status: 'fulfilled', value: res });
+    } catch (err) {
+      results.push({ status: 'rejected', reason: err });
     }
-    if (o.op === 'delete') return SupabaseOps.remove(o.table, o.id);
-  }));
+  }
   results.forEach((r, i) => {
     if (r.status === 'rejected') {
-      const o = ops[i];
+      const o = sortedOps[i];
       console.warn(`[Gecit-KFZ sync] ${o.op} ${o.table}#${o.record?.id || o.id} failed:`, r.reason?.message);
     }
   });
@@ -4244,21 +4302,27 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
       ));
     } else {
       // Bireysel/kurumsal: ruhsattan gelen veriler — hem customer hem vehicle oluştur
+      // Boş string'ler yerine null gönder — DB'de unique/check constraint çakışmasın
+      const orNull = (v) => (v == null || String(v).trim() === '') ? null : v;
       const customerId = 'c' + uid();
       const cust = {
         id: customerId,
         type,
         created_at: new Date().toISOString().slice(0, 10),
-        full_name: form.full_name || '',
-        email: form.email || '',
-        phone: form.phone || '',
-        address: form.address || '',
-        notes: form.notes || '',
-        ...(type === 'bireysel' ? { tc: form.tc || '' } : {}),
+        full_name: orNull(form.full_name),
+        email:     orNull(form.email),
+        phone:     orNull(form.phone),
+        address:   orNull(form.address),
+        street:    orNull(form.street),
+        zip:       orNull(form.zip),
+        city:      orNull(form.city),
+        country:   orNull(form.country),
+        notes:     orNull(form.notes),
+        ...(type === 'bireysel' ? { tc: orNull(form.tc) } : {}),
         ...(type === 'kurumsal' ? {
-          company: form.company || '',
-          tax_no: form.tax_no || '',
-          tax_office: form.tax_office || '',
+          company: orNull(form.company),
+          tax_no: orNull(form.tax_no),
+          tax_office: orNull(form.tax_office),
         } : {}),
       };
       const vehicleId = 'v' + uid();
@@ -4266,15 +4330,15 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
       const vehicle = {
         id: vehicleId,
         owner_id: customerId,
-        plate: form.plate || '',
-        chassis: form.chassis || '',
-        vin: form.vin || form.chassis || '',
-        brand: form.brand || '',
-        model: form.model || '',
+        plate: form.plate || (form.vin || 'UNKNOWN'),  // plate NOT NULL — fallback
+        chassis: orNull(form.chassis),
+        vin: orNull(form.vin || form.chassis),
+        brand: orNull(form.brand),
+        model: orNull(form.model),
         year: Number(form.year) || null,
-        color: form.color || '',
-        fuel: form.fuel || '',
-        fuel_type: form.fuel_type || form.fuel || '',
+        color: orNull(form.color),
+        fuel: orNull(form.fuel),
+        fuel_type: orNull(form.fuel_type || form.fuel),
         engine_cc: form.engine_cc || form.displacement_cm3 || null,
         tuv_date: form.tuv_date || null,
         first_registration_date: form.first_registration_date || null,

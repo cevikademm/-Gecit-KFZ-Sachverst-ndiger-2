@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS public.customers (
   id          TEXT        PRIMARY KEY DEFAULT 'c' || substr(md5(random()::text), 1, 7),
   full_name   TEXT,
   company     TEXT,
-  email       TEXT        UNIQUE NOT NULL,
+  email       TEXT,                                  -- KFZ kayıtlarında aynı email birden fazla müşteride olabilir (eş, oğul, vb.)
   phone       TEXT,
   type        TEXT        DEFAULT 'bireysel' CHECK (type IN ('bireysel', 'kurumsal')),
   tax_id      TEXT,
