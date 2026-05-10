@@ -17,10 +17,21 @@ function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); retu
 const DOW = ['Pzr', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 const MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
+function bookingServiceCategory(s) {
+  const o = s.sort_order || 0;
+  if (o < 20) return { key: 'schaden',   label: 'Hasar / Schaden' };
+  if (o < 30) return { key: 'wert',      label: 'Wertgutachten' };
+  if (o < 40) return { key: 'check',     label: 'Check / Inspektion' };
+  if (o < 50) return { key: 'voranschl', label: 'Kostenvoranschlag' };
+  if (o < 60) return { key: 'sonder',    label: 'Lkw / Zweirad / Sondertypen' };
+  return { key: 'ev',                    label: 'Elektrofahrzeug' };
+}
+
 export default function CustomerBookingFlow({ open, onClose, onBook, customer, vehicle, adminId: adminIdProp }) {
   const [step, setStep] = useState(1);
   const [services, setServices] = useState([]);
   const [service, setService] = useState(null);
+  const [serviceCat, setServiceCat] = useState('all');
   const [adminId, setAdminId] = useState(adminIdProp || null);
 
   // adminId verilmemişse — herhangi bir super_admin'in id'sini çek
@@ -210,37 +221,63 @@ export default function CustomerBookingFlow({ open, onClose, onBook, customer, v
                       Hizmet bulunamadı.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {services.map(s => {
-                        const active = service?.id === s.id;
-                        return (
-                          <button key={s.id} type="button" onClick={() => setService(s)}
-                            className="text-left p-4 rounded-xl transition hover:-translate-y-0.5"
-                            style={{
-                              background: active ? `${s.color}10` : C.surface,
-                              border: `1.5px solid ${active ? s.color : C.border}`,
-                              boxShadow: active ? `0 4px 16px ${s.color}33` : 'none',
-                            }}>
-                            <div className="flex items-start gap-3">
-                              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                                style={{ background: `${s.color}15`, border: `1px solid ${s.color}33` }}>
-                                {s.icon || '📅'}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold" style={{ color: C.text }}>{s.label}</p>
-                                <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
-                                  <ClockIcon size={10} className="inline mr-1" /> {s.duration_minutes} dakika
-                                  {s.price_eur != null && ` · ${s.price_eur} €`}
-                                </p>
-                                {s.description && (
-                                  <p className="text-xs mt-2 line-clamp-2" style={{ color: C.textDim }}>{s.description}</p>
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <>
+                      {/* Kategori chip filtreleri */}
+                      <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                        {(() => {
+                          const cats = [];
+                          const seen = new Set();
+                          services.forEach(s => { const c = bookingServiceCategory(s); if (!seen.has(c.key)) { seen.add(c.key); cats.push(c); } });
+                          return [{ key: 'all', label: 'Tümü' }, ...cats].map(c => {
+                            const active = serviceCat === c.key;
+                            return (
+                              <button key={c.key} type="button" onClick={() => setServiceCat(c.key)}
+                                className="px-2.5 py-1 rounded-md text-[11px] font-medium transition"
+                                style={{
+                                  background: active ? C.text : 'rgba(0,0,0,0.04)',
+                                  color: active ? C.surface : C.textDim,
+                                  border: `1px solid ${active ? C.text : C.border}`,
+                                }}>
+                                {c.label}
+                              </button>
+                            );
+                          });
+                        })()}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[420px] overflow-y-auto pr-1">
+                        {services
+                          .filter(s => serviceCat === 'all' || bookingServiceCategory(s).key === serviceCat)
+                          .map(s => {
+                            const active = service?.id === s.id;
+                            return (
+                              <button key={s.id} type="button" onClick={() => setService(s)}
+                                className="text-left p-4 rounded-xl transition hover:-translate-y-0.5"
+                                style={{
+                                  background: active ? `${s.color}10` : C.surface,
+                                  border: `1.5px solid ${active ? s.color : C.border}`,
+                                  boxShadow: active ? `0 4px 16px ${s.color}33` : 'none',
+                                }}>
+                                <div className="flex items-start gap-3">
+                                  <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                                    style={{ background: `${s.color}15`, border: `1px solid ${s.color}33` }}>
+                                    {s.icon || '📅'}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold" style={{ color: C.text }}>{s.label}</p>
+                                    <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
+                                      <ClockIcon size={10} className="inline mr-1" /> {s.duration_minutes} dakika
+                                      {s.price_eur != null && ` · ${s.price_eur} €`}
+                                    </p>
+                                    {s.description && (
+                                      <p className="text-xs mt-2 line-clamp-2" style={{ color: C.textDim }}>{s.description}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </>
                   )}
                 </div>
               )}

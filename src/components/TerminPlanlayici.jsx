@@ -756,11 +756,23 @@ function GoogleCalendarPanel({ settings, onChange }) {
   );
 }
 
+// Hizmet kategorisi — sort_order'a göre gruplama
+function serviceCategory(s) {
+  const o = s.sort_order || 0;
+  if (o < 20) return { key: 'schaden',   label: 'Schaden / Hasar' };
+  if (o < 30) return { key: 'wert',      label: 'Wertgutachten' };
+  if (o < 40) return { key: 'check',     label: 'Check / Inspektion' };
+  if (o < 50) return { key: 'voranschl', label: 'Kostenvoranschlag' };
+  if (o < 60) return { key: 'sonder',    label: 'Sondertypen (Lkw/Zweirad...)' };
+  return { key: 'ev',                    label: 'Elektrofahrzeug' };
+}
+
 // ─── Yeni Randevu / Düzenle Modalı ─────────────────────────────
 function AppointmentCreateModal({ open, onClose, db, setDb, services, availability, settings, currentUser, editApt, preset }) {
   const [form, setForm] = useState({});
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [serviceCat, setServiceCat] = useState('all');
 
   useEffect(() => {
     if (!open) return;
@@ -887,27 +899,52 @@ function AppointmentCreateModal({ open, onClose, db, setDb, services, availabili
       title={editApt ? 'Randevu Düzenle' : 'Yeni Randevu'}
       width={680}>
       <form onSubmit={submit} className="space-y-4">
-        {/* Hizmet */}
+        {/* Hizmet — kategori chip + grid */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: C.textDim }}>Hizmet</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-            {services.map(s => {
-              const active = form.service_id === s.id;
-              return (
-                <button key={s.id} type="button" onClick={() => onServiceChange(s.id)}
-                  className="p-3 rounded-lg text-left transition min-h-[60px]"
-                  style={{
-                    background: active ? `${s.color}15` : 'rgba(0,0,0,0.03)',
-                    border: `1.5px solid ${active ? s.color : C.border}`,
-                  }}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">{s.icon || '📅'}</span>
-                    <span className="text-xs font-semibold truncate" style={{ color: active ? s.color : C.text }}>{s.label}</span>
-                  </div>
-                  <p className="text-[10px]" style={{ color: C.textDim }}>{s.duration_minutes} dk</p>
-                </button>
-              );
-            })}
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <p className="text-[10px] uppercase tracking-widest" style={{ color: C.textDim }}>Hizmet</p>
+            <div className="flex items-center gap-1 flex-wrap">
+              {(() => {
+                const cats = [];
+                const seen = new Set();
+                services.forEach(s => { const c = serviceCategory(s); if (!seen.has(c.key)) { seen.add(c.key); cats.push(c); } });
+                return [{ key: 'all', label: 'Tümü' }, ...cats].map(c => {
+                  const active = serviceCat === c.key;
+                  return (
+                    <button key={c.key} type="button" onClick={() => setServiceCat(c.key)}
+                      className="px-2 py-1 rounded-md text-[10px] font-medium transition"
+                      style={{
+                        background: active ? C.text : 'rgba(0,0,0,0.04)',
+                        color: active ? C.surface : C.textDim,
+                        border: `1px solid ${active ? C.text : C.border}`,
+                      }}>
+                      {c.label}
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
+            {services
+              .filter(s => serviceCat === 'all' || serviceCategory(s).key === serviceCat)
+              .map(s => {
+                const active = form.service_id === s.id;
+                return (
+                  <button key={s.id} type="button" onClick={() => onServiceChange(s.id)}
+                    className="p-2.5 rounded-lg text-left transition min-h-[56px]"
+                    style={{
+                      background: active ? `${s.color}15` : 'rgba(0,0,0,0.03)',
+                      border: `1.5px solid ${active ? s.color : C.border}`,
+                    }}>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-base">{s.icon || '📅'}</span>
+                      <span className="text-[11px] font-semibold leading-tight line-clamp-2" style={{ color: active ? s.color : C.text }}>{s.label}</span>
+                    </div>
+                    <p className="text-[10px]" style={{ color: C.textDim }}>{s.duration_minutes} dk</p>
+                  </button>
+                );
+              })}
           </div>
         </div>
 
