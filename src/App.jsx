@@ -28,6 +28,8 @@ import AdminAutoiXpert from './components/AdminAutoiXpert.jsx';
 import GutachtenWorkbench from './components/GutachtenWorkbench.jsx';
 import AdminReportCreate from './components/AdminReportCreate.jsx';
 import CommunicationsPanel from './components/CommunicationsPanel.jsx';
+import TerminPlanlayici from './components/TerminPlanlayici.jsx';
+import CustomerBookingFlow from './components/CustomerBookingFlow.jsx';
 import PhotoEditor from './components/PhotoEditor.jsx';
 import { parseRuhsatMock } from './utils/ruhsatParser.js';
 import { useLang } from './i18n/LangContext.jsx';
@@ -2234,7 +2236,15 @@ const KNOWN_COLUMNS = {
   appraisals: ['id', 'vehicle_id', 'customer_id', 'status', 'date', 'expert', 'type', 'notes', 'result', 'total_value', 'damage_sum', 'autoixpert_report_id', 'report_token', 'report_type', 'source', 'created_at', 'updated_at'],
   paint_maps: ['vehicle_id', 'data', 'updated_at'],
   invoices: ['id', 'customer_id', 'appraisal_id', 'no', 'date', 'due_date', 'amount', 'tax', 'total', 'currency', 'status', 'items', 'pdf_path', 'created_at'],
-  appointments: ['id', 'customer_id', 'name', 'email', 'phone', 'plate', 'service', 'date', 'time', 'status', 'notes', 'created_at'],
+  appointments: [
+    'id', 'customer_id', 'name', 'email', 'phone', 'plate', 'service', 'date', 'time', 'status', 'notes', 'created_at',
+    // Termin planlayıcı genişletmeleri (migration 11):
+    'duration_minutes', 'end_time', 'location', 'location_type',
+    'google_event_id', 'google_calendar_id', 'google_meet_link',
+    'attendee_email', 'attendee_name', 'attendee_phone',
+    'vehicle_id', 'booked_by', 'booked_at', 'confirmed_at', 'cancelled_at', 'reminder_sent_at', 'color',
+    'service_id',
+  ],
   customer_documents: ['id', 'customer_id', 'vehicle_id', 'name', 'type', 'category', 'size', 'storage_path', 'storage_bucket', 'public_url', 'data', 'mime', 'uploaded_at', 'uploaded_by', 'created_at'],
   customer_notes: ['id', 'customer_id', 'text', 'author', 'created_at'],
   vehicle_notes: ['id', 'vehicle_id', 'text', 'author', 'created_at'],
@@ -6955,7 +6965,8 @@ function CustomerPhotosTab({ photos: incomingPhotos }) {
   }, {});
 
   const activePhoto = editorIndex != null ? photos[editorIndex] : null;
-  const activeUrl = activePhoto ? signedMap[activePhoto.id] : null;
+  // Yerel fotolar için p.url (data URL) direkt kullanılır; aksi halde signedMap'tan.
+  const activeUrl = activePhoto ? (signedMap[activePhoto.id] || activePhoto.url) : null;
 
   return (
     <div>
@@ -6981,7 +6992,8 @@ function CustomerPhotosTab({ photos: incomingPhotos }) {
             </p>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
               {list.map(({ p, idx }) => {
-                const url = signedMap[p.id];
+                // Yerel fotolar (damage_photos / ruhsat upload) için p.url fallback.
+                const url = signedMap[p.id] || p.url;
                 const failed = errorMap[p.id];
                 return (
                   <button key={p.id} onClick={() => openPhoto(idx)}
@@ -8195,9 +8207,29 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
             </div>
           )}
 
-          {tab === 'fotograflar' && (
-            <CustomerPhotosTab photos={axPhotos} />
-          )}
+          {tab === 'fotograflar' && (() => {
+            // axPhotos (AutoiXpert) + damage_photos (yerel — ruhsat upload vb.) birleştir.
+            // Yerel fotolar zaten data URL içerir → CustomerPhotosTab p.url fallback ile gösterir.
+            const myVehicleIds = (db.vehicles || [])
+              .filter(v => v.owner_id === customer.id)
+              .map(v => v.id);
+            const localPhotos = (db.damage_photos || [])
+              .filter(p => myVehicleIds.includes(p.vehicle_id) && p.url)
+              .map(p => ({
+                id: p.id,
+                url: p.url,
+                storage_path: null,
+                storage_bucket: null,
+                report_token: p.label || 'Yerel Fotoğraflar',
+                title: p.label || p.part || 'Fotoğraf',
+                original_name: p.label || '',
+                included_in_report: false,
+                downloaded_at: p.created_at,
+                _local: true,
+              }));
+            const mergedPhotos = [...localPhotos, ...(axPhotos || [])];
+            return <CustomerPhotosTab photos={mergedPhotos} />;
+          })()}
 
           {tab === 'ekspertiz' && (
             <div className="space-y-4">
@@ -8512,11 +8544,51 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
         </div>
       </motion.aside>
       <RuhsatUploadModal open={ruhsatOpen} onClose={() => setRuhsatOpen(false)} customerId={customer.id}
-        onSave={(vehicle) => setDb(db => ({
-          ...db,
-          vehicles: [...db.vehicles, vehicle],
-          appraisals: [...db.appraisals, { id: 'ap' + uid(), vehicle_id: vehicle.id, status: 'bekliyor', notes: '', created_at: new Date().toISOString().slice(0,10) }]
-        }))} />
+        onSave={(vehicle, ruhsatImage) => setDb(db => {
+          const today = new Date().toISOString().slice(0,10);
+          const apprId = 'ap' + uid();
+          // Ruhsat fotosu hem damage_photos (Fotoğraflar tab) hem customer_documents
+          // (Belgeler tab) tarafına aynı anda yazılır → her iki sekmede de görünür.
+          const docName = `Fahrzeugschein — ${vehicle.plate}${ruhsatImage ? '.jpg' : '.txt'}`;
+          const ruhsatDoc = ruhsatImage ? {
+            id: 'doc_ruhsat_' + uid(),
+            customer_id: customer.id,
+            vehicle_id: vehicle.id,
+            name: docName,
+            type: 'fahrzeugschein',
+            category: 'Fahrzeug',
+            size: Math.round((ruhsatImage.length || 0) * 0.75), // base64 → bytes yaklaşık
+            data: ruhsatImage,
+            mime: ruhsatImage.startsWith('data:image/png') ? 'image/png'
+                  : ruhsatImage.startsWith('data:application/pdf') ? 'application/pdf'
+                  : 'image/jpeg',
+            uploaded_at: today,
+            uploaded_by: 'ruhsat_upload',
+            created_at: today,
+          } : null;
+          const ruhsatPhoto = ruhsatImage ? {
+            id: 'dp_ruhsat_' + uid(),
+            vehicle_id: vehicle.id,
+            appraisal_id: apprId,
+            type: 'document',
+            label: 'Fahrzeugschein (Ruhsat)',
+            part: 'document_ruhsat',
+            url: ruhsatImage,
+            storage_path: null,
+            created_at: today,
+          } : null;
+          return {
+            ...db,
+            vehicles: [...db.vehicles, vehicle],
+            appraisals: [...db.appraisals, { id: apprId, vehicle_id: vehicle.id, customer_id: customer.id, status: 'bekliyor', notes: '', created_at: today }],
+            customer_documents: ruhsatDoc
+              ? [...(db.customer_documents || []), ruhsatDoc]
+              : (db.customer_documents || []),
+            damage_photos: ruhsatPhoto
+              ? [...(db.damage_photos || []), ruhsatPhoto]
+              : (db.damage_photos || []),
+          };
+        })} />
       <RuhsatPanel doc={ruhsatPanelDoc} onClose={() => setRuhsatPanelDoc(null)} />
     </AnimatePresence>
   );
@@ -8559,7 +8631,8 @@ function RuhsatUploadModal({ open, onClose, customerId, onSave }) {
       plate: form.plate, chassis: form.chassis, brand: form.brand, model: form.model, year: Number(form.year),
       tuv_date: form.tuv_date || '',
       history_report: history };
-    onSave(v);
+    // 2. parametre: ruhsat fotosu (data URL) — parent hem belgeler hem fotolar tarafına ekler.
+    onSave(v, preview);
     onClose();
   };
 
@@ -14026,7 +14099,7 @@ function AdminApp({ user, onLogout, onHome }) {
         {section === 'kurumsal' && <CustomerListView title="Geschäftskunden" type="kurumsal"
           subtitle="Autohäuser, Versicherungen und Flotten" db={db} setDb={setDb} onOpenCustomer={setOpenCustomer} currentUser={user} />}
         {section === 'report_create' && <AdminReportCreate db={db} setDb={setDb} user={user} />}
-        {section === 'appointments' && <AdminAppointments db={db} setDb={setDb} />}
+        {section === 'appointments' && <TerminPlanlayici db={db} setDb={setDb} currentUser={user} />}
         {section === 'tuv' && <AdminTuvTracking db={db} setDb={setDb} />}
         {section === 'partners' && <AdminPartners db={db} setDb={setDb} currentUser={user} />}
         {section === 'gallery' && <AdminGallery db={db} setDb={setDb} />}
@@ -15729,12 +15802,12 @@ function CustomerApp({ user, onLogout, onHome }) {
         <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
       </a>
 
-      {/* Appointment Booking Modal */}
-      <AppointmentBookingModal open={bookingOpen} onClose={() => setBookingOpen(false)}
-        onBook={(data) => {
-          const apt = { id: 'apt' + uid(), customer_id: myRecord.id, email: myRecord.email, name: myRecord.full_name, ...data, status: 'aktif', created_at: new Date().toISOString() };
+      {/* Appointment Booking Modal — yeni 4-adımlı flow */}
+      <CustomerBookingFlow open={bookingOpen} onClose={() => setBookingOpen(false)}
+        customer={myRecord}
+        vehicle={myVehicles?.[0]}
+        onBook={(apt) => {
           setDb(prev => ({ ...prev, appointments: [...(prev.appointments || []), apt] }));
-          setBookingOpen(false);
         }} />
 
       {/* Satisfaction Survey Modal */}
