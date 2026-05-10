@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { C } from '../utils/tokens.js';
-import { getSupabase } from '../utils/supabaseAuth.js';
+import { getSupabaseClient as getSupabase } from '../utils/supabaseAuth.js';
 import { GecitKfzModal } from './Modal.jsx';
 import {
   CalendarIcon, ClockIcon, PlusIcon, XClose, Check, TrashIcon, EditIcon,
