@@ -9165,7 +9165,8 @@ function fillTuvTemplate(tpl, ctx) {
     .replace(/\{KALAN_GUN\}/g, ctx.daysAbs != null ? String(ctx.daysAbs) : '');
 }
 
-function generateTuvNotificationPDF({ vehicle, customer, message }) {
+// output: 'save' (default) → tarayıcıya indir, 'blob' → { blob, filename } döner (otomatik kayıt için)
+function generateTuvNotificationPDF({ vehicle, customer, message, output = 'save', channel } = {}) {
   const doc = new jsPDF('p', 'mm', 'a4');
   doc.setFontSize(18);
   doc.text('Gecit Kfz Sachverstaendiger', 20, 22);
@@ -9181,17 +9182,86 @@ function generateTuvNotificationPDF({ vehicle, customer, message }) {
   doc.text(`Arac: ${vehicle?.brand || ''} ${vehicle?.model || ''} (${vehicle?.year || '-'})`, 20, 65);
   doc.text(`Sasi: ${vehicle?.chassis || '-'}`, 20, 72);
   doc.text(`TUV Tarihi: ${vehicle?.tuv_date || '-'}`, 20, 79);
-  doc.line(20, 84, 190, 84);
+  if (channel) doc.text(`Iletim Kanali: ${channel}`, 20, 86);
+  doc.line(20, 90, 190, 90);
 
   doc.setFontSize(11);
   const cleanMsg = (message || '').replace(/[\u{1F300}-\u{1FAFF}]/gu, '').replace(/[ğĞ]/g, 'g').replace(/[üÜ]/g, 'u').replace(/[şŞ]/g, 's').replace(/[ıİ]/g, 'i').replace(/[öÖ]/g, 'o').replace(/[çÇ]/g, 'c');
   const lines = doc.splitTextToSize(cleanMsg, 170);
-  doc.text(lines, 20, 94);
+  doc.text(lines, 20, 100);
 
   doc.setFontSize(8);
   doc.setTextColor(120);
   doc.text('Gecit Kfz Sachverstaendiger - Alle Rechte vorbehalten', 20, 285);
-  doc.save(`TUV_Bildirim_${(vehicle?.plate || 'arac').replace(/\s+/g, '_')}.pdf`);
+
+  const ts = new Date();
+  const stamp = `${ts.getFullYear()}${String(ts.getMonth() + 1).padStart(2, '0')}${String(ts.getDate()).padStart(2, '0')}_${String(ts.getHours()).padStart(2, '0')}${String(ts.getMinutes()).padStart(2, '0')}`;
+  const filename = `TUV_Bildirim_${(vehicle?.plate || 'arac').replace(/\s+/g, '_')}_${stamp}.pdf`;
+
+  if (output === 'blob') {
+    return { blob: doc.output('blob'), filename };
+  }
+  doc.save(filename);
+  return { filename };
+}
+
+// TÜV bilgilendirme PDF'ini ilgili müşterinin "Belgeler" sekmesine kaydet.
+// Live mode: Supabase Storage + customer_documents tablosu. Local mode: setDb fallback.
+// channel: 'WhatsApp' | 'E-Posta' | 'PDF' — log/dosya adı için bilgi.
+async function saveTuvPdfToCustomerDocs({ vehicle, customer, message, channel, db, setDb, currentUser }) {
+  if (!customer?.id) {
+    console.warn('[saveTuvPdfToCustomerDocs] Müşteri ID yok — kayıt iptal');
+    return null;
+  }
+  try {
+    const { blob, filename } = generateTuvNotificationPDF({ vehicle, customer, message, channel, output: 'blob' });
+    if (!blob) return null;
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    const uploaded = await uploadCustomerDocument(file, customer.id, DOC_BUCKET);
+    if (!uploaded) {
+      console.warn('[saveTuvPdfToCustomerDocs] uploadCustomerDocument başarısız');
+      return null;
+    }
+    const docRow = {
+      id: 'cd' + uid(),
+      customer_id: customer.id,
+      vehicle_id: vehicle?.id || '',
+      name: filename,
+      type: 'hu_bericht',
+      size: uploaded.size,
+      mime: uploaded.mime,
+      storage_path: uploaded.storage_path,
+      storage_bucket: uploaded.storage_bucket,
+      data: uploaded.data,
+      uploaded_at: new Date().toISOString().slice(0, 10),
+    };
+    // Live mode: Supabase customer_documents insert
+    if (DataService?.isLive?.()) {
+      try {
+        const sb = getSupabase();
+        if (sb) {
+          await sb.from('customer_documents').insert([docRow]);
+        }
+      } catch (e) { console.warn('[saveTuvPdfToCustomerDocs] DB insert hata (state güncellendi):', e?.message); }
+    }
+    if (setDb) {
+      const customerLabel = customer.full_name || customer.company || customer.email || customer.id;
+      setDb(withLog(
+        prev => ({ ...prev, customer_documents: [...(prev.customer_documents || []), docRow] }),
+        makeLogEntry({
+          user: currentUser,
+          action: 'tuv_notify_pdf',
+          target: { kind: 'customer', id: customer.id, label: customerLabel },
+          details: `TÜV bildirim PDF'i ${channel || ''} üzerinden gönderildi → ${filename}`,
+          metadata: { doc_id: docRow.id, vehicle_id: vehicle?.id, channel, plate: vehicle?.plate },
+        })
+      ));
+    }
+    return docRow;
+  } catch (err) {
+    console.error('[saveTuvPdfToCustomerDocs] hata:', err);
+    return null;
+  }
 }
 
 function TuvNotifyModal({ open, onClose, vehicle, customer, db }) {
@@ -9430,7 +9500,7 @@ function BulkTuvActionsModal({ open, onClose, vehicles, db }) {
   );
 }
 
-function AdminTuvTracking({ db, setDb }) {
+function AdminTuvTracking({ db, setDb, currentUser }) {
   const [mode, setMode] = useState('tuv'); // 'tuv' | 'insurance'
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -11650,10 +11720,16 @@ function AdminReminders({ db, setDb }) {
           <Field label="Tekrar">
             <SelectInput value={form.repeat} onChange={(e) => setForm(f => ({ ...f, repeat: e.target.value }))}
               options={[
-                { value: 'none', label: 'Tekrarlama' },
-                { value: 'daily', label: 'Her Gün' },
-                { value: 'weekly', label: 'Her Hafta' },
-                { value: 'monthly', label: 'Her Ay' },
+                { value: 'none',     label: 'Tekrarlama' },
+                { value: 'min_5',    label: 'Her 5 dakika' },
+                { value: 'min_10',   label: 'Her 10 dakika' },
+                { value: 'min_15',   label: 'Her 15 dakika' },
+                { value: 'min_30',   label: 'Her 30 dakika' },
+                { value: 'min_60',   label: 'Her saat' },
+                { value: 'min_120',  label: 'Her 2 saat' },
+                { value: 'daily',    label: 'Her Gün' },
+                { value: 'weekly',   label: 'Her Hafta' },
+                { value: 'monthly',  label: 'Her Ay' },
               ]} />
           </Field>
           <div className="flex justify-end gap-2 pt-4" style={{ borderTop: `1px solid ${C.border}` }}>
@@ -14100,7 +14176,7 @@ function AdminApp({ user, onLogout, onHome }) {
           subtitle="Autohäuser, Versicherungen und Flotten" db={db} setDb={setDb} onOpenCustomer={setOpenCustomer} currentUser={user} />}
         {section === 'report_create' && <AdminReportCreate db={db} setDb={setDb} user={user} />}
         {section === 'appointments' && <TerminPlanlayici db={db} setDb={setDb} currentUser={user} />}
-        {section === 'tuv' && <AdminTuvTracking db={db} setDb={setDb} />}
+        {section === 'tuv' && <AdminTuvTracking db={db} setDb={setDb} currentUser={user} />}
         {section === 'partners' && <AdminPartners db={db} setDb={setDb} currentUser={user} />}
         {section === 'gallery' && <AdminGallery db={db} setDb={setDb} />}
         {section === 'reminders' && <AdminReminders db={db} setDb={setDb} />}
