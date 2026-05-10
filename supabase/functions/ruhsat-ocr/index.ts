@@ -68,6 +68,7 @@ Görevin: belgeden TÜM alanları AYNEN, TAM ve EKSİKSİZ çıkarmak. Eksik ala
   "22":     "<Anhängelast>",
   "AUSST":  "<Ausstellungsdatum — DD.MM.YYYY>",
   "BEH":    "<Ausstellende Behörde>",
+  "HU":     "<Datum nächste Hauptuntersuchung / TÜV — MM.YYYY veya DD.MM.YYYY. Belgenin sayfasında 'HU' damgası, 'Datum nächste HU', 'Nächste HU', 'TÜV bis' ya da kenar plakası üstünde görünür. Yoksa boş.>",
   "_confidence": <0.0..1.0 — okuma güveni>
 }
 

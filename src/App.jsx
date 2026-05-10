@@ -3341,6 +3341,39 @@ function brandStyle(brand) {
 function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, currentUser }) {
   const [q, setQ] = useState('');
   const [newOpen, setNewOpen] = useState(false);
+  const [editCustomer, setEditCustomer] = useState(null);
+
+  // Müşteri sil — onayla, sonra customers + bağlı satırları (vehicles, appraisals,
+  // customer_documents, customer_notes, lawyer/insurance assignments) yerel state'ten kaldır.
+  // DB tarafında FK CASCADE bunları otomatik halleder.
+  const handleDeleteCustomer = (c) => {
+    const label = c.full_name || c.company || c.email || c.id;
+    if (!window.confirm(`${label} silinsin mi?\n\nBu müşteriye bağlı tüm araçlar, ekspertizler, belgeler ve notlar da silinecek. Bu işlem geri alınamaz.`)) return;
+    setDb(withLog(
+      (prev) => {
+        const myVehIds = new Set((prev.vehicles || []).filter(v => v.owner_id === c.id).map(v => v.id));
+        return {
+          ...prev,
+          customers: (prev.customers || []).filter(x => x.id !== c.id),
+          vehicles: (prev.vehicles || []).filter(v => v.owner_id !== c.id),
+          appraisals: (prev.appraisals || []).filter(a => !myVehIds.has(a.vehicle_id) && a.customer_id !== c.id),
+          customer_documents: (prev.customer_documents || []).filter(d => d.customer_id !== c.id),
+          customer_notes: (prev.customer_notes || []).filter(n => n.customer_id !== c.id),
+          vehicle_notes: (prev.vehicle_notes || []).filter(n => !myVehIds.has(n.vehicle_id)),
+          lawyer_assignments: (prev.lawyer_assignments || []).filter(a => a.customer_id !== c.id),
+          insurance_assignments: (prev.insurance_assignments || []).filter(a => a.customer_id !== c.id),
+          insurance_claims: (prev.insurance_claims || []).filter(ic => ic.customer_id !== c.id),
+          appointments: (prev.appointments || []).filter(ap => ap.customer_id !== c.id),
+          invoices: (prev.invoices || []).filter(i => i.customer_id !== c.id),
+        };
+      },
+      makeLogEntry({
+        user: currentUser, action: 'customer_delete',
+        target: { kind: 'customer', id: c.id, label },
+        details: `Müşteri silindi: ${label}`,
+      })
+    ));
+  };
   // Liste varsayılan; kullanıcı isterse grid'e geçer (tercih localStorage'da kalır).
   const [viewMode, setViewMode] = useState(() => {
     try { return localStorage.getItem('gecit_kfz_customer_view') || 'list'; } catch (e) { return 'list'; }
@@ -3771,6 +3804,18 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                           <MailIcon size={13} />
                         </a>
                       )}
+                      <button onClick={(e) => { e.stopPropagation(); setEditCustomer(c); }}
+                        className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105"
+                        style={{ background: 'rgba(59,130,246,0.08)', color: '#3B82F6', border: '1px solid rgba(59,130,246,0.20)' }}
+                        title="Düzenle">
+                        <EditIcon size={13} />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteCustomer(c); }}
+                        className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:scale-105"
+                        style={{ background: 'rgba(239,68,68,0.08)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.20)' }}
+                        title="Sil">
+                        <TrashIcon size={13} />
+                      </button>
                     </div>
                     <span className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all group-hover:gap-2"
                       style={{ color: g1, background: `${g1}10`, border: `1px solid ${g1}20` }}>
@@ -3790,7 +3835,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
           {/* Sütun başlıkları */}
           <div className="hidden md:grid items-center text-[10px] uppercase tracking-widest px-6 py-3"
             style={{
-              gridTemplateColumns: '92px minmax(180px, 240px) 150px 130px minmax(180px, 1.4fr) 150px 40px',
+              gridTemplateColumns: '92px minmax(180px, 240px) 150px 130px minmax(180px, 1.4fr) 150px 110px',
               gap: '10px',
               color: C.textDim,
               letterSpacing: '0.18em',
@@ -3842,7 +3887,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                 onClick={() => onOpenCustomer(c)}
                 className="group grid items-center px-6 py-3 cursor-pointer transition-colors"
                 style={{
-                  gridTemplateColumns: '92px minmax(180px, 240px) 150px 130px minmax(180px, 1.4fr) 150px 40px',
+                  gridTemplateColumns: '92px minmax(180px, 240px) 150px 130px minmax(180px, 1.4fr) 150px 110px',
                   gap: '10px',
                   borderBottom: i < list.length - 1 ? `1px solid ${C.border}` : 'none',
                   color: C.text,
@@ -4012,8 +4057,26 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                   })()}
                 </div>
 
-                {/* 3-nokta menü (şimdilik detayı açar) */}
-                <div className="flex justify-end">
+                {/* Aksiyonlar: Düzenle · Sil · Detay */}
+                <div className="flex justify-end gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditCustomer(c); }}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                    style={{ color: '#3B82F6', background: 'transparent' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(59,130,246,0.10)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    title="Düzenle">
+                    <EditIcon size={15} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteCustomer(c); }}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                    style={{ color: '#EF4444', background: 'transparent' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.10)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    title="Sil">
+                    <TrashIcon size={15} />
+                  </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); onOpenCustomer(c); }}
                     className="w-8 h-8 rounded-lg flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
@@ -4031,6 +4094,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
       )}
 
       <NewRecordModal open={newOpen} onClose={() => setNewOpen(false)} defaultType={type} setDb={setDb} currentUser={currentUser} />
+      <EditCustomerModal open={!!editCustomer} onClose={() => setEditCustomer(null)} customer={editCustomer} setDb={setDb} currentUser={currentUser} />
     </>
   );
 }
@@ -4126,6 +4190,20 @@ function mapRuhsatToForm(ruhsat, type) {
   const isoFirstReg = isoDate(r['B']);
   const year = isoFirstReg ? parseInt(isoFirstReg.slice(0, 4)) : null;
 
+  // HU/TÜV — modelden ya "MM.YYYY" ya "DD.MM.YYYY" gelir
+  const parseHuDate = (s) => {
+    if (!s) return '';
+    // "MM.YYYY" → ayın son günü
+    const mm = String(s).match(/^(\d{1,2})[.\/-](\d{4})$/);
+    if (mm) {
+      const [, m, y] = mm;
+      const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+      return `${y}-${m.padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    }
+    return isoDate(s);
+  };
+  const tuvDate = parseHuDate(r['HU']);
+
   // Marka / model
   const brand = (r['D.1'] || '').trim();
   const model = (r['D.3'] || r['D.2'] || '').trim();
@@ -4149,6 +4227,7 @@ function mapRuhsatToForm(ruhsat, type) {
     fuel: (r['P.3'] || '').trim(),
     fuel_type: (r['P.3'] || '').trim(),
     first_registration_date: isoFirstReg,
+    tuv_date: tuvDate,
     // Motor / performans
     displacement_cm3: num(r['P.1']),
     performance_kw: num(r['P.2']),
@@ -4198,6 +4277,125 @@ function mapRuhsatToForm(ruhsat, type) {
   };
 }
 
+// ─── Edit Customer Modal — kart üzerinden tıklanan ✎ ile açılır ──
+function EditCustomerModal({ open, onClose, customer, setDb, currentUser }) {
+  const [form, setForm] = useState({});
+
+  useEffect(() => {
+    if (!open || !customer) return;
+    setForm({
+      full_name: customer.full_name || '',
+      company:   customer.company || '',
+      email:     customer.email || '',
+      phone:     customer.phone || '',
+      tc:        customer.tc || '',
+      tax_no:    customer.tax_no || '',
+      tax_office: customer.tax_office || '',
+      address:   customer.address || '',
+      street:    customer.street || '',
+      zip:       customer.zip || '',
+      city:      customer.city || '',
+      notes:     customer.notes || '',
+    });
+  }, [open, customer]);
+
+  if (!customer) return null;
+  const isKurumsal = customer.type === 'kurumsal';
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const onSave = (e) => {
+    e?.preventDefault?.();
+    const orNull = (v) => (v == null || String(v).trim() === '') ? null : v;
+    const patch = {
+      full_name: orNull(form.full_name),
+      email:     orNull(form.email),
+      phone:     orNull(form.phone),
+      tc:        orNull(form.tc),
+      address:   orNull(form.address),
+      street:    orNull(form.street),
+      zip:       orNull(form.zip),
+      city:      orNull(form.city),
+      notes:     orNull(form.notes),
+      ...(isKurumsal ? { company: orNull(form.company), tax_no: orNull(form.tax_no), tax_office: orNull(form.tax_office) } : {}),
+      updated_at: new Date().toISOString(),
+    };
+    const label = patch.full_name || patch.company || patch.email || customer.id;
+    setDb(withLog(
+      (prev) => ({
+        ...prev,
+        customers: (prev.customers || []).map((c) => c.id === customer.id ? { ...c, ...patch } : c),
+      }),
+      makeLogEntry({
+        user: currentUser, action: 'customer_update',
+        target: { kind: 'customer', id: customer.id, label },
+        details: `Müşteri güncellendi: ${label}`,
+      })
+    ));
+    onClose();
+  };
+
+  return (
+    <GecitKfzModal open={open} onClose={onClose}
+      title={isKurumsal ? 'Kurumsal Firma Düzenle' : 'Müşteri Düzenle'}
+      subtitle={customer.full_name || customer.company || customer.email}
+      width={640}>
+      <form onSubmit={onSave} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {isKurumsal && (
+            <>
+              <Field label="Firma Ünvanı" required>
+                <TextInput value={form.company || ''} onChange={set('company')} required />
+              </Field>
+              <Field label="Vergi Numarası">
+                <TextInput value={form.tax_no || ''} onChange={set('tax_no')} placeholder="10 haneli" />
+              </Field>
+              <Field label="Vergi Dairesi">
+                <TextInput value={form.tax_office || ''} onChange={set('tax_office')} />
+              </Field>
+              <Field label="Yetkili Ad Soyad">
+                <TextInput value={form.full_name || ''} onChange={set('full_name')} />
+              </Field>
+            </>
+          )}
+          {!isKurumsal && (
+            <>
+              <Field label="Ad Soyad" required>
+                <TextInput value={form.full_name || ''} onChange={set('full_name')} required />
+              </Field>
+              <Field label="T.C. Kimlik No">
+                <TextInput value={form.tc || ''} onChange={set('tc')} placeholder="11 haneli" />
+              </Field>
+            </>
+          )}
+          <Field label="E-posta">
+            <TextInput type="email" value={form.email || ''} onChange={set('email')} />
+          </Field>
+          <Field label="Telefon">
+            <TextInput value={form.phone || ''} onChange={set('phone')} />
+          </Field>
+          <div className="md:col-span-2">
+            <Field label="Adres">
+              <TextInput value={form.address || ''} onChange={set('address')} placeholder="Sokak / No / Şehir" />
+            </Field>
+          </div>
+          <Field label="Sokak"><TextInput value={form.street || ''} onChange={set('street')} /></Field>
+          <Field label="PLZ / Şehir">
+            <div className="flex gap-2">
+              <TextInput value={form.zip || ''} onChange={set('zip')} placeholder="PLZ" />
+              <TextInput value={form.city || ''} onChange={set('city')} placeholder="Şehir" />
+            </div>
+          </Field>
+        </div>
+        <Field label="Notlar"><TextInput value={form.notes || ''} onChange={set('notes')} /></Field>
+        <div className="flex justify-end gap-2 pt-3" style={{ borderTop: `1px solid ${C.border}` }}>
+          <AdminButton onClick={onClose}>İptal</AdminButton>
+          <AdminButton type="submit" variant="primary"><Check size={14} /> Kaydet</AdminButton>
+        </div>
+      </form>
+    </GecitKfzModal>
+  );
+}
+
 // ─── Unified record modal (bireysel / kurumsal / avukat / sigorta) ──
 // Bireysel ve kurumsal için RUHSAT-FIRST akış zorunludur.
 function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, currentUser }) {
@@ -4207,6 +4405,8 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
   const [stage, setStage] = useState('tab');
   const [ruhsatPreview, setRuhsatPreview] = useState(null);
   const [ocrConfidence, setOcrConfidence] = useState(null);
+  // Yüklenen ruhsat dosyasını submit'te customer_documents'a kaydetmek için tut
+  const [pendingRuhsatFile, setPendingRuhsatFile] = useState(null);
 
   const isRuhsatType = (t) => t === 'bireysel' || t === 'kurumsal';
 
@@ -4216,6 +4416,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
     setForm({});
     setRuhsatPreview(null);
     setOcrConfidence(null);
+    setPendingRuhsatFile(null);
     // Bireysel/kurumsal seçildiğinde önce ruhsat upload zorunlu
     setStage(isRuhsatType(defaultType) ? 'upload' : 'tab');
   }, [open, defaultType]);
@@ -4226,6 +4427,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
     setForm({});
     setRuhsatPreview(null);
     setOcrConfidence(null);
+    setPendingRuhsatFile(null);
     setStage(isRuhsatType(newType) ? 'upload' : 'tab');
   };
 
@@ -4233,6 +4435,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
 
   const onRuhsatFile = async (f) => {
     if (!f) return;
+    setPendingRuhsatFile(f);
     // Önizleme göster
     const reader = new FileReader();
     reader.onload = () => setRuhsatPreview(reader.result);
@@ -4257,7 +4460,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
     }
   };
 
-  const submit = (e) => {
+  const submit = async (e) => {
     if (e?.preventDefault) e.preventDefault();
     if (type === 'avukat') {
       const lawyer = {
@@ -4400,12 +4603,45 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
         created_at: new Date().toISOString().slice(0, 10),
       };
       const custLabel = cust.full_name || cust.company || cust.email;
+
+      // Ruhsat dosyasını customer_documents'a ekle (varsa)
+      let ruhsatDoc = null;
+      if (pendingRuhsatFile) {
+        try {
+          const uploaded = await uploadCustomerDocument(pendingRuhsatFile, customerId);
+          if (uploaded) {
+            ruhsatDoc = {
+              id: 'doc' + uid(),
+              customer_id: customerId,
+              vehicle_id: vehicleId,
+              name: pendingRuhsatFile.name,
+              type: 'fahrzeugschein',                 // Ruhsat tipi
+              size: uploaded.size,
+              storage_path: uploaded.storage_path,
+              storage_bucket: uploaded.storage_bucket,
+              public_url: uploaded.public_url,
+              data: uploaded.data,                    // base64 fallback
+              mime: uploaded.mime,
+              uploaded_at: new Date().toISOString().slice(0, 10),
+              ruhsatData: form._ruhsat_raw || null,    // OCR ciktisi (RuhsatPanel'in beklediği alan)
+            };
+            // Vehicle'a ruhsat_doc_id bağla
+            vehicle.ruhsat_doc_id = ruhsatDoc.id;
+          }
+        } catch (err) {
+          console.warn('[NewRecordModal] Ruhsat dosya yükleme başarısız:', err?.message);
+        }
+      }
+
       setDb(withLogs(
         prev => ({
           ...prev,
           customers: [...(prev.customers || []), cust],
           vehicles: [...(prev.vehicles || []), vehicle],
           appraisals: [...(prev.appraisals || []), appraisal],
+          customer_documents: ruhsatDoc
+            ? [...(prev.customer_documents || []), ruhsatDoc]
+            : (prev.customer_documents || []),
         }),
         [
           makeLogEntry({
@@ -4423,6 +4659,11 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
             target: { kind: 'appraisal', id: appraisal.id, label: vehicle.plate || customerId },
             details: `Ekspertiz başlatıldı: ${vehicle.plate || custLabel}`,
           }),
+          ruhsatDoc ? makeLogEntry({
+            user: currentUser, action: 'document_upload',
+            target: { kind: 'document', id: ruhsatDoc.id, label: ruhsatDoc.name },
+            details: `Ruhsat (Fahrzeugschein) yüklendi: ${vehicle.plate || custLabel}`,
+          }) : null,
         ]
       ));
     }
