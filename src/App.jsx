@@ -2059,6 +2059,8 @@ function seedDB() {
       { id: 'wt_tuv30', name: 'TÜV — 30 Gün Kaldı', message: 'Sayın {MUSTERI_ADI},\n\n{PLAKA} plakalı aracınızın TÜV muayene süresi dolmak üzere.\n\nSon Tarih: {TUF_TARIHI} ({KALAN_GUN} gün kaldı)\n\nLütfen en kısa sürede muayene randevusu alın. Yardımcı olmamızı isterseniz hemen arayın.\n\nGecit Kfz Sachverständiger', trigger: 'tuv_30g' },
       { id: 'wt_tuv_gecmis', name: 'TÜV — Süresi Doldu', message: 'Sayın {MUSTERI_ADI},\n\n{PLAKA} plakalı {MARKA_MODEL} aracınızın TÜV muayenesi {TUF_TARIHI} tarihinde sona ermiştir ({KALAN_GUN} gün önce).\n\nGeçerli muayenesi olmayan araçlarla trafiğe çıkmak yasaktır ve para cezası uygulanır. Lütfen acilen muayene yaptırın.\n\nGecit Kfz Sachverständiger', trigger: 'tuv_gecmis' },
     ],
+    // Müşterimiz olmayan kişilerin TÜV/Sigorta takibi (lokal-only, Supabase'e sync edilmez)
+    external_tuv_records: [],
   };
 }
 
@@ -2099,6 +2101,7 @@ function loadDB() {
     if (!parsed.objection_templates) { const s = seedDB(); parsed.objection_templates = s.objection_templates; }
     if (!parsed.file_flows) { const s = seedDB(); parsed.file_flows = s.file_flows; }
     if (!parsed.whatsapp_templates) { const s = seedDB(); parsed.whatsapp_templates = s.whatsapp_templates; }
+    if (!parsed.external_tuv_records) parsed.external_tuv_records = [];
     // Migration: add TÜV templates if missing
     const tuvIds = ['wt_tuv60', 'wt_tuv30', 'wt_tuv_gecmis'];
     const existingIds = (parsed.whatsapp_templates || []).map(t => t.id);
@@ -10037,7 +10040,17 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState('all');
-  const [ownerType, setOwnerType] = useState('all'); // all | bireysel | kurumsal
+  const [ownerType, setOwnerType] = useState('all'); // all | bireysel | kurumsal | extern
+  // Manuel (extern) ekleme — müşterimiz olmayanları takip
+  const [manualOpen, setManualOpen] = useState(false);
+  const [editExternal, setEditExternal] = useState(null);
+  // Eski (süresi dolmuş) kayıtları gizle toggle'ı — kullanıcı tercihi olarak localStorage'ta saklanır
+  const [hideExpired, setHideExpired] = useState(() => {
+    try { return localStorage.getItem('gecit_kfz_tuv_hide_expired') === '1'; } catch (_) { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('gecit_kfz_tuv_hide_expired', hideExpired ? '1' : '0'); } catch (_) {}
+  }, [hideExpired]);
   // Mobilde default 'grid' — 10 sütunlu list mobilde dolaşılamıyor
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) ? 'grid' : 'list');
@@ -10046,15 +10059,38 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
   const modeLabel = mode === 'tuv' ? 'TÜV (Hauptuntersuchung)' : 'Sigorta';
   const modeShort = mode === 'tuv' ? 'TÜV' : 'Sigorta';
 
-  const rows = (db.vehicles || []).map(v => {
+  // 1) Müşteri araçları
+  const vehicleRows = (db.vehicles || []).map(v => {
     const owner = (db.customers || []).find(c => c.id === v.owner_id);
     const dval = v[dateField];
     const days = tuvDaysUntil(dval);
     const dt = dval ? new Date(dval) : null;
     const insAssign = (db.insurance_assignments || []).find(a => a.customer_id === v.owner_id);
     const insurer = insAssign ? (db.insurers || []).find(i => i.id === insAssign.insurer_id) : null;
-    return { v, owner, days, year: dt?.getFullYear(), month: dt?.getMonth(), insurer };
+    return { v, owner, days, year: dt?.getFullYear(), month: dt?.getMonth(), insurer, isExternal: false };
   });
+  // 2) Manuel (extern) takip kayıtları — müşterimiz olmayanlar
+  const externalRows = (db.external_tuv_records || []).map(r => {
+    const dval = r[dateField];
+    const days = tuvDaysUntil(dval);
+    const dt = dval ? new Date(dval) : null;
+    // Vehicle benzeri shape — mevcut list/grid hücreleri yeniden kullansın
+    const vShim = {
+      id: r.id,
+      plate: r.plate || '',
+      brand: r.brand || '',
+      model: r.model || '',
+      year: r.year || null,
+      tuv_date: r.tuv_date || null,
+      insurance_date: r.insurance_date || null,
+      _ext: true,
+    };
+    const ownerShim = r.contact_name || r.contact_phone || r.contact_email
+      ? { id: r.id, type: 'extern', full_name: r.contact_name || '—', phone: r.contact_phone || '', email: r.contact_email || '' }
+      : null;
+    return { v: vShim, owner: ownerShim, days, year: dt?.getFullYear(), month: dt?.getMonth(), insurer: null, isExternal: true, raw: r };
+  });
+  const rows = [...vehicleRows, ...externalRows];
 
   const allYears = Array.from(new Set(rows.map(r => r.year).filter(Boolean))).sort();
   if (!allYears.includes(today.getFullYear())) allYears.push(today.getFullYear());
@@ -10065,11 +10101,12 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
   rows.forEach(r => { if (r.year === year && r.month != null) monthCounts[r.month]++; });
   const yearTotal = monthCounts.reduce((a, b) => a + b, 0);
 
-  const filtered = rows.filter(({ v, owner, days, year: ry, month: rm, insurer }) => {
-    if (ownerType !== 'all' && owner?.type !== ownerType) return false;
+  const filtered = rows.filter(({ v, owner, days, year: ry, month: rm, insurer, isExternal }) => {
+    if (ownerType !== 'all' && (owner?.type || (isExternal ? 'extern' : null)) !== ownerType) return false;
+    if (hideExpired && days != null && days < 0) return false;
     const q = search.trim().toLowerCase();
     if (q) {
-      const hay = `${v.plate} ${v.brand} ${v.model} ${owner?.full_name || owner?.company || ''} ${insurer?.company || ''}`.toLowerCase();
+      const hay = `${v.plate} ${v.brand} ${v.model} ${owner?.full_name || owner?.company || ''} ${owner?.phone || ''} ${insurer?.company || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     const dv = v[dateField];
@@ -10091,6 +10128,8 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
     return aD - bD;
   });
 
+  const expiredCount = rows.filter(r => r.days != null && r.days < 0).length;
+
   const counts = {
     all: rows.length,
     expired: rows.filter(r => r.days != null && r.days < 0).length,
@@ -10108,12 +10147,44 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
 
   const saveEditDate = () => {
     if (!editVehicle) return;
-    setDb(prev => ({
-      ...prev,
-      vehicles: (prev.vehicles || []).map(x => x.id === editVehicle.id ? { ...x, [dateField]: editDate || null } : x),
-    }));
+    const newDate = editDate || null;
+    if (editVehicle._ext) {
+      // External (manuel) kayıt
+      setDb(prev => ({
+        ...prev,
+        external_tuv_records: (prev.external_tuv_records || []).map(x => x.id === editVehicle.id ? { ...x, [dateField]: newDate } : x),
+      }));
+    } else {
+      setDb(prev => ({
+        ...prev,
+        vehicles: (prev.vehicles || []).map(x => x.id === editVehicle.id ? { ...x, [dateField]: newDate } : x),
+      }));
+    }
     setEditVehicle(null);
     setEditDate('');
+  };
+
+  // Manuel TÜV kaydını ekle / güncelle
+  const saveExternalRecord = (record) => {
+    const cleaned = {
+      ...record,
+      plate: (record.plate || '').trim().toUpperCase(),
+      brand: (record.brand || '').trim(),
+      model: (record.model || '').trim(),
+    };
+    if (!cleaned.plate) return false;
+    setDb(prev => {
+      const list = prev.external_tuv_records || [];
+      if (cleaned.id && list.some(x => x.id === cleaned.id)) {
+        return { ...prev, external_tuv_records: list.map(x => x.id === cleaned.id ? { ...x, ...cleaned, updated_at: new Date().toISOString() } : x) };
+      }
+      const nu = { ...cleaned, id: cleaned.id || ('ext_' + uid()), created_at: new Date().toISOString() };
+      return { ...prev, external_tuv_records: [...list, nu] };
+    });
+    return true;
+  };
+  const deleteExternalRecord = (id) => {
+    setDb(prev => ({ ...prev, external_tuv_records: (prev.external_tuv_records || []).filter(x => x.id !== id) }));
   };
 
   const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -10138,7 +10209,14 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
         title={`${modeShort} Takip`}
         subtitle="Müşteri kayıtlarındaki araçların TÜV/Sigorta tarihlerini canlı takip et"
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <AdminButton onClick={() => setHideExpired(v => !v)} title={hideExpired ? 'Süresi dolmuş kayıtlar gizli — göstermek için tıkla' : 'Süresi dolmuş kayıtları gizle'}>
+              <EyeIcon size={14} style={hideExpired ? { opacity: 0.45 } : null} />
+              {hideExpired ? `Eski Kayıtlar Gizli${expiredCount ? ` (${expiredCount})` : ''}` : `Eski Kayıtları Gizle${expiredCount ? ` (${expiredCount})` : ''}`}
+            </AdminButton>
+            <AdminButton onClick={() => { setEditExternal({}); setManualOpen(true); }}>
+              <PlusIcon size={14} /> Manuel Ekle
+            </AdminButton>
             <AdminButton variant="primary" onClick={() => setBulkOpen(true)} disabled={filtered.filter(r => r.v[dateField]).length === 0}>
               <MailIcon size={14} /> Toplu Bildirim ({filtered.filter(r => r.v[dateField]).length})
             </AdminButton>
@@ -10249,6 +10327,7 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
             { k: 'all',      l: 'Tüm Müşteriler', icon: UsersGroupIcon },
             { k: 'bireysel', l: 'Bireysel',       icon: UsersIcon },
             { k: 'kurumsal', l: 'Kurumsal',       icon: Building },
+            { k: 'extern',   l: 'Manuel',         icon: UserPlusIcon },
           ].map(t => {
             const active = ownerType === t.k;
             return (

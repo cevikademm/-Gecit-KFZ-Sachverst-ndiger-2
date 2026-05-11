@@ -216,15 +216,23 @@ function CalendarView({ db, setDb, availability, settings, onEditApt, onCreateAt
   const weekStart = useMemo(() => startOfWeek(anchor), [anchor]);
   const weekDays = useMemo(() => [...Array(7)].map((_, i) => addDays(weekStart, i)), [weekStart]);
 
-  // Takvimdeki tüm randevuları topla (saat aralığı genişletmek için kullanılacak)
+  // Takvimdeki tüm randevuları topla
+  // time yoksa "all day" gibi davransın — yine date'e göre filtrele
+  const monthStart = useMemo(() => { const d = new Date(anchor); d.setDate(1); d.setHours(0,0,0,0); return d; }, [anchor]);
+  const monthEnd = useMemo(() => { const d = new Date(anchor); d.setMonth(d.getMonth() + 1); d.setDate(0); d.setHours(23,59,59); return d; }, [anchor]);
   const allApts = useMemo(() => {
     return (db.appointments || []).filter(a => {
-      if (!a.date || !a.time) return false;
+      if (!a.date) return false;
       const d = new Date(a.date);
+      if (isNaN(d.getTime())) return false;
       if (mode === 'day') return toISO(d) === toISO(anchor);
+      if (mode === 'month' || mode === 'list') return d >= monthStart && d <= monthEnd;
       return d >= weekStart && d < addDays(weekStart, 7);
     });
-  }, [db.appointments, mode, anchor, weekStart]);
+  }, [db.appointments, mode, anchor, weekStart, monthStart, monthEnd]);
+
+  // Saat grid'inde sadece time'i olanlar render edilir (week/day mode için)
+  const timedApts = useMemo(() => allApts.filter(a => !!a.time), [allApts]);
 
   // Saat aralığı: çalışma saatleri + görünür randevuların saatleri.
   // Mevcut çalışma saatleri DIŞINDA randevu varsa onlar da görünür olsun.
@@ -256,16 +264,24 @@ function CalendarView({ db, setDb, availability, settings, onEditApt, onCreateAt
   const slotMin = settings?.slot_duration_minutes || 30;
   const pxPerMin = 1.2; // 1 dakika = 1.2px
 
-  const apts = allApts;
+  const apts = timedApts;
 
   const goToday = () => setAnchor(new Date());
-  const goPrev = () => setAnchor(addDays(anchor, mode === 'day' ? -1 : -7));
-  const goNext = () => setAnchor(addDays(anchor, mode === 'day' ? 1 : 7));
+  const goPrev = () => {
+    if (mode === 'day') setAnchor(addDays(anchor, -1));
+    else if (mode === 'month') { const d = new Date(anchor); d.setMonth(d.getMonth() - 1); setAnchor(d); }
+    else setAnchor(addDays(anchor, -7));
+  };
+  const goNext = () => {
+    if (mode === 'day') setAnchor(addDays(anchor, 1));
+    else if (mode === 'month') { const d = new Date(anchor); d.setMonth(d.getMonth() + 1); setAnchor(d); }
+    else setAnchor(addDays(anchor, 7));
+  };
 
   // Compact (≤1023px) — week modu gizli
   const MODE_OPTIONS = isCompact
-    ? [{ k: 'day', l: 'Gün' }, { k: 'list', l: 'Liste' }]
-    : [{ k: 'week', l: 'Hafta' }, { k: 'day', l: 'Gün' }, { k: 'list', l: 'Liste' }];
+    ? [{ k: 'day', l: 'Gün' }, { k: 'month', l: 'Ay' }, { k: 'list', l: 'Liste' }]
+    : [{ k: 'week', l: 'Hafta' }, { k: 'day', l: 'Gün' }, { k: 'month', l: 'Ay' }, { k: 'list', l: 'Liste' }];
 
   return (
     <div className="space-y-3">
@@ -291,6 +307,10 @@ function CalendarView({ db, setDb, availability, settings, onEditApt, onCreateAt
               ? (isMobile
                   ? new Date(anchor).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', weekday: 'short' })
                   : fmtDateLong(anchor))
+              : mode === 'month'
+              ? new Date(anchor).toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })
+              : mode === 'list'
+              ? new Date(anchor).toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })
               : `${fmtDate(weekStart)} – ${fmtDate(addDays(weekStart, 6))}`}
           </h3>
         </div>
@@ -424,9 +444,118 @@ function CalendarView({ db, setDb, availability, settings, onEditApt, onCreateAt
         </div>
       )}
 
-      {mode === 'list' && (
-        <AppointmentList apts={apts} db={db} setDb={setDb} onEdit={onEditApt} />
+      {mode === 'month' && (
+        <MonthView anchor={anchor} apts={allApts} availability={availability}
+          onDayClick={(d) => { setAnchor(d); setMode(isCompact ? 'day' : 'week'); }}
+          onEditApt={onEditApt} db={db} />
       )}
+
+      {mode === 'list' && (
+        <AppointmentList apts={allApts} db={db} setDb={setDb} onEdit={onEditApt} />
+      )}
+    </div>
+  );
+}
+
+// ─── Aylık görünüm (6x7 grid — gün başına randevu özeti) ────────
+function MonthView({ anchor, apts, availability, onDayClick, onEditApt, db }) {
+  const monthFirst = useMemo(() => { const d = new Date(anchor); d.setDate(1); return d; }, [anchor]);
+  const monthLast = useMemo(() => { const d = new Date(anchor); d.setMonth(d.getMonth() + 1); d.setDate(0); return d; }, [anchor]);
+  // Pzt başlangıçlı 6×7 grid (önceki ay tail + bu ay + sonraki ay head)
+  const gridStart = useMemo(() => {
+    const d = new Date(monthFirst);
+    const dow = d.getDay(); // 0=Pzr ... 6=Cmt
+    const offset = dow === 0 ? -6 : 1 - dow;
+    d.setDate(d.getDate() + offset);
+    return d;
+  }, [monthFirst]);
+  const days = useMemo(() => [...Array(42)].map((_, i) => addDays(gridStart, i)), [gridStart]);
+
+  // Günlere göre randevuları grupla
+  const aptsByDay = useMemo(() => {
+    const map = new Map();
+    apts.forEach(a => {
+      const key = a.date;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(a);
+    });
+    map.forEach(arr => arr.sort((x, y) => (x.time || '').localeCompare(y.time || '')));
+    return map;
+  }, [apts]);
+
+  const todayIso = toISO(new Date());
+
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+      {/* Gün başlıkları (Pzt..Pzr) */}
+      <div className="grid grid-cols-7" style={{ borderBottom: `1px solid ${C.border}` }}>
+        {['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Pzr'].map(d => (
+          <div key={d} className="px-2 py-2 text-center text-[10px] uppercase font-bold tracking-wider"
+            style={{ color: C.textDim, borderLeft: `1px solid ${C.border}` }}>
+            {d}
+          </div>
+        ))}
+      </div>
+      {/* 6 satır × 7 sütun */}
+      <div className="grid grid-cols-7" style={{ gridAutoRows: 'minmax(96px, auto)' }}>
+        {days.map((d, i) => {
+          const iso = toISO(d);
+          const isCurMonth = d.getMonth() === anchor.getMonth();
+          const isToday = iso === todayIso;
+          const dayApts = aptsByDay.get(iso) || [];
+          const isWorking = availability.some(a => a.day_of_week === d.getDay() && a.is_active !== false);
+          return (
+            <button key={i} onClick={() => onDayClick(d)}
+              className="relative text-left px-2 py-1.5 hover:bg-black/[0.025] transition"
+              style={{
+                borderLeft: `1px solid ${C.border}`,
+                borderTop: i >= 7 ? `1px solid ${C.border}` : 'none',
+                background: isToday ? 'rgba(227,6,19,0.04)' : 'transparent',
+                opacity: isCurMonth ? 1 : 0.40,
+              }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold"
+                  style={{ color: isToday ? C.neon : C.text }}>
+                  {d.getDate()}
+                </span>
+                {dayApts.length > 0 && (
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full"
+                    style={{ background: `${C.neon}15`, color: C.neon, border: `1px solid ${C.neon}33` }}>
+                    {dayApts.length}
+                  </span>
+                )}
+              </div>
+              {/* İlk 3 randevu mini chip */}
+              <div className="space-y-0.5">
+                {dayApts.slice(0, 3).map(a => {
+                  const col = STATUS_COLOR[a.status] || STATUS_COLOR.aktif;
+                  return (
+                    <div key={a.id}
+                      onClick={(e) => { e.stopPropagation(); onEditApt(a); }}
+                      className="text-[9px] truncate px-1 py-0.5 rounded cursor-pointer"
+                      style={{
+                        background: col.bg,
+                        color: col.fg,
+                        borderLeft: `2px solid ${col.fg}`,
+                      }}>
+                      {a.time && <span className="font-mono mr-1">{a.time}</span>}
+                      {a.service || a.attendee_name || '—'}
+                    </div>
+                  );
+                })}
+                {dayApts.length > 3 && (
+                  <p className="text-[9px] pl-1" style={{ color: C.textDim }}>+{dayApts.length - 3} daha</p>
+                )}
+              </div>
+              {/* Calisma gunu degilse hafif gri */}
+              {!isWorking && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style={{ background: '#9CA3AF' }}
+                  title="Kapalı gün" />
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
