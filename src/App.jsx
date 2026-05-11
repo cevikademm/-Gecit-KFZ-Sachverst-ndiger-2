@@ -16655,6 +16655,7 @@ function App() {
         if (!sb) return;
 
         const buildUser = (p) => ({
+          id: session.user.id,                       // auth.users UUID — admin_id eşleşmesi için kritik
           email: session.user.email,
           role: p.role,
           name: p.full_name || session.user.email,
