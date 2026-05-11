@@ -15405,12 +15405,15 @@ function AdminApp({ user, onLogout, onHome }) {
           />
         )}
 
-        {/* ═══ Dosya Akış Motoru ═══ */}
+        {/* ═══ Dosya Akış Motoru — Kreatif Tasarım ═══ */}
         {section === 'file_flows' && (() => {
           const flows = db.file_flows || [];
           const triggerLabels = { ekspertiz_tamamlandi: 'Ekspertiz Tamamlandı', sigorta_teklif: 'Sigorta Teklifi Geldi', sigorta_red: 'Sigorta Reddi' };
+          const triggerIcons = { ekspertiz_tamamlandi: Check, sigorta_teklif: Receipt, sigorta_red: AlertTriangle };
+          const triggerColors = { ekspertiz_tamamlandi: '#10B981', sigorta_teklif: '#3B82F6', sigorta_red: '#EF4444' };
           const actionLabels = { notify_customer: 'Müşteriye Bildir', send_to_insurance: 'Sigortaya İlet', notify_lawyer: 'Avukata Bildir', create_diff_report: 'Fark Raporu Oluştur', create_objection_draft: 'İtiraz Taslağı Oluştur' };
-          const actionColors = { notify_customer: '#34D399', send_to_insurance: C.cyan, notify_lawyer: '#F59E0B', create_diff_report: C.magenta, create_objection_draft: '#EF4444' };
+          const actionIcons = { notify_customer: MessageIcon, send_to_insurance: ShieldIcon, notify_lawyer: ScaleIcon, create_diff_report: FileText, create_objection_draft: AlertTriangle };
+          const actionColors = { notify_customer: '#10B981', send_to_insurance: '#06B6D4', notify_lawyer: '#F59E0B', create_diff_report: '#A855F7', create_objection_draft: '#EF4444' };
 
           const toggleFlow = (flowId) => {
             const flow = (db.file_flows || []).find(f => f.id === flowId);
@@ -15435,6 +15438,295 @@ function AdminApp({ user, onLogout, onHome }) {
             setDb(withLogs(prev => prev, entries));
           };
 
+          const activeCount = flows.filter(f => f.active).length;
+          const last24Triggers = (db.activity_logs || []).filter(l =>
+            (l.action === 'flow_exec' || l.type === 'flow_exec') &&
+            new Date(l.created_at) > new Date(Date.now() - 86400000)
+          ).length;
+          const totalSteps = flows.reduce((acc, f) => acc + (f.actions?.length || 0), 0);
+
+          return (
+            <>
+              {/* ── Hero ── */}
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                className="relative overflow-hidden rounded-3xl mb-6"
+                style={{
+                  background: 'linear-gradient(135deg, #0B0B14 0%, #1a0612 50%, #0B0B14 100%)',
+                  border: '1px solid rgba(227,6,19,0.25)',
+                  boxShadow: '0 12px 36px rgba(227,6,19,0.18), inset 0 0 60px rgba(227,6,19,0.06)',
+                }}>
+                <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full pointer-events-none"
+                  style={{ background: 'radial-gradient(circle, rgba(227,6,19,0.35) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+                <div className="absolute -bottom-24 -left-12 w-72 h-72 rounded-full pointer-events-none"
+                  style={{ background: 'radial-gradient(circle, rgba(168,85,247,0.25) 0%, transparent 70%)', filter: 'blur(50px)' }} />
+                <div className="relative p-6 lg:p-8 flex items-center justify-between flex-wrap gap-6">
+                  <div className="flex items-center gap-5">
+                    <div className="relative w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: 'linear-gradient(135deg, #E30613, #7A0309)',
+                        boxShadow: '0 0 24px rgba(227,6,19,0.55), inset 0 1px 0 rgba(255,255,255,0.18)',
+                      }}>
+                      <Zap size={28} style={{ color: '#fff' }} />
+                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full animate-pulse"
+                        style={{ background: '#10B981', boxShadow: '0 0 10px #10B981' }} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.3em] mb-1"
+                        style={{ color: 'rgba(255,255,255,0.5)' }}>Otomasyon Çekirdeği</p>
+                      <h1 className="text-2xl lg:text-3xl font-bold leading-tight"
+                        style={{ color: '#fff', letterSpacing: '-0.02em' }}>
+                        Dosya Akış Motoru
+                      </h1>
+                      <p className="text-sm mt-1.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                        Tetikleyici → Aksiyon zinciri · Sachverständiger süreçlerinin sinir sistemi
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-stretch gap-3 flex-wrap">
+                    {[
+                      { label: 'AKTİF', value: activeCount, color: '#10B981', pulse: true },
+                      { label: 'TOPLAM', value: flows.length, color: '#06B6D4' },
+                      { label: 'AKSİYON', value: totalSteps, color: '#A855F7' },
+                      { label: '24S TETİK', value: last24Triggers, color: '#F59E0B' },
+                    ].map((s, i) => (
+                      <motion.div key={i}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.1 + i * 0.06 }}
+                        className="px-4 py-3 rounded-2xl text-center min-w-[88px] relative overflow-hidden"
+                        style={{
+                          background: 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${s.color}40`,
+                          backdropFilter: 'blur(8px)',
+                        }}>
+                        {s.pulse && (
+                          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full animate-pulse"
+                            style={{ background: s.color, boxShadow: `0 0 8px ${s.color}` }} />
+                        )}
+                        <p className="text-[9px] tracking-[0.2em] font-bold mb-1"
+                          style={{ color: s.color, letterSpacing: '0.18em' }}>{s.label}</p>
+                        <p className="text-2xl font-bold font-mono" style={{ color: '#fff' }}>{s.value}</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* ── Akış kartları ── */}
+              {flows.length === 0 ? (
+                <div className="rounded-3xl p-16 text-center"
+                  style={{ background: '#FFFFFF', border: `1px dashed ${C.border}` }}>
+                  <Zap size={44} style={{ color: C.textDim, margin: '0 auto 14px', opacity: 0.4 }} />
+                  <p className="text-base font-medium mb-1" style={{ color: C.text }}>Henüz akış tanımlı değil</p>
+                  <p className="text-xs" style={{ color: C.textDim }}>İlk otomasyonu oluştur ve süreçleri otomatikleştir.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {flows.map((flow, idx) => {
+                    const TriggerIcon = triggerIcons[flow.trigger] || Zap;
+                    const triggerColor = triggerColors[flow.trigger] || C.neon;
+                    const isActive = !!flow.active;
+                    return (
+                      <motion.div key={flow.id}
+                        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.08 }}
+                        whileHover={{ y: -2 }}
+                        className="relative rounded-3xl overflow-hidden group"
+                        style={{
+                          background: '#FFFFFF',
+                          border: `1px solid ${isActive ? `${triggerColor}40` : C.border}`,
+                          boxShadow: isActive
+                            ? `0 8px 28px ${triggerColor}20, 0 1px 2px rgba(0,0,0,0.04)`
+                            : '0 1px 2px rgba(0,0,0,0.04)',
+                          transition: 'box-shadow 0.3s, border-color 0.3s',
+                        }}>
+                        <div className="absolute left-0 top-0 bottom-0 w-1"
+                          style={{ background: isActive ? `linear-gradient(to bottom, ${triggerColor}, transparent)` : 'transparent' }} />
+
+                        {/* Üst kısım */}
+                        <div className="p-5 flex items-start justify-between gap-4 flex-wrap"
+                          style={{ borderBottom: `1px solid ${C.border}`, background: isActive ? `${triggerColor}05` : 'rgba(0,0,0,0.012)' }}>
+                          <div className="flex items-center gap-4 min-w-0 flex-1">
+                            <div className="relative w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                              style={{
+                                background: isActive
+                                  ? `linear-gradient(135deg, ${triggerColor}, ${triggerColor}cc)`
+                                  : 'rgba(0,0,0,0.05)',
+                                boxShadow: isActive ? `0 4px 14px ${triggerColor}55, inset 0 1px 0 rgba(255,255,255,0.25)` : 'none',
+                              }}>
+                              <TriggerIcon size={20} style={{ color: isActive ? '#fff' : C.textDim }} />
+                              {isActive && (
+                                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-ping"
+                                  style={{ background: triggerColor, opacity: 0.6 }} />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-base font-bold mb-0.5 truncate" style={{ color: C.text }}>{flow.label}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-md"
+                                  style={{ background: `${triggerColor}15`, color: triggerColor, letterSpacing: '0.1em' }}>
+                                  TETİKLEYİCİ
+                                </span>
+                                <span className="text-xs" style={{ color: C.textDim }}>
+                                  {triggerLabels[flow.trigger] || flow.trigger}
+                                </span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-md font-mono"
+                                  style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim }}>
+                                  {flow.actions?.length || 0} adım
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-[10px] uppercase tracking-widest font-bold"
+                              style={{ color: isActive ? '#10B981' : C.textDim, letterSpacing: '0.15em' }}>
+                              {isActive ? '● AKTİF' : '○ DURDURULDU'}
+                            </span>
+                            <button onClick={() => toggleFlow(flow.id)}
+                              className="w-14 h-7 rounded-full relative transition-all"
+                              style={{
+                                background: isActive
+                                  ? 'linear-gradient(135deg, #10B981, #059669)'
+                                  : 'rgba(0,0,0,0.12)',
+                                boxShadow: isActive ? '0 0 0 3px rgba(16,185,129,0.18)' : 'none',
+                              }}>
+                              <motion.div
+                                animate={{ left: isActive ? 30 : 2 }}
+                                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                                className="absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md flex items-center justify-center">
+                                {isActive && <Zap size={10} style={{ color: '#10B981' }} />}
+                              </motion.div>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Pipeline */}
+                        <div className="p-5">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                              style={{
+                                background: `linear-gradient(135deg, ${triggerColor}18, ${triggerColor}08)`,
+                                border: `1px solid ${triggerColor}40`,
+                              }}>
+                              <TriggerIcon size={13} style={{ color: triggerColor }} />
+                              <span className="text-xs font-semibold" style={{ color: triggerColor }}>
+                                {triggerLabels[flow.trigger]}
+                              </span>
+                            </div>
+                            {flow.actions.map((action, ai) => {
+                              const ActionIcon = actionIcons[action] || Zap;
+                              const ac = actionColors[action] || C.textDim;
+                              const prevColor = ai === 0 ? triggerColor : (actionColors[flow.actions[ai - 1]] || C.textDim);
+                              return (
+                                <React.Fragment key={ai}>
+                                  <div className="flex items-center gap-1 px-1 relative" style={{ height: 36 }}>
+                                    <div className="w-6 h-px" style={{ background: isActive ? `linear-gradient(to right, ${prevColor}, ${ac})` : C.border }} />
+                                    {isActive && (
+                                      <motion.div
+                                        className="absolute w-1.5 h-1.5 rounded-full"
+                                        style={{ background: ac, boxShadow: `0 0 6px ${ac}`, top: '50%', left: 0, marginTop: -3 }}
+                                        animate={{ left: ['0%', '100%'], opacity: [0, 1, 0] }}
+                                        transition={{ duration: 1.6, repeat: Infinity, delay: ai * 0.4, ease: 'linear' }}
+                                      />
+                                    )}
+                                    <ChevronRight size={12} style={{ color: ac, opacity: 0.5 }} />
+                                  </div>
+                                  <motion.div
+                                    whileHover={{ scale: 1.04 }}
+                                    className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                                    style={{
+                                      background: `linear-gradient(135deg, ${ac}15, ${ac}05)`,
+                                      border: `1px solid ${ac}40`,
+                                    }}>
+                                    <ActionIcon size={13} style={{ color: ac }} />
+                                    <span className="text-xs font-semibold" style={{ color: ac }}>
+                                      {actionLabels[action] || action}
+                                    </span>
+                                  </motion.div>
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+
+                          <div className="flex items-center justify-between mt-5 pt-4 flex-wrap gap-2"
+                            style={{ borderTop: `1px dashed ${C.border}` }}>
+                            <div className="flex items-center gap-2 text-[11px]" style={{ color: C.textDim }}>
+                              <ClockIcon size={11} />
+                              <span>Tetikleyici olay sistemde gerçekleştiğinde otomatik çalışır</span>
+                            </div>
+                            <button onClick={() => simulateFlow(flow)} disabled={!isActive}
+                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                              style={{
+                                background: isActive
+                                  ? `linear-gradient(135deg, ${triggerColor}, ${triggerColor}cc)`
+                                  : 'rgba(0,0,0,0.05)',
+                                color: isActive ? '#fff' : C.textDim,
+                                boxShadow: isActive ? `0 4px 14px ${triggerColor}45` : 'none',
+                                cursor: isActive ? 'pointer' : 'not-allowed',
+                                opacity: isActive ? 1 : 0.6,
+                              }}>
+                              <Play size={11} /> Simüle Et
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Alt bağlantı bandı */}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                className="mt-6 rounded-2xl p-4 flex items-center gap-3 flex-wrap"
+                style={{ background: 'rgba(168,85,247,0.04)', border: '1px solid rgba(168,85,247,0.2)' }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(168,85,247,0.12)' }}>
+                  <Sparkles size={16} style={{ color: '#A855F7' }} />
+                </div>
+                <div className="flex-1 min-w-[260px]">
+                  <p className="text-sm font-semibold" style={{ color: C.text }}>Akıştaki olaylar Dosya Durumu paneline yansır</p>
+                  <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
+                    Bir akış tetiklendiğinde, etkilenen dosya otomatik olarak yeni partiye geçer ve "Dosya Durumu" sekmesinde anlık olarak güncellenir.
+                  </p>
+                </div>
+                <button onClick={() => setSection('file_status')}
+                  className="text-xs font-semibold flex items-center gap-1 px-3 py-2 rounded-xl"
+                  style={{ background: 'rgba(168,85,247,0.12)', color: '#A855F7', border: '1px solid rgba(168,85,247,0.3)' }}>
+                  Dosya Durumu <ChevronRight size={11} />
+                </button>
+              </motion.div>
+            </>
+          );
+        })()}
+
+        {/* ═══ ESKİ Dosya Akış Motoru — kaldırıldı ═══ */}
+        {section === '__deprecated_file_flows_legacy__' && (() => {
+          const flows = db.file_flows || [];
+          const triggerLabels = { ekspertiz_tamamlandi: 'Ekspertiz Tamamlandı', sigorta_teklif: 'Sigorta Teklifi Geldi', sigorta_red: 'Sigorta Reddi' };
+          const actionLabels = { notify_customer: 'Müşteriye Bildir', send_to_insurance: 'Sigortaya İlet', notify_lawyer: 'Avukata Bildir', create_diff_report: 'Fark Raporu Oluştur', create_objection_draft: 'İtiraz Taslağı Oluştur' };
+          const actionColors = { notify_customer: '#34D399', send_to_insurance: C.cyan, notify_lawyer: '#F59E0B', create_diff_report: C.magenta, create_objection_draft: '#EF4444' };
+          const toggleFlow = (flowId) => {
+            const flow = (db.file_flows || []).find(f => f.id === flowId);
+            setDb(withLog(
+              prev => ({ ...prev, file_flows: (prev.file_flows || []).map(f => f.id === flowId ? { ...f, active: !f.active } : f) }),
+              makeLogEntry({
+                user, action: 'flow_toggle',
+                target: { kind: 'flow', id: flowId, label: flow?.label || flowId },
+                details: `İş akışı ${flow?.active ? 'durduruldu' : 'aktifleştirildi'}: ${flow?.label || flowId}`,
+                before: { active: flow?.active }, after: { active: !flow?.active },
+              })
+            ));
+          };
+          const simulateFlow = (flow) => {
+            const entries = flow.actions.map(action => makeLogEntry({
+              user, action: 'flow_exec',
+              target: { kind: 'flow', id: flow.id, label: flow.label },
+              details: `[AKIŞ] ${flow.label} → ${actionLabels[action] || action}`,
+              metadata: { sub_action: action },
+            }));
+            setDb(withLogs(prev => prev, entries));
+          };
           return (
             <>
               <AdminTopbar title="Dosya Akış Motoru" subtitle="Otomatik belge ve bildirim akışları" />
@@ -15453,7 +15745,6 @@ function AdminApp({ user, onLogout, onHome }) {
                   </GlassCard>
                 ))}
               </div>
-
               <div className="space-y-4">
                 {flows.map((flow, idx) => (
                   <motion.div key={flow.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
