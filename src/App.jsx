@@ -32,6 +32,9 @@ import CommunicationsPanel from './components/CommunicationsPanel.jsx';
 import TerminPlanlayici from './components/TerminPlanlayici.jsx';
 import CustomerBookingFlow from './components/CustomerBookingFlow.jsx';
 import PhotoEditor from './components/PhotoEditor.jsx';
+import CaseStatusBoard from './components/CaseStatusBoard.jsx';
+import CaseStatusWidget from './components/CaseStatusWidget.jsx';
+import CaseTimeline from './components/CaseTimeline.jsx';
 import { parseRuhsatMock, getRuhsatGroups } from './utils/ruhsatParser.js';
 import { parseRuhsatWithClaude } from './utils/ruhsatOcrClient.js';
 import { useLang } from './i18n/LangContext.jsx';
@@ -1931,6 +1934,28 @@ const DOC_CATEGORIES = [
 
 const DOC_GROUPS = [...new Set(DOC_CATEGORIES.map(c => c.group))];
 
+// Sağdaki rozet için her gruba kısa, görsel etiket. Belge satırında "ne türden bir
+// belge olduğunu" tek bakışta gösterir (Ruhsat, Mail, Rechnung, Gutachten…).
+const DOC_BADGE_BY_GROUP = {
+  'Fahrzeug':      { label: 'Ruhsat',       color: '#06B6D4' },
+  'Kommunikation': { label: 'Mail',         color: '#0EA5E9' },
+  'Gutachten':     { label: 'Gutachten',    color: '#E30613' },
+  'Rechnung':      { label: 'Rechnung',     color: '#F59E0B' },
+  'Versicherung':  { label: 'Versicherung', color: '#10B981' },
+  'Vertrag':       { label: 'Vertrag',      color: '#34D399' },
+  'Prüfung':       { label: 'Prüfung',      color: '#B0050F' },
+  'Reparatur':     { label: 'Reparatur',    color: '#06B6D4' },
+  'Abrechnung':    { label: 'Abrechnung',   color: '#E30613' },
+  'Kosten':        { label: 'Kosten',       color: '#F59E0B' },
+  'Dokument':      { label: 'Dokument',     color: '#7A0309' },
+  'Medizinisch':   { label: 'Medizin',      color: '#EF4444' },
+  'Genel':         { label: 'Sonstiges',    color: '#8B8B8B' },
+};
+function getDocBadge(doc, isAx, dtInfo) {
+  if (isAx) return { label: 'AutoiXpert', color: '#3B82F6' };
+  return DOC_BADGE_BY_GROUP[dtInfo?.group] || { label: dtInfo?.label || 'Belge', color: dtInfo?.color || '#8B8B8B' };
+}
+
 function seedDB() {
   return {
     customers: [
@@ -2927,6 +2952,7 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
     { key: 'partners',     label: 'Avukatlar & Sigorta', icon: ScaleIcon },
     { key: 'gallery',      label: 'Galeri',              icon: CameraIcon },
     { key: 'reminders',    label: 'Hatırlatmalar',       icon: BellIcon },
+    { key: 'file_status',   label: 'Dosya Durumu',        icon: ActivityIcon },
     { key: 'file_flows',    label: 'Dosya Akış Motoru',   icon: Zap },
     { key: 'whatsapp_tpl', label: 'WhatsApp Şablonları', icon: MessageIcon },
     { key: 'communications', label: 'İletişim & Davet',  icon: MailIcon },
@@ -3516,6 +3542,18 @@ function AdminHome({ db, setSection }) {
           title="Yaklaşan Sigorta Tarihleri"
           subtitle="Poliçe bitiş tarihleri ve sigorta yenileme"
           onSeeAll={go('tuv')}
+        />
+      </motion.div>
+
+      {/* ── 6.5. Dosya Durumu — kritik dosyalar widget'ı ── */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.42 }}
+        className="mb-6">
+        <CaseStatusWidget
+          db={db}
+          mode="critical"
+          limit={6}
+          onSeeAll={go('file_status')}
         />
       </motion.div>
 
@@ -8946,14 +8984,31 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                           </div>
                           {/* Actions */}
                           <div className="flex items-center gap-1">
-                            {!isAx && isRuhsatDoc(doc.type) && (
-                              <button onClick={(e) => { e.stopPropagation(); setRuhsatPanelDoc(doc); }}
-                                className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-[11px] font-medium hover:bg-black/5 transition"
-                                title="Ruhsat Detayı"
-                                style={{ color: C.cyan, border: `1px solid ${C.cyan}44`, background: `${C.cyan}10` }}>
-                                <FileText size={12} /> Ruhsat
-                              </button>
-                            )}
+                            {/* Belge tipi rozeti — her belge için sağda görünür */}
+                            {(() => {
+                              const badge = getDocBadge(doc, isAx, dtInfo);
+                              const isClickable = isAx || isRuhsatDoc(doc.type);
+                              const onBadgeClick = (e) => {
+                                if (!isClickable) return;
+                                e.stopPropagation();
+                                if (isAx) openAxDoc(doc);
+                                else if (isRuhsatDoc(doc.type)) setRuhsatPanelDoc(doc);
+                              };
+                              const Tag = isClickable ? 'button' : 'span';
+                              return (
+                                <Tag
+                                  onClick={isClickable ? onBadgeClick : undefined}
+                                  title={isAx ? 'AutoiXpert raporunu aç' : isRuhsatDoc(doc.type) ? 'Ruhsat Detayı' : badge.label}
+                                  className={`h-8 px-3 rounded-lg inline-flex items-center gap-1.5 text-[11px] font-semibold ${isClickable ? 'hover:bg-black/5 transition cursor-pointer' : ''}`}
+                                  style={{
+                                    color: badge.color,
+                                    background: `${badge.color}10`,
+                                    border: `1px solid ${badge.color}44`,
+                                  }}>
+                                  <FileText size={12} /> {badge.label}
+                                </Tag>
+                              );
+                            })()}
                             <button onClick={(e) => { e.stopPropagation(); isAx ? openAxDoc(doc) : setPreviewDoc(doc); }}
                               className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 transition"
                               title="Görüntüle" style={{ color: C.neon }}>
@@ -13271,6 +13326,7 @@ function LawyerApp({ user, onLogout, onHome }) {
   const [caseOpen, setCaseOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [casesSubTab, setCasesSubTab] = useState('list'); // 'list' | 'status'
   const isMobile = useIsMobile();
   const fileRef = useRef(null);
 
@@ -13925,7 +13981,34 @@ function LawyerApp({ user, onLogout, onHome }) {
           <>
             <AdminTopbar title="Dava Dosyaları" subtitle={`${myCases.length} dosya`}
               action={<AdminButton variant="primary" onClick={() => setCaseOpen(true)}><FolderIcon size={14} /> Yeni Dava</AdminButton>} />
-            {myCases.length === 0 ? (
+
+            {/* Liste | Durum sekmeleri */}
+            <div className="flex gap-1 mb-4 p-1 rounded-xl w-fit"
+              style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
+              {[
+                { k: 'list', label: 'Liste' },
+                { k: 'status', label: 'Dosya Durumu' },
+              ].map((t) => (
+                <button key={t.k} onClick={() => setCasesSubTab(t.k)}
+                  className="px-4 py-1.5 rounded-lg text-xs font-medium transition"
+                  style={{
+                    background: casesSubTab === t.k ? '#FFFFFF' : 'transparent',
+                    color: casesSubTab === t.k ? C.text : C.textDim,
+                    boxShadow: casesSubTab === t.k ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                  }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {casesSubTab === 'status' ? (
+              <CaseStatusBoard
+                db={db}
+                setDb={setDb}
+                currentUser={{ id: user.lawyer_id }}
+                viewMode="lawyer"
+              />
+            ) : myCases.length === 0 ? (
               <GlassCard className="text-center py-16">
                 <FolderIcon size={40} style={{ color: C.textDim, margin: '0 auto 12px' }} />
                 <p className="text-lg font-medium mb-1" style={{ color: C.text }}>Dava dosyası yok</p>
@@ -15257,7 +15340,7 @@ function AdminApp({ user, onLogout, onHome }) {
     home: 'Übersicht', live: 'Live-Dashboard', bireysel: 'Privatkunden', kurumsal: 'Geschäftskunden',
     appointments: 'Terminplaner', appraisals: 'Gutachten-Infos', tuv: 'HU/AU-Tracking', invoices: 'Rechnungen',
     partners: 'Anwälte & Versicherungen', gallery: 'Galerie', reminders: 'Erinnerungen',
-    file_flows: 'Dateifluss-Engine', whatsapp_tpl: 'WhatsApp-Vorlagen',
+    file_status: 'Dosya Durumu', file_flows: 'Dateifluss-Engine', whatsapp_tpl: 'WhatsApp-Vorlagen',
     activity_logs: 'Aktivitätsprotokolle', settings: 'Einstellungen',
     autoixpert: 'AutoiXpert Spiegel',
     report_create: 'Rapor Oluştur',
@@ -15275,6 +15358,7 @@ function AdminApp({ user, onLogout, onHome }) {
     { key: 'partners',      label: 'Anwälte & Versicherungen', icon: ScaleIcon },
     { key: 'gallery',       label: 'Galerie',             icon: CameraIcon },
     { key: 'reminders',     label: 'Erinnerungen',       icon: BellIcon, badge: reminderCount },
+    { key: 'file_status',   label: 'Dosya Durumu',        icon: ActivityIcon },
     { key: 'file_flows',    label: 'Dateifluss-Engine',   icon: Zap },
     { key: 'whatsapp_tpl',  label: 'WhatsApp-Vorlagen',  icon: MessageIcon },
     { key: 'communications', label: 'Kommunikation',     icon: MailIcon },
@@ -15309,6 +15393,18 @@ function AdminApp({ user, onLogout, onHome }) {
 
 
         {/* Activity Logs */}
+
+        {/* ═══ Dosya Durum Paneli ═══ */}
+        {section === 'file_status' && (
+          <CaseStatusBoard
+            db={db}
+            setDb={setDb}
+            currentUser={user}
+            viewMode="admin"
+            onSeeFlowEngine={() => setSection('file_flows')}
+          />
+        )}
+
         {/* ═══ Dosya Akış Motoru ═══ */}
         {section === 'file_flows' && (() => {
           const flows = db.file_flows || [];
@@ -15693,6 +15789,33 @@ function CustomerApp({ user, onLogout, onHome }) {
                 </motion.div>
               );
             })()}
+
+            {/* Dosyalarım — şu an kimde? */}
+            {myAppraisals.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+                className="mb-8">
+                <CaseStatusWidget
+                  db={{
+                    appraisals: myAppraisals,
+                    vehicles: myVehicles,
+                    customers: [myRecord],
+                    insurance_claims: (db.insurance_claims || []).filter((c) => c.customer_id === myRecord.id),
+                    insurance_offers: db.insurance_offers || [],
+                    insurance_assignments: (db.insurance_assignments || []).filter((a) => a.customer_id === myRecord.id),
+                    insurers: db.insurers || [],
+                    lawyer_assignments: (db.lawyer_assignments || []).filter((a) => a.customer_id === myRecord.id),
+                    lawyers: db.lawyers || [],
+                    activity_logs: db.activity_logs || [],
+                  }}
+                  mode="mine"
+                  title="Dosyalarım"
+                  subtitle={`${myAppraisals.length} aktif dosya · şu an kimde, hangi adımda?`}
+                  limit={5}
+                  onSeeAll={() => setSection('timeline')}
+                  onItemClick={() => setSection('timeline')}
+                />
+              </motion.div>
+            )}
 
             {/* Active Vehicle Cards with Progress */}
             {myVehicles.length > 0 && (
@@ -16872,69 +16995,26 @@ function CustomerApp({ user, onLogout, onHome }) {
           );
         }}</Iife>}
 
-        {/* ═══ Hasar Geçmişi Timeline ═══ */}
+        {/* ═══ Dosya Durumu (Hasar Geçmişi) — yeni CaseStatusBoard ═══ */}
         {section === 'timeline' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-semibold" style={{ color: C.text }}>Hasar Geçmişi</h2>
-                <p className="text-sm mt-1" style={{ color: C.textDim }}>Tüm süreç adımları kronolojik sırada</p>
-              </div>
-            </div>
-            {myTimeline.length > 0 ? (
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute left-6 top-0 bottom-0 w-px" style={{ background: `linear-gradient(to bottom, ${C.neon}44, ${C.border}, transparent)` }} />
-                <div className="space-y-4">
-                  {myTimeline.map((event, idx) => {
-                    const vehicle = db.vehicles.find(v => v.id === event.vehicle_id);
-                    const eventConfig = {
-                      hasar_bildirimi: { icon: AlertTriangle, color: '#EF4444', label: 'Hasar Bildirimi' },
-                      ekspertiz_basladi: { icon: Wrench, color: C.neon, label: 'Ekspertiz Başladı' },
-                      ekspertiz_tamamlandi: { icon: Check, color: '#34D399', label: 'Ekspertiz Tamamlandı' },
-                      sigorta_bildirim: { icon: ShieldIcon, color: C.cyan, label: 'Sigorta Bildirimi' },
-                      teklif_alindi: { icon: Receipt, color: '#F59E0B', label: 'Teklif Alındı' },
-                      teklif_onaylandi: { icon: CheckSquare, color: '#34D399', label: 'Teklif Onaylandı' },
-                      teklif_reddedildi: { icon: XClose, color: '#EF4444', label: 'Teklif Reddedildi' },
-                      avukat_atandi: { icon: Users, color: C.magenta, label: 'Avukat Atandı' },
-                      mahkeme_tarihi: { icon: CalendarIcon, color: '#F97316', label: 'Mahkeme Tarihi' },
-                    };
-                    const cfg = eventConfig[event.event] || { icon: ClockIcon, color: C.textDim, label: event.event };
-                    const Icon = cfg.icon;
-                    return (
-                      <motion.div key={event.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: idx * 0.08 }} className="relative pl-14">
-                        <div className="absolute left-3.5 w-5 h-5 rounded-full flex items-center justify-center z-10"
-                          style={{ background: `${cfg.color}20`, border: `2px solid ${cfg.color}`, boxShadow: `0 0 10px ${cfg.color}33` }}>
-                          <Icon size={10} style={{ color: cfg.color }} />
-                        </div>
-                        <GlassCard padding="p-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="text-sm font-medium flex items-center gap-2" style={{ color: C.text }}>
-                                {cfg.label}
-                                {vehicle && <span className="text-[10px] font-mono px-2 py-0.5 rounded-full" style={{ background: 'rgba(0,0,0,0.05)', color: C.cyan, border: `1px solid ${C.border}` }}>{vehicle.plate}</span>}
-                              </p>
-                              <p className="text-sm mt-1" style={{ color: C.textDim }}>{event.description}</p>
-                            </div>
-                            <div className="text-right flex-shrink-0 ml-4">
-                              <p className="text-xs font-mono" style={{ color: C.textDim }}>{event.date}</p>
-                              <p className="text-[10px] capitalize mt-0.5" style={{ color: cfg.color }}>{event.actor === 'customer' ? 'Siz' : event.actor === 'admin' ? 'Gecit Kfz Sachverständiger' : event.actor === 'insurance' ? 'Sigorta' : event.actor === 'lawyer' ? 'Avukat' : 'Sistem'}</p>
-                            </div>
-                          </div>
-                        </GlassCard>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <GlassCard className="text-center py-16">
-                <ClockIcon size={40} style={{ color: C.textDim, margin: '0 auto 12px' }} />
-                <p className="text-lg font-medium mb-1" style={{ color: C.text }}>Geçmiş bulunmuyor</p>
-                <p style={{ color: C.textDim }} className="text-sm">Hasar bildirimi yaptığınızda süreç adımları burada görünecek.</p>
-              </GlassCard>
-            )}
+            <CaseStatusBoard
+              db={{
+                appraisals: myAppraisals,
+                vehicles: myVehicles,
+                customers: [myRecord],
+                insurance_claims: (db.insurance_claims || []).filter((c) => c.customer_id === myRecord.id),
+                insurance_offers: db.insurance_offers || [],
+                insurance_assignments: (db.insurance_assignments || []).filter((a) => a.customer_id === myRecord.id),
+                insurers: db.insurers || [],
+                lawyer_assignments: (db.lawyer_assignments || []).filter((a) => a.customer_id === myRecord.id),
+                lawyers: db.lawyers || [],
+                activity_logs: db.activity_logs || [],
+              }}
+              setDb={setDb}
+              currentUser={{ id: myRecord.id }}
+              viewMode="customer"
+            />
           </motion.div>
         )}
 
