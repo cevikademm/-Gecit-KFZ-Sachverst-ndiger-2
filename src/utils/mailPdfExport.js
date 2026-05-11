@@ -1,29 +1,25 @@
-// Mail içeriğini PDF'e döker. Arka planda Gecit logo'sunu hologram watermark olarak yerleştirir.
-// CommunicationsPanel mail attıktan sonra çağırır → blob → File → uploadCustomerDocument → customer_documents.
+// Mail içeriğini profesyonel bir A4 mektup formatında PDF'e döker.
+// Yöntem: HTML şablon → html2canvas → jsPDF. Bu yaklaşımın avantajları:
+//   - Türkçe karakterler (Sayın, hazır, ı/ş/ğ/ç/ö/ü) doğal browser font'larıyla render edilir
+//   - CSS ile profesyonel mektup tasarımı (kırmızı şerit, header, watermark logo)
+//   - Çoklu sayfa otomatik bölünür
+//
+// Logo: public/logo-gecit.png (büyüteç + G-Class + GECIT-KFZ Sachverständigenbüro)
 
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
-const LOGO_URL = '/logo-master.png';
-const BRAND = {
-  red: '#E30613',
-  redDark: '#B0050F',
-  ink: '#0B0B0F',
-  inkDim: '#4B4B55',
-  inkSoft: '#8B8B93',
-  rule: '#E5E5EA',
-  bg: '#FAFAFA',
-};
+const LOGO_URL = '/logo-gecit.png';
 
-// Logo'yu bir kez fetch edip cache'le (her mail için yeniden yüklememek için).
 let _logoDataCache = null;
 async function getLogoDataUrl() {
-  if (_logoDataCache !== undefined) return _logoDataCache;
+  if (_logoDataCache !== undefined && _logoDataCache !== null) return _logoDataCache;
   try {
     const res = await fetch(LOGO_URL);
     if (!res.ok) { _logoDataCache = null; return null; }
     const blob = await res.blob();
-    const reader = new FileReader();
     _logoDataCache = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(blob);
@@ -36,55 +32,13 @@ async function getLogoDataUrl() {
   }
 }
 
-// Tek bir watermark logo'yu sayfanın ortasına %12 opacity ile basar.
-// jsPDF'in GState opacity API'sini kullanır.
-function applyHologramWatermark(doc, logoDataUrl) {
-  if (!logoDataUrl) return;
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-
-  // GState ile opacity ayarla (jsPDF 2.x)
-  try {
-    const gs = new doc.GState({ opacity: 0.07 });
-    doc.setGState(gs);
-  } catch (e) {
-    // GState yoksa fade gradient simülasyonu olmaz, sessizce devam et
-  }
-
-  // Ortalanmış, büyük logo — sayfa yüksekliğinin %50'si kadar
-  const logoH = pageH * 0.5;
-  const logoW = logoH; // kare varsayım; logo aslında dikey-yatay ratio'sunu kendi koruyacak
-  const x = (pageW - logoW) / 2;
-  const y = (pageH - logoH) / 2;
-  try {
-    doc.addImage(logoDataUrl, 'PNG', x, y, logoW, logoH, undefined, 'FAST');
-  } catch (e) {
-    // PNG decode hatası — sessizce atla
-  }
-
-  // Opacity'yi normale döndür
-  try {
-    const gsBack = new doc.GState({ opacity: 1 });
-    doc.setGState(gsBack);
-  } catch (e) {}
-}
-
-function hexToRgb(hex) {
-  const m = hex.replace('#', '');
-  return [parseInt(m.slice(0, 2), 16), parseInt(m.slice(2, 4), 16), parseInt(m.slice(4, 6), 16)];
-}
-
-function setFill(doc, hex) {
-  const [r, g, b] = hexToRgb(hex);
-  doc.setFillColor(r, g, b);
-}
-function setText(doc, hex) {
-  const [r, g, b] = hexToRgb(hex);
-  doc.setTextColor(r, g, b);
-}
-function setDraw(doc, hex) {
-  const [r, g, b] = hexToRgb(hex);
-  doc.setDrawColor(r, g, b);
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function slugify(s) {
@@ -96,21 +50,158 @@ function slugify(s) {
     .slice(0, 60) || 'mail';
 }
 
+// HTML mektup şablonu — A4 portrait (794×1123 px @ 96 DPI)
+function buildMailHtml({ subject, body, recipientName, recipientEmail, cc, bcc, ctaLabel, ctaUrl, senderName, senderEmail, sentAt, logoDataUrl }) {
+  const dateStr = sentAt.toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+  const timeStr = sentAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+  const ccBlock = (cc && cc.length)
+    ? `<div style="font-size:11px;color:#6B6B73;margin-top:4px;"><span style="color:#9494A0;font-weight:600;">CC:</span> ${escapeHtml(cc.join(', '))}</div>`
+    : '';
+  const bccBlock = (bcc && bcc.length)
+    ? `<div style="font-size:11px;color:#6B6B73;margin-top:2px;"><span style="color:#9494A0;font-weight:600;">BCC:</span> ${escapeHtml(bcc.join(', '))}</div>`
+    : '';
+
+  const ctaBlock = (ctaLabel && ctaUrl) ? `
+    <div style="margin: 28px 0 8px 0;">
+      <div style="display:inline-block;background:linear-gradient(135deg,#E30613,#B0050F);
+                  color:#FFFFFF;padding:14px 28px;border-radius:8px;
+                  font-size:13px;font-weight:600;letter-spacing:0.01em;
+                  box-shadow:0 4px 12px rgba(227,6,19,0.25);">
+        ${escapeHtml(ctaLabel)}
+      </div>
+      <div style="font-size:10px;color:#9494A0;margin-top:8px;font-family:'Courier New',monospace;">
+        ${escapeHtml(ctaUrl)}
+      </div>
+    </div>` : '';
+
+  const watermark = logoDataUrl ? `
+    <img src="${logoDataUrl}" alt=""
+      style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+             width:520px;opacity:0.05;pointer-events:none;user-select:none;z-index:0;" />` : '';
+
+  const headerLogo = logoDataUrl ? `
+    <img src="${logoDataUrl}" alt="Gecit KFZ"
+      style="height:56px;width:auto;flex-shrink:0;" />` : '';
+
+  // Body'yi paragraflara böl ve HTML olarak yaz
+  const bodyHtml = escapeHtml(body || '')
+    .split(/\n\s*\n/)
+    .map(p => `<p style="margin:0 0 14px 0;line-height:1.65;">${p.replace(/\n/g, '<br/>')}</p>`)
+    .join('');
+
+  return `
+<div id="gecit-mail-pdf" style="
+  width: 794px;
+  min-height: 1123px;
+  background: #FFFFFF;
+  font-family: 'Helvetica Neue', Helvetica, Arial, 'Segoe UI', sans-serif;
+  color: #0B0B0F;
+  position: relative;
+  box-sizing: border-box;
+  padding: 70px 70px 110px 70px;
+  overflow: hidden;
+">
+  <!-- Üst kırmızı şerit -->
+  <div style="position:absolute;top:0;left:0;right:0;height:6px;
+              background:linear-gradient(90deg,#E30613 0%,#B0050F 50%,#7A0309 100%);"></div>
+
+  <!-- Watermark logo (arka plan) -->
+  ${watermark}
+
+  <!-- Tüm içerik watermark'ın üstünde olsun diye z-index'li wrapper -->
+  <div style="position:relative;z-index:1;">
+
+    <!-- HEADER: logo + sender + tarih -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;
+                gap:24px;padding-bottom:24px;margin-bottom:32px;
+                border-bottom:1px solid #E5E5EA;">
+      <div style="display:flex;align-items:center;gap:18px;min-width:0;">
+        ${headerLogo}
+        <div>
+          <div style="font-size:17px;font-weight:700;color:#0B0B0F;letter-spacing:-0.01em;line-height:1.2;">
+            ${escapeHtml(senderName)}
+          </div>
+          <div style="font-size:11px;color:#6B6B73;margin-top:6px;line-height:1.5;">
+            Lützowstraße 102-104 · 10785 Berlin
+          </div>
+          <div style="font-size:11px;color:#6B6B73;line-height:1.5;">
+            ${escapeHtml(senderEmail)} · www.kfzgutachter.ac
+          </div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:9px;color:#9494A0;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;">
+          Datum
+        </div>
+        <div style="font-size:14px;font-weight:700;color:#0B0B0F;margin-top:4px;">
+          ${escapeHtml(dateStr)}
+        </div>
+        <div style="font-size:10px;color:#9494A0;margin-top:2px;font-family:'Courier New',monospace;">
+          ${escapeHtml(timeStr)} Uhr
+        </div>
+        <div style="font-size:9px;color:#E30613;margin-top:8px;letter-spacing:0.15em;text-transform:uppercase;font-weight:600;">
+          E-Mail-Korrespondenz
+        </div>
+      </div>
+    </div>
+
+    <!-- ALICI -->
+    <div style="margin-bottom:24px;">
+      <div style="font-size:9px;color:#9494A0;letter-spacing:0.22em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">
+        An / Empfänger
+      </div>
+      <div style="font-size:14px;font-weight:600;color:#0B0B0F;">
+        ${escapeHtml(recipientName || '—')}
+      </div>
+      <div style="font-size:12px;color:#4B4B55;margin-top:2px;font-family:'Courier New',monospace;">
+        ${escapeHtml(recipientEmail || '—')}
+      </div>
+      ${ccBlock}
+      ${bccBlock}
+    </div>
+
+    <!-- KONU -->
+    <div style="margin-bottom:18px;padding:18px 20px;
+                background:linear-gradient(135deg,rgba(227,6,19,0.04),rgba(227,6,19,0.01));
+                border-left:3px solid #E30613;border-radius:0 8px 8px 0;">
+      <div style="font-size:9px;color:#9494A0;letter-spacing:0.22em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">
+        Betreff
+      </div>
+      <div style="font-size:17px;font-weight:700;color:#0B0B0F;line-height:1.35;letter-spacing:-0.01em;">
+        ${escapeHtml(subject || '(kein Betreff)')}
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div style="font-size:12.5px;color:#0B0B0F;margin-top:26px;">
+      ${bodyHtml}
+    </div>
+
+    ${ctaBlock}
+  </div>
+
+  <!-- FOOTER (mutlak konum, her sayfanın altında) -->
+  <div style="position:absolute;left:70px;right:70px;bottom:40px;
+              padding-top:14px;border-top:1px solid #E5E5EA;
+              display:flex;justify-content:space-between;align-items:center;
+              font-size:9px;color:#9494A0;line-height:1.5;">
+    <div>
+      <div style="font-weight:600;color:#6B6B73;">Gecit KFZ Sachverständigenbüro</div>
+      <div>Lützowstraße 102-104 · 10785 Berlin · info@kfzgutachter.ac</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-weight:600;color:#E30613;letter-spacing:0.05em;">kfzgutachter.ac</div>
+      <div style="font-size:8px;color:#9494A0;">Vertraulich · Nur für den genannten Empfänger</div>
+    </div>
+  </div>
+</div>
+  `;
+}
+
 /**
  * Mail içeriğinden PDF blob üretir.
  *
- * @param {object} mail
- * @param {string} mail.subject
- * @param {string} mail.body           — plain text (multi-line)
- * @param {string} mail.recipientName  — alıcı adı
- * @param {string} mail.recipientEmail — alıcı email
- * @param {string[]} [mail.cc]
- * @param {string[]} [mail.bcc]
- * @param {string} [mail.ctaLabel]
- * @param {string} [mail.ctaUrl]
- * @param {string} [mail.senderName]   — varsayılan: "Gecit KFZ Sachverständigenbüro"
- * @param {string} [mail.senderEmail]  — varsayılan: "info@kfzgutachter.ac"
- * @param {Date}   [mail.sentAt]       — varsayılan: now
  * @returns {Promise<{ blob: Blob, fileName: string }>}
  */
 export async function generateMailPdf(mail) {
@@ -128,165 +219,78 @@ export async function generateMailPdf(mail) {
     sentAt = new Date(),
   } = mail || {};
 
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const margin = 56;
-  const contentW = pageW - margin * 2;
+  const logoDataUrl = await getLogoDataUrl();
 
-  const logoData = await getLogoDataUrl();
+  // 1) Off-screen container oluştur
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '-10000px';
+  container.style.top = '0';
+  container.style.zIndex = '-1';
+  container.style.background = '#FFFFFF';
+  container.innerHTML = buildMailHtml({
+    subject, body, recipientName, recipientEmail, cc, bcc,
+    ctaLabel, ctaUrl, senderName, senderEmail, sentAt, logoDataUrl,
+  });
+  document.body.appendChild(container);
 
-  // ─── Watermark (her sayfada arka plan) ──
-  applyHologramWatermark(doc, logoData);
+  try {
+    const el = container.querySelector('#gecit-mail-pdf');
 
-  // ─── Üst şerit (brand renk) ──
-  setFill(doc, BRAND.red);
-  doc.rect(0, 0, pageW, 6, 'F');
+    // 2) Görselleri yüklemesini bekle (html2canvas inline image'ları okuyacak)
+    const imgs = Array.from(el.querySelectorAll('img'));
+    await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => {
+      img.onload = res; img.onerror = res;
+    })));
 
-  // ─── Header: logo + gönderen ──
-  let y = margin;
-  if (logoData) {
-    try {
-      doc.addImage(logoData, 'PNG', margin, y - 6, 38, 38, undefined, 'FAST');
-    } catch (e) {}
-  }
-  setText(doc, BRAND.ink);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.text(senderName, margin + 48, y + 8);
-  setText(doc, BRAND.inkDim);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text('Lützowstraße 102-104 · 10785 Berlin · ' + senderEmail, margin + 48, y + 22);
+    // 3) html2canvas ile render et — yüksek çözünürlük için scale=2
+    const canvas = await html2canvas(el, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#FFFFFF',
+      logging: false,
+      windowWidth: 794,
+    });
 
-  // Tarih (sağ üst)
-  setText(doc, BRAND.inkDim);
-  doc.setFontSize(9);
-  const dateStr = sentAt.toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
-  const timeStr = sentAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  doc.text(`${dateStr}  ·  ${timeStr}`, pageW - margin, y + 8, { align: 'right' });
-  setText(doc, BRAND.inkSoft);
-  doc.text('E-Mail-Korrespondenz', pageW - margin, y + 22, { align: 'right' });
+    // 4) jsPDF A4 — canvas'ı sayfa sayfa kes ve ekle
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
+    const a4w = pdf.internal.pageSize.getWidth();   // 595.28pt
+    const a4h = pdf.internal.pageSize.getHeight();  // 841.89pt
 
-  y += 50;
-  // Ayraç
-  setDraw(doc, BRAND.rule);
-  doc.setLineWidth(0.5);
-  doc.line(margin, y, pageW - margin, y);
-  y += 22;
+    const canvasW = canvas.width;
+    const canvasH = canvas.height;
+    // Canvas'ı A4 genişliğine ölçekle
+    const ratio = a4w / canvasW;
+    const fullHeightPt = canvasH * ratio;
 
-  // ─── Alıcı bloğu ──
-  setText(doc, BRAND.inkSoft);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text('EMPFÄNGER', margin, y);
-  y += 14;
-  setText(doc, BRAND.ink);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  if (recipientName) {
-    doc.text(recipientName, margin, y);
-    y += 14;
-  }
-  setText(doc, BRAND.inkDim);
-  doc.setFontSize(10);
-  doc.text(recipientEmail || '—', margin, y);
-  y += 12;
+    if (fullHeightPt <= a4h) {
+      // Tek sayfa
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      pdf.addImage(imgData, 'JPEG', 0, 0, a4w, fullHeightPt, undefined, 'FAST');
+    } else {
+      // Çoklu sayfa — canvas'ı A4 yüksekliği bazında kes
+      const pageCanvasH = Math.floor(a4h / ratio); // px cinsinden bir A4'ün karşılığı
+      const pageCount = Math.ceil(canvasH / pageCanvasH);
 
-  if (cc && cc.length) {
-    setText(doc, BRAND.inkSoft);
-    doc.setFontSize(8);
-    doc.text('CC: ' + cc.join(', '), margin, y);
-    y += 11;
-  }
-  if (bcc && bcc.length) {
-    setText(doc, BRAND.inkSoft);
-    doc.setFontSize(8);
-    doc.text('BCC: ' + bcc.join(', '), margin, y);
-    y += 11;
-  }
-
-  y += 14;
-
-  // ─── Konu ──
-  setText(doc, BRAND.inkSoft);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text('BETREFF', margin, y);
-  y += 14;
-  setText(doc, BRAND.ink);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  const subjectLines = doc.splitTextToSize(subject || '(kein Betreff)', contentW);
-  doc.text(subjectLines, margin, y);
-  y += subjectLines.length * 17 + 10;
-
-  // Ayraç
-  setDraw(doc, BRAND.rule);
-  doc.line(margin, y, pageW - margin, y);
-  y += 22;
-
-  // ─── Body ──
-  setText(doc, BRAND.ink);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  const lineHeight = 16;
-  const bodyLines = doc.splitTextToSize(body || '', contentW);
-
-  const ensureSpace = (need) => {
-    if (y + need > pageH - margin - 40) {
-      doc.addPage();
-      applyHologramWatermark(doc, logoData);
-      // Yeni sayfada üst şerit
-      setFill(doc, BRAND.red);
-      doc.rect(0, 0, pageW, 6, 'F');
-      y = margin;
+      for (let i = 0; i < pageCount; i++) {
+        if (i > 0) pdf.addPage();
+        const slice = document.createElement('canvas');
+        slice.width = canvasW;
+        slice.height = Math.min(pageCanvasH, canvasH - i * pageCanvasH);
+        const ctx = slice.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, slice.width, slice.height);
+        ctx.drawImage(canvas, 0, -i * pageCanvasH);
+        const sliceData = slice.toDataURL('image/jpeg', 0.92);
+        const sliceHeightPt = slice.height * ratio;
+        pdf.addImage(sliceData, 'JPEG', 0, 0, a4w, sliceHeightPt, undefined, 'FAST');
+      }
     }
-  };
 
-  for (const line of bodyLines) {
-    ensureSpace(lineHeight);
-    doc.text(line, margin, y);
-    y += lineHeight;
+    const blob = pdf.output('blob');
+    const fileName = `Mail_${sentAt.toISOString().slice(0,10)}_${slugify(subject)}.pdf`;
+    return { blob, fileName };
+  } finally {
+    container.remove();
   }
-
-  // ─── CTA kutusu ──
-  if (ctaLabel && ctaUrl) {
-    y += 14;
-    ensureSpace(54);
-    setFill(doc, BRAND.red);
-    doc.roundedRect(margin, y, 240, 40, 6, 6, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    setText(doc, '#FFFFFF');
-    doc.text(ctaLabel, margin + 120, y + 25, { align: 'center' });
-    y += 50;
-
-    setText(doc, BRAND.inkSoft);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text('Link: ' + ctaUrl, margin, y);
-    y += 12;
-  }
-
-  // ─── Footer (her sayfada) ──
-  const pageCount = doc.internal.getNumberOfPages();
-  for (let p = 1; p <= pageCount; p++) {
-    doc.setPage(p);
-    setDraw(doc, BRAND.rule);
-    doc.setLineWidth(0.5);
-    doc.line(margin, pageH - margin - 22, pageW - margin, pageH - margin - 22);
-
-    setText(doc, BRAND.inkSoft);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text('Gecit KFZ Sachverständigenbüro · Lützowstraße 102-104, 10785 Berlin · info@kfzgutachter.ac · www.kfzgutachter.ac',
-      margin, pageH - margin - 8);
-    doc.text(`Seite ${p} / ${pageCount}`, pageW - margin, pageH - margin - 8, { align: 'right' });
-  }
-
-  // Blob üret
-  const blob = doc.output('blob');
-  const fileName = `Mail_${dateStr.replace(/\s/g, '')}_${slugify(subject)}.pdf`;
-  return { blob, fileName };
 }
