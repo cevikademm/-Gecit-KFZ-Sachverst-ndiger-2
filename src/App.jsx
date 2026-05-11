@@ -24,6 +24,7 @@ import {
 import Landing from './pages/Landing.jsx';
 import { GecitKfzModal } from './components/Modal.jsx';
 import { RuhsatPanel } from './components/RuhsatPanel.jsx';
+import { DottedSurface } from './components/DottedSurface.jsx';
 import AdminAutoiXpert from './components/AdminAutoiXpert.jsx';
 import GutachtenWorkbench from './components/GutachtenWorkbench.jsx';
 import AdminReportCreate from './components/AdminReportCreate.jsx';
@@ -296,12 +297,20 @@ function LoginDrawer({ open, onClose, onLogin }) {
     <AnimatePresence>
       {open && (
         <>
+          {/* Three.js animasyonlu dalgalı nokta yüzeyi — login arka planı */}
+          <motion.div key="dotted-surface-wrap"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="fixed inset-0"
+            style={{ zIndex: 58, pointerEvents: 'none' }}>
+            <DottedSurface theme="dark" />
+          </motion.div>
           <motion.div key="backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
             onClick={onClose}
             className="fixed inset-0"
-            style={{ zIndex: 60, background: 'rgba(7,6,11,0.65)', backdropFilter: 'blur(6px)' }} />
+            style={{ zIndex: 60, background: 'rgba(7,6,11,0.45)', backdropFilter: 'blur(2px)' }} />
           <motion.aside key="drawer"
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 280, damping: 32 }}
@@ -1890,6 +1899,7 @@ const DOC_CATEGORIES = [
   { key: 'honorarvereinbarung',            label: 'Honorarvereinbarung (Gutachten)',      group: 'Gutachten',   color: '#E30613' },
   { key: 'hu_bericht',                     label: 'HU Bericht',                          group: 'Prüfung',    color: '#B0050F' },
   { key: 'kaufvertrag',                    label: 'Kaufvertrag',                         group: 'Vertrag',     color: '#34D399' },
+  { key: 'kommunikation',                  label: 'Kommunikation / E-Mail',              group: 'Kommunikation', color: '#0EA5E9' },
   { key: 'kostenvoranschlag',              label: 'Kostenvoranschlag',                   group: 'Kosten',      color: '#F59E0B' },
   { key: 'lackschichtdickenmessung',       label: 'Lackschichtdickenmessung',            group: 'Prüfung',    color: '#B0050F' },
   { key: 'marktanalyse',                   label: 'Marktanalyse',                        group: 'Gutachten',   color: '#E30613' },
@@ -3004,326 +3014,677 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
 }
 
 // ─── Admin Home (Dashboard overview) ────────────
+// Tasarım felsefesi: "Tüm sekmelerin merkezi". Üstte yüksek-seviye KPI + hızlı eylemler,
+// ortada operasyonel pipeline + ajanda, altta kategori-bazlı widget'lar.
+// Hareket tasarımı: tek-akış stagger — kullanıcının gözü yukarıdan aşağı sürüklenir.
 function AdminHome({ db, setSection }) {
   const today = new Date();
   const todayIso = today.toISOString().slice(0, 10);
   const hour = today.getHours();
+  const go = (key) => () => { if (setSection) setSection(key); };
 
   // Time-based greeting
   let greeting = 'Günaydın';
   if (hour >= 12 && hour < 17) greeting = 'İyi Günler';
   else if (hour >= 17) greeting = 'İyi Akşamlar';
 
-  const todaysApts = db.appointments.filter(a => a.date === todayIso);
-  const activeApr = db.appraisals.filter(a => a.status !== 'tamamlandi').length;
-  const totalRevenue = db.invoices.filter(i => i.status === 'ödendi').reduce((s, i) => s + i.amount, 0);
-  const completedToday = db.appraisals.filter(a => a.created_at === todayIso && a.status === 'tamamlandi').length;
+  // ─── Tarih yardımcıları ──────────────────────────
+  const isoDaysFromNow = (iso) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    return Math.floor((d.getTime() - today.getTime()) / 86400000);
+  };
+  const tomorrowIso = new Date(today.getTime() + 86400000).toISOString().slice(0, 10);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const weekStart = new Date(today); weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Pzt başlangıç
 
-  // Animated stat cards
-  const statCards = [
-    { label: 'Heutige Termine', value: todaysApts.length, icon: CalendarIcon, color: C.neon, trend: '+2' },
-    { label: 'Aktive Gutachten', value: activeApr, icon: Wrench, color: C.cyan, trend: '-1' },
-    { label: 'Gesamtkunden', value: db.customers.length, icon: UsersIcon, color: C.magenta, trend: '+4' },
-    { label: 'Gesamteinnahmen', value: '€' + (totalRevenue / 1000).toFixed(1) + 'K', icon: Receipt, color: '#34D399', trend: '+8%' },
-  ];
+  // ─── Veri özetleri (her sekmeden) ────────────────
+  const customers = db.customers || [];
+  const vehicles = db.vehicles || [];
+  const appraisals = db.appraisals || [];
+  const appointments = db.appointments || [];
+  const invoices = db.invoices || [];
+  const reminders = db.reminders || [];
+  const lawyers = db.lawyers || [];
+  const lawyerAssignments = db.lawyer_assignments || [];
+  const insurers = db.insurers || [];
+  const messages = db.messages || [];
+  const waTemplates = db.whatsapp_templates || [];
+  const gallery = db.gallery || [];
+  const activityLogs = db.activity_logs || [];
 
-  const days = [...Array(7)].map((_, i) => {
-    const d = new Date(today); d.setDate(d.getDate() + i);
-    return { iso: d.toISOString().slice(0,10), label: d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: 'short' }) };
+  const todaysApts = appointments.filter(a => a.date === todayIso);
+  const tomorrowApts = appointments.filter(a => a.date === tomorrowIso);
+  const upcomingApts = appointments
+    .filter(a => a.date >= todayIso)
+    .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+
+  const activeApr = appraisals.filter(a => a.status !== 'tamamlandi');
+  const completedThisMonth = appraisals.filter(a => {
+    const d = new Date(a.created_at || a.date);
+    return !isNaN(d.getTime()) && d >= monthStart && a.status === 'tamamlandi';
+  }).length;
+
+  const paidInvoices = invoices.filter(i => i.status === 'ödendi' || i.status === 'bezahlt');
+  const openInvoices = invoices.filter(i => i.status !== 'ödendi' && i.status !== 'bezahlt');
+  const monthRevenue = paidInvoices
+    .filter(i => { const d = new Date(i.date || i.created_at); return !isNaN(d.getTime()) && d >= monthStart; })
+    .reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const openInvoiceTotal = openInvoices.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+
+  const bireysel = customers.filter(c => (c.type || 'bireysel') === 'bireysel').length;
+  const kurumsal = customers.filter(c => c.type === 'kurumsal').length;
+
+  const openReminders = reminders.filter(r => !r.completed && !r.done);
+  const todayReminders = openReminders.filter(r => (r.date || r.due_date || '').slice(0, 10) <= todayIso);
+
+  // TÜV: vehicles.tuv_date 30 gün içinde
+  const tuvSoon = vehicles.filter(v => {
+    const d = isoDaysFromNow(v.tuv_date);
+    return d !== null && d >= 0 && d <= 30;
+  });
+  const tuvOverdue = vehicles.filter(v => {
+    const d = isoDaysFromNow(v.tuv_date);
+    return d !== null && d < 0;
+  });
+  // Sigorta: vehicles.insurance_end_date veya policy_end_date 30 gün içinde
+  const insSoon = vehicles.filter(v => {
+    const d = isoDaysFromNow(v.insurance_end_date || v.policy_end_date);
+    return d !== null && d >= 0 && d <= 30;
   });
 
-  // Progress ring data
-  const dailyTarget = 6;
-  const dailyComplete = Math.min(todaysApts.length, dailyTarget);
-  const weeklyCompleted = db.appraisals.filter(a => {
-    const apDate = new Date(a.created_at);
-    const weekStart = new Date(today);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    return apDate >= weekStart && a.status === 'tamamlandi';
-  }).length;
-  const customerSatisfaction = 98;
+  // Rapor pipeline (status başına)
+  const PIPELINE = [
+    { key: 'bekliyor',   label: 'Wartet',     color: '#9CA3AF' },
+    { key: 'mekanik',    label: 'Mechanik',   color: '#F59E0B' },
+    { key: 'kaporta',    label: 'Karosserie', color: '#EAB308' },
+    { key: 'rapor',      label: 'In Arbeit',  color: C.cyan },
+    { key: 'tamamlandi', label: 'Fertig',     color: '#34D399' },
+  ];
+  const pipelineCounts = PIPELINE.map(p => ({ ...p, count: appraisals.filter(a => a.status === p.key).length }));
+  const pipelineMax = Math.max(1, ...pipelineCounts.map(p => p.count));
 
-  // Activity feed (mock data)
-  const activities = [
-    { id: 1, type: 'vehicle', text: 'Neues Fahrzeug hinzugefügt: 34 ABC 123', time: 'vor 10 Minuten', dot: C.cyan },
-    { id: 2, type: 'complete', text: 'Gutachten abgeschlossen: Renault Megane', time: 'vor 1 Stunde', dot: '#34D399' },
-    { id: 3, type: 'customer', text: 'Neue Kundenregistrierung: Mehmet Yıldız', time: 'vor 2 Stunden', dot: C.neon },
-    { id: 4, type: 'appointment', text: 'Termin bestätigt: Ali Veli (10:00)', time: 'vor 3 Stunden', dot: C.magenta },
-    { id: 5, type: 'invoice', text: 'Rechnung bezahlt: Gecit Kfz Sachverständiger-2026-0421', time: 'vor 5 Stunden', dot: '#34D399' },
+  // Galeri: son 6 görsel
+  const recentGallery = gallery.slice().sort((a, b) =>
+    (b.created_at || '').localeCompare(a.created_at || '')
+  ).slice(0, 6);
+
+  // Aktivite logları: son 6
+  const recentActivity = activityLogs.slice().sort((a, b) =>
+    (b.created_at || b.timestamp || '').localeCompare(a.created_at || a.timestamp || '')
+  ).slice(0, 6);
+
+  // Partner atamaları
+  const activeLawyers = lawyers.filter(l => !l.archived).length;
+  const activeInsurers = insurers.filter(i => !i.archived).length;
+  const lawyerLoad = lawyerAssignments.filter(a => !a.closed_at).length;
+
+  // 7-gün takvim
+  const days = [...Array(7)].map((_, i) => {
+    const d = new Date(today); d.setDate(d.getDate() + i);
+    return {
+      iso: d.toISOString().slice(0,10),
+      day: d.toLocaleDateString('de-DE', { weekday: 'short' }),
+      num: d.getDate(),
+      month: d.toLocaleDateString('de-DE', { month: 'short' }),
+    };
+  });
+
+  // ─── KPI tanımları (8 kart, 2 satır) ──────────────
+  const kpis = [
+    {
+      label: 'Heutige Termine', value: todaysApts.length,
+      sub: `${tomorrowApts.length} morgen · ${upcomingApts.length} insgesamt`,
+      icon: CalendarIcon, color: C.neon, onClick: go('appointments'),
+    },
+    {
+      label: 'Aktive Gutachten', value: activeApr.length,
+      sub: `${completedThisMonth} diesen Monat fertig`,
+      icon: Wrench, color: C.cyan, onClick: go('report_create'),
+    },
+    {
+      label: 'Kundenstamm', value: customers.length,
+      sub: `${bireysel} Privat · ${kurumsal} Firma`,
+      icon: UsersIcon, color: C.magenta, onClick: go('bireysel'),
+    },
+    {
+      label: 'Umsatz (Monat)', value: '€' + (monthRevenue / 1000).toFixed(1) + 'K',
+      sub: `${paidInvoices.length} bezahlte Rechnungen`,
+      icon: Receipt, color: '#34D399', onClick: undefined,
+    },
+    {
+      label: 'Offene Rechnungen', value: openInvoices.length,
+      sub: openInvoices.length ? '€' + openInvoiceTotal.toLocaleString('de-DE', { maximumFractionDigits: 0 }) + ' ausstehend' : 'alles bezahlt',
+      icon: AlertTriangle, color: '#F59E0B', onClick: undefined,
+    },
+    {
+      label: 'Erinnerungen', value: openReminders.length,
+      sub: todayReminders.length ? `${todayReminders.length} heute fällig` : 'nichts dringend',
+      icon: BellIcon, color: '#EF4444', onClick: go('reminders'),
+    },
+    {
+      label: 'TÜV in 30 Tagen', value: tuvSoon.length,
+      sub: tuvOverdue.length ? `${tuvOverdue.length} bereits überfällig` : 'alle aktuell',
+      icon: Shield, color: tuvOverdue.length ? '#EF4444' : '#0EA5E9', onClick: go('tuv'),
+    },
+    {
+      label: 'Versicherung 30T', value: insSoon.length,
+      sub: insSoon.length ? 'Erneuerung bald nötig' : 'alle laufen',
+      icon: ShieldIcon, color: '#A855F7', onClick: go('tuv'),
+    },
   ];
 
-  // CircularProgress component
-  const CircularProgress = ({ value, max, label, color }) => {
-    const percent = (value / max) * 100;
-    const radius = 45;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (percent / 100) * circumference;
+  // ─── Hızlı eylemler (6'lı yatay toolbar) ──────────
+  const quickActions = [
+    { icon: PlusIcon,     label: 'Kunde',       sub: 'Neu erfassen',     color: C.neon,    onClick: go('bireysel') },
+    { icon: CalendarIcon, label: 'Termin',      sub: 'Planen',           color: C.magenta, onClick: go('appointments') },
+    { icon: FileText,     label: 'Gutachten',   sub: 'Erstellen',        color: C.cyan,    onClick: go('report_create') },
+    { icon: MessageIcon,  label: 'WhatsApp',    sub: 'Vorlage senden',   color: '#25D366', onClick: go('whatsapp_tpl') },
+    { icon: BellIcon,     label: 'Erinnerung',  sub: 'Aufgabe anlegen',  color: '#F59E0B', onClick: go('reminders') },
+    { icon: CameraIcon,   label: 'Galerie',     sub: 'Fotos hochladen',  color: '#A855F7', onClick: go('gallery') },
+  ];
 
-    return (
-      <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }} className="flex flex-col items-center">
-        <div className="relative w-32 h-32">
-          <svg className="w-full h-full" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth="3" />
-            <motion.circle cx="60" cy="60" r={radius} fill="none" stroke={color} strokeWidth="3"
-              strokeLinecap="round" initial={{ strokeDashoffset: circumference }}
-              animate={{ strokeDashoffset: offset }}
-              transition={{ duration: 1.2, ease: 'easeOut' }}
-              style={{ strokeDasharray: circumference, transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }}
-              filter="drop-shadow(0 0 8px rgba(227,6,19,0.25))" />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-2xl font-bold font-mono" style={{ color: C.text }}>{value}/{max}</p>
-            <p className="text-xs mt-1" style={{ color: C.textDim }}>abgeschlossen</p>
-          </div>
-        </div>
-        <p className="text-xs mt-3 text-center uppercase" style={{ color: C.textDim, letterSpacing: '0.15em' }}>{label}</p>
-      </motion.div>
-    );
+  // Aktivite log → text formatter
+  const formatActivity = (a) => {
+    if (a.details) return a.details;
+    if (a.message) return a.message;
+    if (a.action && a.entity_type) return `${a.action} · ${a.entity_type}`;
+    return a.action || 'Aktivität';
+  };
+  const formatRelativeTime = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const diff = Math.floor((today.getTime() - d.getTime()) / 60000);
+    if (diff < 1) return 'gerade eben';
+    if (diff < 60) return `vor ${diff} Min`;
+    if (diff < 1440) return `vor ${Math.floor(diff / 60)} Std`;
+    return `vor ${Math.floor(diff / 1440)} Tagen`;
   };
 
   return (
     <>
       <style>{`
-        @keyframes gradient-border {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        .animate-gradient-border {
-          background: linear-gradient(90deg, ${C.neon}40, ${C.magenta}40, ${C.cyan}40, ${C.neon}40);
-          background-size: 300% 100%;
-          animation: gradient-border 3s ease-in-out infinite;
-        }
+        @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+        .home-pulse { animation: pulse-soft 2.4s ease-in-out infinite; }
       `}</style>
 
-      {/* Welcome Hero Banner */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="mb-8 rounded-2xl overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${C.neon}15, ${C.magenta}10, ${C.cyan}05)`,
-          border: `1px solid ${C.border}`, backdropFilter: 'blur(12px)' }}>
-        <div className="p-8">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <p className="text-sm uppercase" style={{ color: C.neon, letterSpacing: '0.2em' }}>Willkommen</p>
-                <Sparkles size={14} style={{ color: C.neon }} />
-              </div>
-              <h2 className="text-3xl md:text-4xl font-semibold mb-1" style={{ color: C.text, letterSpacing: '-0.02em' }}>
-                {greeting}, Admin
-              </h2>
-              <p className="text-sm" style={{ color: C.textDim }}>
-                Heute gibt es {todaysApts.length} Termine · {activeApr} aktive Gutachten laufen · Sie haben in den letzten 7 Tagen großartige Fortschritte gemacht.
+      {/* ── 1. HERO — kompakt, bilgi-yoğun karşılama ── */}
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
+        className="mb-6 rounded-2xl overflow-hidden relative"
+        style={{
+          background: `linear-gradient(135deg, ${C.neon}12, ${C.magenta}08, ${C.cyan}04)`,
+          border: `1px solid ${C.border}`,
+        }}>
+        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full opacity-30"
+          style={{ background: `radial-gradient(circle, ${C.neon}40, transparent 70%)`, filter: 'blur(40px)' }} />
+        <div className="relative p-6 md:p-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Sparkles size={13} style={{ color: C.neon }} />
+              <p className="text-[10px] uppercase font-semibold tracking-[0.22em]" style={{ color: C.neon }}>
+                Kommandozentrale
               </p>
             </div>
+            <h2 className="text-2xl md:text-3xl font-semibold mb-1.5" style={{ color: C.text, letterSpacing: '-0.02em' }}>
+              {greeting}, Admin
+            </h2>
+            <p className="text-sm" style={{ color: C.textDim }}>
+              <span style={{ color: C.text, fontWeight: 600 }}>{todaysApts.length}</span> Termin{todaysApts.length === 1 ? '' : 'e'} heute ·{' '}
+              <span style={{ color: C.text, fontWeight: 600 }}>{activeApr.length}</span> Gutachten aktiv ·{' '}
+              <span style={{ color: openReminders.length ? '#EF4444' : '#34D399', fontWeight: 600 }}>
+                {openReminders.length}
+              </span> offene Erinnerung{openReminders.length === 1 ? '' : 'en'}
+              {tuvOverdue.length > 0 && (
+                <> · <span style={{ color: '#EF4444', fontWeight: 600 }}>{tuvOverdue.length} TÜV überfällig</span></>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-5 flex-shrink-0">
             <div className="text-right">
-              <p className="text-xs uppercase mb-1" style={{ color: C.textDim, letterSpacing: '0.1em' }}>Heute</p>
-              <p className="text-xl font-bold" style={{ color: C.text }}>{today.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}</p>
-              <p className="text-xs mt-2" style={{ color: C.neon }}>● System Aktiv</p>
+              <p className="text-[10px] uppercase tracking-widest" style={{ color: C.textDim }}>Heute</p>
+              <p className="text-2xl font-bold leading-tight" style={{ color: C.text }}>
+                {today.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}
+              </p>
+              <p className="text-[10px] mt-1 flex items-center gap-1 justify-end" style={{ color: '#34D399' }}>
+                <span className="w-1.5 h-1.5 rounded-full home-pulse" style={{ background: '#34D399' }} />
+                System Aktiv
+              </p>
             </div>
           </div>
         </div>
       </motion.div>
 
-      {/* Animated Stat Cards with Gradient Borders */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {statCards.map((s, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut', delay: i * 0.1 }}
-            whileHover={{ y: -4 }} className="group cursor-pointer">
-            <div className="relative h-full">
-              <div className="absolute inset-0 rounded-2xl animate-gradient-border opacity-40" />
-              <GlassCard className="relative h-full">
-                <div className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{ background: `radial-gradient(circle, ${s.color}40, transparent 70%)`, filter: 'blur(20px)' }} />
-                <div className="relative">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <p className="text-xs uppercase" style={{ color: C.textDim, letterSpacing: '0.2em' }}>{s.label}</p>
-                      <div className="flex items-baseline gap-2 mt-3">
-                        <p className="text-3xl font-bold font-mono tabular-nums" style={{ color: C.text, letterSpacing: '-0.02em' }}>{s.value}</p>
-                        <p className="text-xs font-medium" style={{ color: s.color }}>{s.trend}</p>
-                      </div>
-                    </div>
-                    <motion.div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                      whileHover={{ scale: 1.15, rotate: 10 }}
-                      style={{ background: `${s.color}15`, color: s.color, border: `1px solid ${s.color}33`, boxShadow: `0 0 12px ${s.color}22` }}>
-                      <s.icon size={20} strokeWidth={1.5} />
-                    </motion.div>
-                  </div>
-                  <div className="h-1 rounded-full overflow-hidden mt-4" style={{ background: 'rgba(0,0,0,0.05)' }}>
-                    <motion.div initial={{ width: 0 }} animate={{ width: '72%' }} transition={{ duration: 1.2, delay: 0.3 + i * 0.1 }}
-                      className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${s.color}, ${C.neon})`, boxShadow: `0 0 8px ${s.color}66` }} />
-                  </div>
-                </div>
-              </GlassCard>
+      {/* ── 2. HIZLI EYLEMLER — yatay toolbar (6 buton) ── */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
+        className="mb-6">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+          {quickActions.map((q, i) => (
+            <motion.button key={q.label}
+              onClick={q.onClick}
+              whileHover={{ y: -3 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ duration: 0.18 }}
+              className="group relative rounded-xl px-3 py-3.5 text-left flex items-center gap-3 overflow-hidden"
+              style={{
+                background: '#FFFFFF',
+                border: `1px solid ${C.border}`,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              }}>
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ background: `linear-gradient(135deg, ${q.color}14, transparent 60%)` }} />
+              <div className="relative w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: `${q.color}15`, color: q.color, border: `1px solid ${q.color}30` }}>
+                <q.icon size={16} strokeWidth={1.8} />
+              </div>
+              <div className="relative min-w-0 flex-1">
+                <p className="text-[12px] font-semibold leading-tight truncate" style={{ color: C.text }}>{q.label}</p>
+                <p className="text-[10px] mt-0.5 truncate" style={{ color: C.textDim }}>{q.sub}</p>
+              </div>
+              <ChevronRight size={13} className="relative opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" style={{ color: q.color }} />
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* ── 3. KPI GRID — 4×2 = 8 kart ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {kpis.map((k, i) => (
+          <motion.div key={k.label}
+            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.08 + i * 0.04, ease: 'easeOut' }}
+            whileHover={{ y: -2 }}
+            onClick={k.onClick}
+            className={`group rounded-2xl p-4 relative overflow-hidden ${k.onClick ? 'cursor-pointer' : ''}`}
+            style={{
+              background: '#FFFFFF',
+              border: `1px solid ${C.border}`,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'box-shadow 0.25s ease, transform 0.25s ease',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.boxShadow = `0 8px 24px -6px ${k.color}33, 0 2px 6px rgba(0,0,0,0.05)`}
+            onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)'}>
+            <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              style={{ background: `radial-gradient(circle, ${k.color}33, transparent 65%)`, filter: 'blur(18px)' }} />
+            <div className="relative flex items-start justify-between mb-3">
+              <p className="text-[10px] uppercase font-semibold tracking-widest" style={{ color: C.textDim, letterSpacing: '0.16em' }}>
+                {k.label}
+              </p>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: `${k.color}12`, color: k.color, border: `1px solid ${k.color}28` }}>
+                <k.icon size={14} strokeWidth={1.7} />
+              </div>
             </div>
+            <p className="relative text-2xl md:text-[28px] font-bold font-mono tabular-nums leading-none mb-2"
+              style={{ color: C.text, letterSpacing: '-0.02em' }}>
+              {k.value}
+            </p>
+            <p className="relative text-[11px] truncate" style={{ color: C.textDim }}>{k.sub}</p>
           </motion.div>
         ))}
       </div>
 
-      {/* Circular Progress Rings */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.4 }}
-        className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <GlassCard className="flex items-center justify-center py-8">
-          <CircularProgress value={dailyComplete} max={dailyTarget} label="Günlük Hedef" color={C.neon} />
-        </GlassCard>
-        <GlassCard className="flex items-center justify-center py-8">
-          <CircularProgress value={Math.min(weeklyCompleted, 15)} max={15} label="Haftalık Tamamlanan" color={C.cyan} />
-        </GlassCard>
-        <GlassCard className="flex items-center justify-center py-8">
-          <CircularProgress value={customerSatisfaction} max={100} label="Müşteri Memnuniyeti" color={C.magenta} />
-        </GlassCard>
-      </motion.div>
-
-      {/* Yaklaşan TÜV / Sigorta — kritik durum widget'ı */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.45 }}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        <UpcomingTuvWidget
-          db={db}
-          mode="tuv"
-          title="Yaklaşan TÜV Tarihleri"
-          subtitle="Müşteri araçlarının HU/Hauptuntersuchung durumu"
-          onSeeAll={setSection ? () => setSection('tuv') : undefined}
-        />
-        <UpcomingTuvWidget
-          db={db}
-          mode="insurance"
-          title="Yaklaşan Sigorta Tarihleri"
-          subtitle="Poliçe bitiş tarihleri ve sigorta yenileme"
-          onSeeAll={setSection ? () => setSection('tuv') : undefined}
-        />
-      </motion.div>
-
-      {/* Enhanced Calendar + Activity Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }} className="lg:col-span-2">
-          <GlassCard>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-semibold" style={{ color: C.text }}>Yaklaşan Terminler</h3>
-                <p className="text-xs mt-1" style={{ color: C.textDim }}>Sonraki 7 gün — tüm zaman dilimleri</p>
+      {/* ── 4. RAPOR PIPELINE — status başına ── */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.25 }}
+        className="mb-6 rounded-2xl p-5"
+        style={{ background: '#FFFFFF', border: `1px solid ${C.border}`, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: C.text }}>Gutachten-Pipeline</h3>
+            <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>
+              {appraisals.length} insgesamt · {activeApr.length} aktiv
+            </p>
+          </div>
+          <button onClick={go('report_create')}
+            className="text-[11px] font-medium flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors hover:bg-black/[0.04]"
+            style={{ color: C.neon }}>
+            Alle ansehen <ChevronRight size={11} />
+          </button>
+        </div>
+        <div className="grid grid-cols-5 gap-2.5">
+          {pipelineCounts.map((p, i) => (
+            <motion.div key={p.key}
+              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, delay: 0.3 + i * 0.05 }}
+              className="rounded-xl p-3 relative overflow-hidden"
+              style={{ background: `${p.color}08`, border: `1px solid ${p.color}22` }}>
+              <p className="text-[9px] uppercase font-semibold tracking-widest mb-1" style={{ color: p.color }}>
+                {p.label}
+              </p>
+              <p className="text-xl font-bold font-mono tabular-nums" style={{ color: C.text }}>{p.count}</p>
+              <div className="h-1 rounded-full overflow-hidden mt-2" style={{ background: 'rgba(0,0,0,0.05)' }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(p.count / pipelineMax) * 100}%` }}
+                  transition={{ duration: 0.9, delay: 0.4 + i * 0.05, ease: 'easeOut' }}
+                  className="h-full rounded-full"
+                  style={{ background: p.color, boxShadow: `0 0 6px ${p.color}66` }}
+                />
               </div>
-              <span className="text-xs px-3 py-1 rounded-full animate-pulse" style={{ background: 'rgba(227,6,19,0.06)', color: C.neon, border: `1px solid ${C.neon}33` }}>● Canlı Senkron</span>
-            </div>
-            <div className="grid grid-cols-7 gap-2 mb-6">
-              {days.map((d, dayIdx) => {
-                const count = db.appointments.filter(a => a.date === d.iso).length;
-                const isToday = d.iso === todayIso;
-                return (
-                  <motion.div key={d.iso} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: dayIdx * 0.05, duration: 0.3 }}
-                    className="rounded-xl p-3 text-center cursor-pointer transition-all hover:scale-105"
-                    style={{
-                      background: isToday ? `linear-gradient(135deg, ${C.neon}20, ${C.neon}10)` : count > 0 ? 'rgba(227,6,19,0.06)' : 'rgba(0,0,0,0.03)',
-                      border: isToday ? `2px solid ${C.neon}` : `1px solid ${count > 0 ? 'rgba(227,6,19,0.18)' : C.border}`,
-                      boxShadow: isToday ? `0 0 16px ${C.glow}` : 'none'
-                    }}>
-                    <p className="text-[10px] uppercase font-medium" style={{ color: isToday ? C.neon : C.textDim, letterSpacing: '0.15em' }}>{d.label.split(' ')[0]}</p>
-                    <p className="text-lg font-mono font-bold mt-1" style={{ color: isToday ? C.neon : C.text }}>{d.label.split(' ')[1]}</p>
-                    {count > 0 && (
-                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: dayIdx * 0.05 + 0.2 }}
-                        className="mt-2 inline-block px-2 py-0.5 rounded-full text-xs font-mono" style={{ background: `${C.neon}22`, color: C.neon }}>
-                        {count}
-                      </motion.div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
-            <div className="space-y-2 border-t" style={{ borderColor: C.border, paddingTop: 16 }}>
-              {db.appointments.slice(0, 4).map((a, idx) => {
-                const c = db.customers.find(x => x.id === a.customer_id);
-                return (
-                  <motion.div key={a.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.6 + idx * 0.1 }}
-                    className="flex items-center gap-4 p-3 rounded-xl transition-all hover:bg-black/[0.04]"
-                    style={{ border: `1px solid ${C.border}` }}>
-                    <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-center"
-                      style={{ background: 'rgba(227,6,19,0.06)', border: `1px solid rgba(227,6,19,0.12)` }}>
-                      <div>
-                        <p className="text-xs font-mono" style={{ color: C.textDim }}>{a.date.slice(5)}</p>
-                        <p className="font-bold text-sm" style={{ color: C.neon }}>{a.time}</p>
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: C.text }}>{c?.type === 'kurumsal' ? c.company : c?.full_name || '—'}</p>
-                      <p className="text-xs truncate" style={{ color: C.textDim }}>{a.service}</p>
-                    </div>
-                    <span className="text-xs px-2.5 py-1 rounded-full flex-shrink-0 capitalize font-medium"
-                      style={{
-                        background: a.status === 'onaylandi' ? 'rgba(52,211,153,0.1)' : 'rgba(227,6,19,0.07)',
-                        color: a.status === 'onaylandi' ? '#34D399' : C.neon,
-                        border: `1px solid ${a.status === 'onaylandi' ? 'rgba(52,211,153,0.3)' : 'rgba(227,6,19,0.18)'}`
-                      }}>
-                      {a.status === 'onaylandi' ? '✓' : '○'}
-                    </span>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </GlassCard>
-        </motion.div>
-
-        {/* Activity Feed */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}>
-          <GlassCard>
-            <h3 className="text-lg font-semibold mb-5" style={{ color: C.text }}>Canlı Aktivite</h3>
-            <div className="space-y-3">
-              {activities.map((act, idx) => (
-                <motion.div key={act.id} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.7 + idx * 0.08 }}
-                  className="flex gap-3 group">
-                  <div className="flex-shrink-0 w-2 h-2 rounded-full mt-2"
-                    style={{ background: act.dot, boxShadow: `0 0 8px ${act.dot}66` }} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm group-hover:text-gray-900 transition-colors" style={{ color: C.text }}>{act.text}</p>
-                    <p className="text-xs mt-1" style={{ color: C.textDim }}>{act.time}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </GlassCard>
-        </motion.div>
-      </div>
-
-      {/* Quick Actions Grid */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.7 }}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { icon: UsersIcon, label: 'Yeni Müşteri', desc: 'Bireysel veya kurumsal', color: C.neon, bg: 'rgba(227,6,19,0.06)' },
-            { icon: CalendarIcon, label: 'Termin Oluştur', desc: 'Hızlı randevu ata', color: C.magenta, bg: 'rgba(227,6,19,0.06)' },
-            { icon: Wrench, label: 'Ekspertiz Başlat', desc: 'Yeni araç analizi', color: C.cyan, bg: 'rgba(0,0,0,0.04)' },
-            { icon: Receipt, label: 'Fatura Kes', desc: 'Hızlı faturalandır', color: '#34D399', bg: 'rgba(52,211,153,0.08)' },
-          ].map((action, idx) => (
-            <motion.div key={idx}
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 + idx * 0.1 }}
-              whileHover={{ y: -6 }} className="group cursor-pointer">
-              <GlassCard className="h-full">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all group-hover:scale-110"
-                    style={{ background: action.bg, color: action.color, border: `1px solid ${action.color}33` }}>
-                    <action.icon size={22} strokeWidth={1.5} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm" style={{ color: C.text }}>{action.label}</p>
-                    <p className="text-xs mt-1" style={{ color: C.textDim }}>{action.desc}</p>
-                  </div>
-                  <motion.div whileHover={{ x: 4 }} className="text-sm font-medium" style={{ color: action.color }}>
-                    →
-                  </motion.div>
-                </div>
-              </GlassCard>
             </motion.div>
           ))}
         </div>
       </motion.div>
+
+      {/* ── 5. TAKVİM + AKTİVİTE — 2/3 + 1/3 split ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="lg:col-span-2 rounded-2xl p-5"
+          style={{ background: '#FFFFFF', border: `1px solid ${C.border}`, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold" style={{ color: C.text }}>Wochenplan</h3>
+              <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>Nächste 7 Tage</p>
+            </div>
+            <button onClick={go('appointments')}
+              className="text-[11px] font-medium flex items-center gap-1 px-2.5 py-1 rounded-full transition-colors hover:bg-black/[0.04]"
+              style={{ color: C.neon }}>
+              Terminplaner <ChevronRight size={11} />
+            </button>
+          </div>
+          <div className="grid grid-cols-7 gap-2 mb-4">
+            {days.map((d, dayIdx) => {
+              const count = appointments.filter(a => a.date === d.iso).length;
+              const isToday = d.iso === todayIso;
+              return (
+                <motion.button key={d.iso}
+                  onClick={go('appointments')}
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 + dayIdx * 0.04, duration: 0.25 }}
+                  whileHover={{ y: -2 }}
+                  className="rounded-xl p-2.5 text-center cursor-pointer transition-all relative"
+                  style={{
+                    background: isToday ? `linear-gradient(135deg, ${C.neon}18, ${C.neon}06)` : count > 0 ? 'rgba(0,0,0,0.025)' : 'transparent',
+                    border: isToday ? `1.5px solid ${C.neon}` : `1px solid ${count > 0 ? C.border : 'transparent'}`,
+                  }}>
+                  <p className="text-[9px] uppercase font-semibold tracking-widest" style={{ color: isToday ? C.neon : C.textDim }}>
+                    {d.day}
+                  </p>
+                  <p className="text-lg font-mono font-bold mt-1" style={{ color: isToday ? C.neon : C.text }}>{d.num}</p>
+                  <p className="text-[9px]" style={{ color: C.textDim }}>{d.month}</p>
+                  {count > 0 && (
+                    <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center"
+                      style={{ background: isToday ? C.neon : `${C.neon}22`, color: isToday ? '#FFFFFF' : C.neon }}>
+                      {count}
+                    </span>
+                  )}
+                </motion.button>
+              );
+            })}
+          </div>
+          <div className="space-y-1.5 pt-3" style={{ borderTop: `1px solid ${C.border}` }}>
+            <p className="text-[10px] uppercase font-semibold tracking-widest mb-2" style={{ color: C.textDim }}>
+              Heute · {todaysApts.length}
+            </p>
+            {todaysApts.length === 0 && (
+              <p className="text-xs italic py-3 text-center" style={{ color: C.textDim, opacity: 0.6 }}>
+                Keine Termine heute — Zeit für Konzentration auf offene Gutachten.
+              </p>
+            )}
+            {todaysApts.slice(0, 4).map((a, idx) => {
+              const c = customers.find(x => x.id === a.customer_id);
+              const name = c?.type === 'kurumsal' ? c.company : c?.full_name || '—';
+              return (
+                <motion.div key={a.id}
+                  initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.45 + idx * 0.06 }}
+                  onClick={go('appointments')}
+                  className="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors hover:bg-black/[0.025]">
+                  <div className="flex-shrink-0 w-11 text-center">
+                    <p className="text-[15px] font-bold font-mono leading-none" style={{ color: C.neon }}>{a.time || '—'}</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: C.text }}>{name}</p>
+                    <p className="text-[11px] truncate" style={{ color: C.textDim }}>{a.service || a.notes || '—'}</p>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+                    style={{
+                      background: a.status === 'onaylandi' ? 'rgba(52,211,153,0.1)' : 'rgba(245,158,11,0.08)',
+                      color: a.status === 'onaylandi' ? '#10B981' : '#D97706',
+                    }}>
+                    {a.status === 'onaylandi' ? 'OK' : 'Offen'}
+                  </span>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* Canlı Aktivite — gerçek activity_logs'tan */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.35 }}
+          className="rounded-2xl p-5"
+          style={{ background: '#FFFFFF', border: `1px solid ${C.border}`, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: C.text }}>
+                Live-Aktivität
+                <span className="w-1.5 h-1.5 rounded-full home-pulse" style={{ background: '#34D399' }} />
+              </h3>
+              <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>letzte Bewegungen</p>
+            </div>
+            <button onClick={go('activity_logs')}
+              className="text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors hover:bg-black/[0.04]"
+              style={{ color: C.neon }}>
+              Alle →
+            </button>
+          </div>
+          <div className="space-y-2.5">
+            {recentActivity.length === 0 && (
+              <p className="text-xs italic py-4 text-center" style={{ color: C.textDim, opacity: 0.6 }}>
+                Noch keine Aktivität aufgezeichnet.
+              </p>
+            )}
+            {recentActivity.map((a, idx) => (
+              <motion.div key={a.id || idx}
+                initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 + idx * 0.05 }}
+                className="flex gap-2.5">
+                <div className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-2"
+                  style={{ background: C.neon, boxShadow: `0 0 6px ${C.neon}55` }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs leading-snug line-clamp-2" style={{ color: C.text }}>
+                    {formatActivity(a)}
+                  </p>
+                  <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>
+                    {formatRelativeTime(a.created_at || a.timestamp)}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* ── 6. TÜV + Sigorta widget'ları (mevcut, korunur) ── */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.4 }}
+        className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <UpcomingTuvWidget
+          db={db} mode="tuv"
+          title="Yaklaşan TÜV Tarihleri"
+          subtitle="Müşteri araçlarının HU/Hauptuntersuchung durumu"
+          onSeeAll={go('tuv')}
+        />
+        <UpcomingTuvWidget
+          db={db} mode="insurance"
+          title="Yaklaşan Sigorta Tarihleri"
+          subtitle="Poliçe bitiş tarihleri ve sigorta yenileme"
+          onSeeAll={go('tuv')}
+        />
+      </motion.div>
+
+      {/* ── 7. ALT 3'LÜ — Galeri · İletişim · Partner ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Galeri önizleme */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.45 }}
+          className="rounded-2xl p-5"
+          style={{ background: '#FFFFFF', border: `1px solid ${C.border}`, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: C.text }}>
+                <CameraIcon size={13} style={{ color: '#A855F7' }} />
+                Galerie
+              </h3>
+              <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>{gallery.length} Fotos gesamt</p>
+            </div>
+            <button onClick={go('gallery')}
+              className="text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors hover:bg-black/[0.04]"
+              style={{ color: '#A855F7' }}>
+              Öffnen →
+            </button>
+          </div>
+          {recentGallery.length === 0 ? (
+            <div className="text-center py-6">
+              <ImageIcon size={28} style={{ color: C.textDim, opacity: 0.4, margin: '0 auto 8px' }} />
+              <p className="text-xs italic" style={{ color: C.textDim, opacity: 0.6 }}>Noch keine Fotos</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              {recentGallery.map((g, idx) => (
+                <motion.div key={g.id || idx}
+                  initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5 + idx * 0.04 }}
+                  onClick={go('gallery')}
+                  className="aspect-square rounded-lg overflow-hidden cursor-pointer relative group"
+                  style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
+                  {(g.url || g.thumbnail || g.signed_url) ? (
+                    <img src={g.url || g.thumbnail || g.signed_url} alt="" loading="lazy"
+                      className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ImageIcon size={18} style={{ color: C.textDim, opacity: 0.4 }} />
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* İletişim & Mesajlar */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.5 }}
+          className="rounded-2xl p-5"
+          style={{ background: '#FFFFFF', border: `1px solid ${C.border}`, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: C.text }}>
+                <MessageIcon size={13} style={{ color: '#25D366' }} />
+                Kommunikation
+              </h3>
+              <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>WhatsApp · E-Mail · Vorlagen</p>
+            </div>
+            <button onClick={go('communications')}
+              className="text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors hover:bg-black/[0.04]"
+              style={{ color: '#25D366' }}>
+              Hub →
+            </button>
+          </div>
+          <div className="space-y-2.5">
+            <div onClick={go('whatsapp_tpl')}
+              className="flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors hover:bg-black/[0.025]"
+              style={{ border: `1px solid ${C.border}` }}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(37,211,102,0.1)', color: '#25D366', border: '1px solid rgba(37,211,102,0.25)' }}>
+                  <MessageIcon size={15} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium" style={{ color: C.text }}>WhatsApp-Vorlagen</p>
+                  <p className="text-[10px]" style={{ color: C.textDim }}>{waTemplates.length} bereit</p>
+                </div>
+              </div>
+              <ChevronRight size={13} style={{ color: C.textDim }} />
+            </div>
+            <div onClick={go('communications')}
+              className="flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors hover:bg-black/[0.025]"
+              style={{ border: `1px solid ${C.border}` }}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(14,165,233,0.1)', color: '#0EA5E9', border: '1px solid rgba(14,165,233,0.25)' }}>
+                  <MailIcon size={15} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium" style={{ color: C.text }}>Nachrichten</p>
+                  <p className="text-[10px]" style={{ color: C.textDim }}>{messages.length} im Verlauf</p>
+                </div>
+              </div>
+              <ChevronRight size={13} style={{ color: C.textDim }} />
+            </div>
+            <div onClick={go('file_flows')}
+              className="flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors hover:bg-black/[0.025]"
+              style={{ border: `1px solid ${C.border}` }}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(245,158,11,0.1)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.25)' }}>
+                  <Zap size={15} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium" style={{ color: C.text }}>Dosya Akış Motoru</p>
+                  <p className="text-[10px]" style={{ color: C.textDim }}>Automatische Abläufe</p>
+                </div>
+              </div>
+              <ChevronRight size={13} style={{ color: C.textDim }} />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Partner: Avukat + Sigorta */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.55 }}
+          className="rounded-2xl p-5"
+          style={{ background: '#FFFFFF', border: `1px solid ${C.border}`, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: C.text }}>
+                <ScaleIcon size={13} style={{ color: '#D97706' }} />
+                Partner
+              </h3>
+              <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>Anwälte & Versicherer</p>
+            </div>
+            <button onClick={go('partners')}
+              className="text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors hover:bg-black/[0.04]"
+              style={{ color: '#D97706' }}>
+              Alle →
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 mb-3">
+            <div onClick={go('partners')}
+              className="rounded-xl p-3 cursor-pointer transition-colors hover:bg-black/[0.025]"
+              style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}>
+              <ScaleIcon size={16} style={{ color: '#D97706' }} />
+              <p className="text-xl font-bold font-mono mt-2" style={{ color: C.text }}>{activeLawyers}</p>
+              <p className="text-[10px] uppercase tracking-widest mt-0.5" style={{ color: C.textDim, letterSpacing: '0.14em' }}>Anwälte</p>
+            </div>
+            <div onClick={go('partners')}
+              className="rounded-xl p-3 cursor-pointer transition-colors hover:bg-black/[0.025]"
+              style={{ background: 'rgba(14,165,233,0.06)', border: '1px solid rgba(14,165,233,0.18)' }}>
+              <ShieldIcon size={16} style={{ color: '#0EA5E9' }} />
+              <p className="text-xl font-bold font-mono mt-2" style={{ color: C.text }}>{activeInsurers}</p>
+              <p className="text-[10px] uppercase tracking-widest mt-0.5" style={{ color: C.textDim, letterSpacing: '0.14em' }}>Versicherer</p>
+            </div>
+          </div>
+          <div className="rounded-xl p-3 flex items-center gap-3"
+            style={{ background: 'rgba(0,0,0,0.025)', border: `1px solid ${C.border}` }}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(168,85,247,0.1)', color: '#A855F7', border: '1px solid rgba(168,85,247,0.25)' }}>
+              <FolderIcon size={15} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] font-medium" style={{ color: C.text }}>Aktive Fälle</p>
+              <p className="text-[10px]" style={{ color: C.textDim }}>{lawyerLoad} Zuweisungen offen</p>
+            </div>
+          </div>
+        </motion.div>
+      </div>
     </>
   );
 }
@@ -10494,10 +10855,12 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(({ v, owner, days, insurer }, idx) => {
+                {filtered.map(({ v, owner, days, insurer, isExternal, raw }, idx) => {
                   const status = tuvStatusInfo(days, C);
                   const dval = v[dateField];
-                  const ownerName = owner?.type === 'kurumsal' ? (owner.company || owner.full_name) : owner?.full_name;
+                  const ownerName = isExternal
+                    ? (owner?.full_name || raw?.contact_name || '—')
+                    : (owner?.type === 'kurumsal' ? (owner.company || owner.full_name) : owner?.full_name);
                   const dateStr = dval ? new Date(dval).toLocaleDateString('tr-TR') : '—';
                   return (
                     <tr key={v.id}
@@ -10509,7 +10872,13 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
                         <span className="font-mono font-bold tracking-wider" style={{ color: C.text }}>{formatPlate(v.plate)}</span>
                       </td>
                       <td className="px-3 py-2.5">
-                        {owner && (
+                        {isExternal ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] uppercase tracking-wider"
+                            style={{ background: '#F59E0B15', color: '#B45309', border: '1px solid #F59E0B33' }}>
+                            <UserPlusIcon size={9} />
+                            Manuel
+                          </span>
+                        ) : owner ? (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] uppercase tracking-wider"
                             style={{
                               background: owner.type === 'kurumsal' ? '#3B82F615' : '#10B98115',
@@ -10518,14 +10887,14 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
                             {owner.type === 'kurumsal' ? <Building size={9} /> : <UsersIcon size={9} />}
                             {owner.type === 'kurumsal' ? 'Firma' : 'Bireysel'}
                           </span>
-                        )}
+                        ) : null}
                       </td>
                       <td className="px-3 py-2.5" style={{ color: C.text }}>
                         <span className="text-xs">{v.brand} {v.model}</span>
                         {v.year && <span className="text-[11px] ml-1" style={{ color: C.textDim }}>· {v.year}</span>}
                       </td>
                       <td className="px-3 py-2.5 text-xs truncate max-w-[180px]" style={{ color: C.text }}>{ownerName || '—'}</td>
-                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: C.textDim }}>{owner?.phone || '—'}</td>
+                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: C.textDim }}>{owner?.phone || raw?.contact_phone || '—'}</td>
                       {mode === 'insurance' && (
                         <td className="px-3 py-2.5 text-xs" style={{ color: C.textDim }}>{insurer?.company || '—'}</td>
                       )}
@@ -10552,16 +10921,35 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button onClick={() => { setEditVehicle(v); setEditDate(dval || ''); }}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition hover:bg-black/5"
-                            style={{ color: C.text, border: `1px solid ${C.border}` }}>
-                            <EditIcon size={10} /> Tarih
-                          </button>
-                          <button onClick={() => setNotifyVehicle(v)} disabled={!dval}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition disabled:opacity-40"
-                            style={{ background: `${C.neon}10`, color: C.neon, border: `1px solid ${C.neon}30` }}>
-                            <MessageIcon size={10} /> Bildir
-                          </button>
+                          {isExternal ? (
+                            <>
+                              <button onClick={() => { setEditExternal({ ...(raw || {}) }); setManualOpen(true); }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition hover:bg-black/5"
+                                style={{ color: C.text, border: `1px solid ${C.border}` }}
+                                title="Manuel kaydı düzenle">
+                                <EditIcon size={10} /> Düzenle
+                              </button>
+                              <button onClick={() => { if (window.confirm('Manuel kaydı silmek istediğine emin misin?')) deleteExternalRecord(v.id); }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition hover:bg-black/5"
+                                style={{ color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                                title="Manuel kaydı sil">
+                                <TrashIcon size={10} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button onClick={() => { setEditVehicle(v); setEditDate(dval || ''); }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition hover:bg-black/5"
+                                style={{ color: C.text, border: `1px solid ${C.border}` }}>
+                                <EditIcon size={10} /> Tarih
+                              </button>
+                              <button onClick={() => setNotifyVehicle(v)} disabled={!dval}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition disabled:opacity-40"
+                                style={{ background: `${C.neon}10`, color: C.neon, border: `1px solid ${C.neon}30` }}>
+                                <MessageIcon size={10} /> Bildir
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -10573,10 +10961,12 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {filtered.map(({ v, owner, days, insurer }, idx) => {
+          {filtered.map(({ v, owner, days, insurer, isExternal, raw }, idx) => {
             const status = tuvStatusInfo(days, C);
             const dval = v[dateField];
-            const ownerName = owner?.type === 'kurumsal' ? (owner.company || owner.full_name) : owner?.full_name;
+            const ownerName = isExternal
+              ? (owner?.full_name || raw?.contact_name || '—')
+              : (owner?.type === 'kurumsal' ? (owner.company || owner.full_name) : owner?.full_name);
             const dateStr = dval ? new Date(dval).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' }) : null;
 
             return (
@@ -10596,7 +10986,13 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <p className="font-mono text-lg font-bold tracking-wider" style={{ color: C.text }}>{formatPlate(v.plate)}</p>
-                      {owner && (
+                      {isExternal ? (
+                        <span className="px-1.5 py-0.5 rounded-md text-[9px] uppercase tracking-wider flex items-center gap-0.5"
+                          style={{ background: '#F59E0B15', color: '#B45309', border: '1px solid #F59E0B33' }}>
+                          <UserPlusIcon size={9} />
+                          Manuel
+                        </span>
+                      ) : owner ? (
                         <span className="px-1.5 py-0.5 rounded-md text-[9px] uppercase tracking-wider flex items-center gap-0.5"
                           style={{
                             background: owner.type === 'kurumsal' ? '#3B82F615' : '#10B98115',
@@ -10605,9 +11001,9 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
                           {owner.type === 'kurumsal' ? <Building size={9} /> : <UsersIcon size={9} />}
                           {owner.type === 'kurumsal' ? 'Firma' : 'Bireysel'}
                         </span>
-                      )}
+                      ) : null}
                     </div>
-                    <p className="text-xs truncate" style={{ color: C.textDim }}>{v.brand} {v.model} · {v.year}</p>
+                    <p className="text-xs truncate" style={{ color: C.textDim }}>{v.brand} {v.model}{v.year ? ` · ${v.year}` : ''}</p>
                   </div>
 
                   {/* Countdown badge */}
@@ -10635,7 +11031,7 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
                     <div className="flex items-center gap-1.5" style={{ color: C.text }}>
                       <UsersIcon size={11} style={{ color: C.textDim }} />
                       <span className="truncate">{ownerName}</span>
-                      {owner?.phone && <span style={{ color: C.textDim }}>· {owner.phone}</span>}
+                      {(owner?.phone || raw?.contact_phone) && <span style={{ color: C.textDim }}>· {owner?.phone || raw?.contact_phone}</span>}
                     </div>
                   )}
                   {dateStr && (
@@ -10650,21 +11046,45 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
                       <span>{insurer.company}</span>
                     </div>
                   )}
+                  {isExternal && raw?.notes && (
+                    <div className="flex items-start gap-1.5" style={{ color: C.textDim }}>
+                      <FileText size={11} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <span className="line-clamp-2">{raw.notes}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Aksiyon barı */}
                 <div className="flex items-center gap-1.5 pl-2 pt-2" style={{ borderTop: `1px solid ${C.border}` }}>
-                  <button onClick={() => { setEditVehicle(v); setEditDate(dval || ''); }}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:bg-black/5"
-                    style={{ background: 'rgba(0,0,0,0.03)', color: C.text, border: `1px solid ${C.border}` }}>
-                    <EditIcon size={11} /> Tarih
-                  </button>
-                  <button onClick={() => setNotifyVehicle(v)}
-                    disabled={!dval}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-40"
-                    style={{ background: `${C.neon}10`, color: C.neon, border: `1px solid ${C.neon}30` }}>
-                    <MessageIcon size={11} /> Bildir
-                  </button>
+                  {isExternal ? (
+                    <>
+                      <button onClick={() => { setEditExternal({ ...(raw || {}) }); setManualOpen(true); }}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:bg-black/5"
+                        style={{ background: 'rgba(0,0,0,0.03)', color: C.text, border: `1px solid ${C.border}` }}>
+                        <EditIcon size={11} /> Düzenle
+                      </button>
+                      <button onClick={() => { if (window.confirm('Manuel kaydı silmek istediğine emin misin?')) deleteExternalRecord(v.id); }}
+                        className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                        style={{ background: 'rgba(239,68,68,0.08)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                        title="Sil">
+                        <TrashIcon size={11} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => { setEditVehicle(v); setEditDate(dval || ''); }}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all hover:bg-black/5"
+                        style={{ background: 'rgba(0,0,0,0.03)', color: C.text, border: `1px solid ${C.border}` }}>
+                        <EditIcon size={11} /> Tarih
+                      </button>
+                      <button onClick={() => setNotifyVehicle(v)}
+                        disabled={!dval}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-40"
+                        style={{ background: `${C.neon}10`, color: C.neon, border: `1px solid ${C.neon}30` }}>
+                        <MessageIcon size={11} /> Bildir
+                      </button>
+                    </>
+                  )}
                 </div>
               </motion.div>
             );
@@ -10706,7 +11126,98 @@ function AdminTuvTracking({ db, setDb, currentUser }) {
         setDb={setDb}
         currentUser={currentUser}
       />
+
+      <ExternalTuvModal
+        open={manualOpen}
+        record={editExternal}
+        onClose={() => { setManualOpen(false); setEditExternal(null); }}
+        onSave={(rec) => {
+          const ok = saveExternalRecord(rec);
+          if (ok) { setManualOpen(false); setEditExternal(null); }
+        }}
+      />
     </>
+  );
+}
+
+// Müşterimiz olmayan kişiler için manuel TÜV/Sigorta takip kaydı modali
+function ExternalTuvModal({ open, record, onClose, onSave }) {
+  const [form, setForm] = useState({
+    plate: '', brand: '', model: '', year: '',
+    contact_name: '', contact_phone: '', contact_email: '',
+    tuv_date: '', insurance_date: '', notes: '',
+  });
+  const [err, setErr] = useState(null);
+  useEffect(() => {
+    if (!open) return;
+    setErr(null);
+    setForm({
+      id: record?.id,
+      plate: record?.plate || '',
+      brand: record?.brand || '',
+      model: record?.model || '',
+      year: record?.year || '',
+      contact_name: record?.contact_name || '',
+      contact_phone: record?.contact_phone || '',
+      contact_email: record?.contact_email || '',
+      tuv_date: record?.tuv_date || '',
+      insurance_date: record?.insurance_date || '',
+      notes: record?.notes || '',
+    });
+  }, [open, record]);
+
+  if (!open) return null;
+  const isEdit = !!record?.id;
+  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+  const submit = () => {
+    if (!form.plate?.trim()) { setErr('Plaka zorunlu'); return; }
+    if (!form.tuv_date && !form.insurance_date) { setErr('TÜV veya Sigorta tarihinden en az birini gir'); return; }
+    onSave({ ...form, year: form.year ? Number(form.year) : null });
+  };
+
+  return (
+    <GecitKfzModal open={open} onClose={onClose}
+      title={isEdit ? 'Manuel TÜV Kaydını Düzenle' : 'Manuel TÜV / Sigorta Takibi Ekle'}
+      subtitle="Müşterimiz olmayan kişilerin araçlarını da aynı listede takip edebilirsin"
+      width={620}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field label="Plaka *"><TextInput value={form.plate} onChange={(e) => set('plate', e.target.value.toUpperCase())} placeholder="AC-VD-9904" autoFocus /></Field>
+          <Field label="Marka"><TextInput value={form.brand} onChange={(e) => set('brand', e.target.value)} placeholder="Mercedes" /></Field>
+          <Field label="Model"><TextInput value={form.model} onChange={(e) => set('model', e.target.value)} placeholder="C 180" /></Field>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field label="Model Yılı"><TextInput type="number" value={form.year} onChange={(e) => set('year', e.target.value)} placeholder="2020" /></Field>
+          <Field label="TÜV Tarihi"><TextInput type="date" value={form.tuv_date} onChange={(e) => set('tuv_date', e.target.value)} /></Field>
+          <Field label="Sigorta Tarihi"><TextInput type="date" value={form.insurance_date} onChange={(e) => set('insurance_date', e.target.value)} /></Field>
+        </div>
+        <div className="pt-2" style={{ borderTop: `1px solid ${C.border}` }}>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textDim }}>İletişim Bilgisi (opsiyonel)</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Field label="Ad Soyad"><TextInput value={form.contact_name} onChange={(e) => set('contact_name', e.target.value)} placeholder="Ahmet Yıldız" /></Field>
+            <Field label="Telefon"><TextInput value={form.contact_phone} onChange={(e) => set('contact_phone', e.target.value)} placeholder="+49 ..." /></Field>
+            <Field label="E-posta"><TextInput type="email" value={form.contact_email} onChange={(e) => set('contact_email', e.target.value)} placeholder="..." /></Field>
+          </div>
+        </div>
+        <Field label="Not">
+          <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={2}
+            placeholder="örn. Komşu, atölyeye getirdi, vs."
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none"
+            style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }} />
+        </Field>
+        {err && (
+          <div className="text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.25)' }}>
+            {err}
+          </div>
+        )}
+        <div className="flex justify-end gap-2 pt-3" style={{ borderTop: `1px solid ${C.border}` }}>
+          <AdminButton onClick={onClose}>İptal</AdminButton>
+          <AdminButton variant="primary" onClick={submit}>
+            <Check size={14} /> {isEdit ? 'Güncelle' : 'Kaydet'}
+          </AdminButton>
+        </div>
+      </div>
+    </GecitKfzModal>
   );
 }
 
@@ -14791,7 +15302,7 @@ function AdminApp({ user, onLogout, onHome }) {
         {section === 'partners' && <AdminPartners db={db} setDb={setDb} currentUser={user} />}
         {section === 'gallery' && <AdminGallery db={db} setDb={setDb} />}
         {section === 'reminders' && <AdminReminders db={db} setDb={setDb} />}
-        {section === 'communications' && <CommunicationsPanel db={db} />}
+        {section === 'communications' && <CommunicationsPanel db={db} setDb={setDb} currentUser={user} />}
         {section === 'autoixpert' && (user?.email || '').trim().toLowerCase() === 'cevikademm@gmail.com' && <AdminAutoiXpert mode="admin" />}
         {section === 'settings' && <AdminSettings user={user} db={db} setDb={setDb} />}
 

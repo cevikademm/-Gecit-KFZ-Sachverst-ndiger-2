@@ -1,5 +1,59 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { inviteUser, sendMail } from '../utils/mailService.js';
+import { generateMailPdf } from '../utils/mailPdfExport.js';
+import { getSupabaseClient } from '../utils/supabaseAuth.js';
+
+const DOC_BUCKET = 'documents';
+
+// Gönderilen mail'i PDF'e döküp Supabase Storage'a yükler.
+// Başarısızsa base64 fallback ile döner. customer_documents kaydı için
+// gerekli alanları içerir.
+async function archiveMailAsPdf({ subject, body, recipientName, recipientEmail, cc, bcc, ctaLabel, ctaUrl, customerId }) {
+  try {
+    const { blob, fileName } = await generateMailPdf({
+      subject, body, recipientName, recipientEmail, cc, bcc, ctaLabel, ctaUrl,
+    });
+    const sb = getSupabaseClient();
+    const ts = Date.now();
+    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+    const path = `${customerId || 'orphan'}/${ts}_${safeName}`;
+
+    if (sb) {
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      const { error } = await sb.storage.from(DOC_BUCKET).upload(path, file, {
+        upsert: false,
+        contentType: 'application/pdf',
+      });
+      if (!error) {
+        return {
+          fileName, size: blob.size, mime: 'application/pdf',
+          storage_path: path, storage_bucket: DOC_BUCKET,
+          public_url: null, data: null,
+        };
+      }
+      console.warn('[archiveMailAsPdf] Storage upload failed, falling back to base64:', error.message);
+    }
+    // Fallback: base64
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+    return {
+      fileName, size: blob.size, mime: 'application/pdf',
+      storage_path: null, storage_bucket: null,
+      public_url: null, data: base64,
+    };
+  } catch (e) {
+    console.error('[archiveMailAsPdf] failed:', e?.message);
+    return null;
+  }
+}
+
+function uidShort() {
+  return Math.random().toString(36).slice(2, 9);
+}
 
 const C = {
   bg: '#0B0B0F', surface: '#FFFFFF', border: '#E5E5EA', borderSoft: '#F0F0F2',
@@ -245,7 +299,7 @@ const PLACEHOLDER_LABELS = {
   saat: 'Saat',
 };
 
-export default function CommunicationsPanel({ db }) {
+export default function CommunicationsPanel({ db, setDb, currentUser }) {
   const [tab, setTab] = useState('mail');
   return (
     <div className="space-y-6">
@@ -273,7 +327,7 @@ export default function CommunicationsPanel({ db }) {
         <TabBtn active={tab === 'invite'} onClick={() => setTab('invite')}>👤 Kullanıcı Davet Et</TabBtn>
       </div>
 
-      {tab === 'mail' && <MailComposer db={db} />}
+      {tab === 'mail' && <MailComposer db={db} setDb={setDb} currentUser={currentUser} />}
       {tab === 'invite' && <InviteForm />}
     </div>
   );
@@ -299,7 +353,7 @@ function TabBtn({ active, onClick, children }) {
   );
 }
 
-function MailComposer({ db }) {
+function MailComposer({ db, setDb, currentUser }) {
   const [selectedTemplate, setSelectedTemplate] = useState(TEMPLATES[0]);
   const [recipients, setRecipients] = useState([]);
   const [ccList, setCcList] = useState([]); // array of email strings
@@ -413,7 +467,10 @@ function MailComposer({ db }) {
     setResult(null);
     try {
       let sentCount = 0;
+      let archivedCount = 0;
       const errors = [];
+      const newDocs = [];
+
       for (const r of recipients) {
         const veh = vehicles.find(v => v.owner_id === r.id);
         const personalData = {
@@ -441,12 +498,62 @@ function MailComposer({ db }) {
             ctaUrl: ctaUrl || undefined,
           });
           sentCount += 1;
+
+          // ─── Mail'i PDF olarak arşivle ──
+          // Sadece müşteri kaydı olan alıcılar için (r.id bireysel/kurumsal customer.id'sidir)
+          if (setDb && r.id) {
+            try {
+              const archived = await archiveMailAsPdf({
+                subject: personalSubject,
+                body: personalBody,
+                recipientName: r.full_name || r.company || '',
+                recipientEmail: r.email || '',
+                cc: ccList.length ? ccList : undefined,
+                bcc: bccList.length ? bccList : undefined,
+                ctaLabel: ctaLabel || undefined,
+                ctaUrl: ctaUrl || undefined,
+                customerId: r.id,
+              });
+              if (archived) {
+                newDocs.push({
+                  id: 'cd' + uidShort(),
+                  customer_id: r.id,
+                  vehicle_id: veh?.id || '',
+                  name: archived.fileName,
+                  type: 'kommunikation',
+                  category: 'kommunikation',
+                  size: archived.size,
+                  mime: archived.mime,
+                  storage_path: archived.storage_path,
+                  storage_bucket: archived.storage_bucket,
+                  public_url: archived.public_url,
+                  data: archived.data,
+                  uploaded_at: new Date().toISOString().slice(0, 10),
+                  uploaded_by: currentUser?.email || currentUser?.id || 'system',
+                  created_at: new Date().toISOString(),
+                });
+                archivedCount += 1;
+              }
+            } catch (archErr) {
+              console.warn('[mail archive] failed for', r.email, archErr?.message);
+            }
+          }
         } catch (err) {
           errors.push(`${r.email}: ${err.message}`);
         }
       }
+
+      // db'ye toplu olarak yeni doküman kayıtlarını ekle
+      if (newDocs.length > 0 && setDb) {
+        setDb(prev => ({
+          ...prev,
+          customer_documents: [...(prev.customer_documents || []), ...newDocs],
+        }));
+      }
+
       if (errors.length === 0) {
-        setResult({ ok: true, msg: `✓ ${sentCount} alıcıya kişiselleştirilmiş e-posta gönderildi.` });
+        const archMsg = archivedCount > 0 ? ` · ${archivedCount} PDF Kundenakte beigelegt` : '';
+        setResult({ ok: true, msg: `✓ ${sentCount} alıcıya kişiselleştirilmiş e-posta gönderildi.${archMsg}` });
         setRecipients([]);
         setCcList([]);
         setBccList([]);
