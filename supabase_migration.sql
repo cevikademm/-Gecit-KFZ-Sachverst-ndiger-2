@@ -109,10 +109,13 @@ CREATE TABLE IF NOT EXISTS customer_documents (
   category TEXT,
   size INTEGER,
   storage_path TEXT, -- Supabase Storage path
-  data TEXT, -- base64 fallback (for migration)
+  storage_bucket TEXT, -- hangi bucket (documents/photos/gallery)
+  public_url TEXT, -- public bucket ise hazır URL
+  data TEXT, -- base64 fallback (Storage'a gidemezse içerik burada kalır)
   mime TEXT,
   uploaded_at TEXT,
   uploaded_by TEXT,
+  ruhsat_data JSONB, -- ruhsat OCR ham verisi (opsiyonel)
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -283,11 +286,14 @@ CREATE TABLE IF NOT EXISTS insurance_offers (
 CREATE TABLE IF NOT EXISTS damage_photos (
   id TEXT PRIMARY KEY DEFAULT 'dp' || substr(md5(random()::text), 1, 7),
   vehicle_id TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+  appraisal_id TEXT REFERENCES appraisals(id) ON DELETE SET NULL,
   type TEXT CHECK (type IN ('before', 'after', 'detail')),
   label TEXT,
   part TEXT,
   url TEXT, -- Supabase Storage URL
   storage_path TEXT,
+  storage_bucket TEXT,
+  public_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

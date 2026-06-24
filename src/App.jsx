@@ -29,6 +29,7 @@ import AdminAutoiXpert from './components/AdminAutoiXpert.jsx';
 import GutachtenWorkbench from './components/GutachtenWorkbench.jsx';
 import AdminReportCreate from './components/AdminReportCreate.jsx';
 import CommunicationsPanel from './components/CommunicationsPanel.jsx';
+import MusteriBulmaPanel from './components/MusteriBulmaPanel.jsx';
 import TerminPlanlayici from './components/TerminPlanlayici.jsx';
 import CustomerBookingFlow from './components/CustomerBookingFlow.jsx';
 import PhotoEditor from './components/PhotoEditor.jsx';
@@ -45,6 +46,139 @@ const isRuhsatDoc = (type) => RUHSAT_DOC_TYPES.includes(type);
 // Helper: legalize IIFE-with-hooks pattern by giving each its own component fiber.
 // Usage: <Iife>{() => { const [x,setX] = useState(0); return <div/>; }}</Iife>
 function Iife({ children }) { return children(); }
+
+// ─── Premium Onay Diyaloğu (window.confirm yerine) ──────────────────
+// Kullanım:  const confirm = useConfirm();
+//            if (!(await confirm({ title, message, tone:'danger', ... }))) return;
+const ConfirmContext = React.createContext(async () => true);
+function useConfirm() { return React.useContext(ConfirmContext); }
+
+function ConfirmProvider({ children }) {
+  const [state, setState] = useState(null); // { opts, resolve }
+  const [typed, setTyped] = useState('');
+
+  const confirm = useCallback((opts = {}) => new Promise((resolve) => {
+    setTyped('');
+    setState({ opts, resolve });
+  }), []);
+
+  const close = useCallback((result) => {
+    setState((s) => { if (s) s.resolve(result); return null; });
+    setTyped('');
+  }, []);
+
+  useEffect(() => {
+    if (!state) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') close(false);
+      if (e.key === 'Enter' && !state.opts?.requireText) close(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [state, close]);
+
+  const o = state?.opts || {};
+  const danger = (o.tone || 'danger') === 'danger';
+  const accent = danger ? '#EF4444' : (C.neon || '#E30613');
+  const need = o.requireText ? String(o.requireText) : null;
+  const canConfirm = !need || typed.trim() === need.trim();
+
+  return (
+    <ConfirmContext.Provider value={confirm}>
+      {children}
+      <AnimatePresence>
+        {state && (
+          <>
+            <motion.div key="cd-bd"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => close(false)}
+              style={{ position: 'fixed', inset: 0, zIndex: 2147483000,
+                background: 'rgba(7,6,11,0.62)', backdropFilter: 'blur(4px)' }} />
+            <div style={{ position: 'fixed', inset: 0, zIndex: 2147483001,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, pointerEvents: 'none' }}>
+              <motion.div key="cd-card" role="alertdialog" aria-modal="true"
+                initial={{ opacity: 0, scale: 0.92, y: 18 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+                onClick={(e) => e.stopPropagation()}
+                style={{ pointerEvents: 'auto', width: 'min(460px, 100%)', borderRadius: 22, overflow: 'hidden',
+                  background: `linear-gradient(180deg, ${C.surface2 || '#15131d'} 0%, ${C.surface || '#0f0d16'} 100%)`,
+                  border: `1px solid ${C.border || 'rgba(255,255,255,0.08)'}`,
+                  boxShadow: '0 40px 90px -25px rgba(0,0,0,0.75)' }}>
+                {/* üst aksan şeridi */}
+                <div style={{ height: 4, background: `linear-gradient(90deg, ${accent}, ${accent}55)` }} />
+                <div style={{ padding: '26px 26px 22px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 16, flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: `${accent}1f`, border: `1px solid ${accent}55`, color: accent }}>
+                      <AlertTriangle size={24} />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <h3 style={{ fontSize: 18, fontWeight: 700, color: C.text, lineHeight: 1.2, margin: 0 }}>
+                        {o.title || 'Emin misiniz?'}
+                      </h3>
+                      {o.subtitle && <p style={{ fontSize: 12, color: C.textDim, marginTop: 2 }}>{o.subtitle}</p>}
+                    </div>
+                  </div>
+
+                  {o.message && (
+                    <p style={{ fontSize: 14, lineHeight: 1.55, color: C.textDim, margin: '0 0 14px' }}>{o.message}</p>
+                  )}
+
+                  {Array.isArray(o.bullets) && o.bullets.length > 0 && (
+                    <div style={{ borderRadius: 14, padding: '12px 14px', marginBottom: 14,
+                      background: `${accent}10`, border: `1px solid ${accent}26` }}>
+                      <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: accent, margin: '0 0 8px', fontWeight: 700 }}>
+                        {o.bulletsTitle || 'Silinecekler'}
+                      </p>
+                      <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {o.bullets.map((b, i) => (
+                          <li key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.text }}>
+                            <TrashIcon size={12} style={{ color: accent, flexShrink: 0 }} /> {b}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {need && (
+                    <div style={{ marginBottom: 16 }}>
+                      <p style={{ fontSize: 12, color: C.textDim, marginBottom: 6 }}>
+                        Onaylamak için <b style={{ color: accent, fontFamily: 'monospace' }}>{need}</b> yazın:
+                      </p>
+                      <input autoFocus value={typed} onChange={(e) => setTyped(e.target.value)}
+                        placeholder={need}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 12, fontSize: 14, outline: 'none',
+                          background: 'rgba(0,0,0,0.25)', color: C.text, border: `1px solid ${canConfirm ? accent : (C.border || 'rgba(255,255,255,0.1)')}` }} />
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                    <button onClick={() => close(false)}
+                      style={{ padding: '10px 18px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                        background: 'transparent', color: C.textDim, border: `1px solid ${C.border || 'rgba(255,255,255,0.12)'}` }}>
+                      {o.cancelLabel || 'Vazgeç'}
+                    </button>
+                    <button onClick={() => canConfirm && close(true)} disabled={!canConfirm}
+                      style={{ padding: '10px 20px', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: canConfirm ? 'pointer' : 'not-allowed',
+                        color: '#fff', border: 'none', opacity: canConfirm ? 1 : 0.5,
+                        background: `linear-gradient(135deg, ${accent}, ${accent}cc)`,
+                        boxShadow: `0 8px 24px -6px ${accent}88`, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      {danger && <TrashIcon size={14} />}
+                      {o.confirmLabel || 'Evet, sil'}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+    </ConfirmContext.Provider>
+  );
+}
 // ─── Noise overlay ──────────────────────────────
 function NoiseOverlay() {
   return (
@@ -285,6 +419,7 @@ function LoginDrawer({ open, onClose, onLogin }) {
         name: user.full_name || user.email,
         lawyer_id: user.role === 'lawyer' ? user.linked_id : undefined,
         insurer_id: user.role === 'insurance' ? user.linked_id : undefined,
+        bodyshop_id: user.role === 'kaporta' ? user.linked_id : undefined,
       };
       onLogin(sessionUser);
       setEmail(''); setPassword('');
@@ -1391,6 +1526,8 @@ const TABLE_MAP = {
   insurers: 'insurers',
   insurance_claims: 'insurance_claims',
   insurance_offers: 'insurance_offers',
+  bodyshops: 'bodyshops',
+  bodyshop_assignments: 'bodyshop_assignments',
   damage_photos: 'damage_photos',
   damage_timeline: 'damage_timeline',
   objection_templates: 'objection_templates',
@@ -1663,27 +1800,36 @@ async function uploadCustomerDocument(file, customerId, bucket = DOC_BUCKET) {
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
   const path = `${customerId || 'orphan'}/${ts}_${safeName}`;
 
-  // Live mode: Supabase Storage
+  // Live mode: Supabase Storage — geçici hatalara karşı 3 deneme (backoff)
   if (DataService.isLive()) {
     const sb = getSupabase();
     if (sb) {
-      const { error } = await sb.storage.from(bucket).upload(path, file, { upsert: false, contentType: file.type });
-      if (!error) {
-        const isPublicBucket = bucket === PHOTO_BUCKET || bucket === 'gallery' || bucket === 'avatars';
-        return {
-          storage_path: path,
-          storage_bucket: bucket,
-          public_url: isPublicBucket ? StorageService.getPublicUrl(bucket, path) : null,
-          data: null,
-          mime: file.type,
-          size: file.size,
-        };
+      let lastErr = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { error } = await sb.storage.from(bucket).upload(path, file, { upsert: true, contentType: file.type });
+        if (!error) {
+          const isPublicBucket = bucket === PHOTO_BUCKET || bucket === 'gallery' || bucket === 'avatars';
+          return {
+            storage_path: path,
+            storage_bucket: bucket,
+            public_url: isPublicBucket ? StorageService.getPublicUrl(bucket, path) : null,
+            data: null,
+            mime: file.type,
+            size: file.size,
+          };
+        }
+        lastErr = error;
+        // 250ms, 500ms bekleyip tekrar dene (son denemede bekleme yok)
+        if (attempt < 2) await new Promise(r => setTimeout(r, 250 * (attempt + 1)));
       }
-      console.warn('[uploadCustomerDocument] Storage failed, falling back to base64:', error.message);
+      console.warn(`[uploadCustomerDocument] Storage ${bucket} 3 denemede başarısız, base64 ile DB'ye kaydedilecek:`, lastErr?.message);
     }
   }
 
-  // Fallback: base64 (uyarı: localStorage 5MB sınırı)
+  // Fallback: base64 — Storage'a gidemedi ama içerik KAYBOLMAZ:
+  // storage_path=null olduğu için bu base64 doğrudan DB'nin `data` kolonuna
+  // senkronlanır (sanitizeRecordForSync, storage_path yokken data'yı korur).
+  // _needsStorageUpload bayrağı ile sonradan Storage'a taşınabilir.
   try {
     const base64 = await readFileAsBase64(file);
     return {
@@ -1693,6 +1839,7 @@ async function uploadCustomerDocument(file, customerId, bucket = DOC_BUCKET) {
       data: base64,
       mime: file.type,
       size: file.size,
+      _needsStorageUpload: DataService.isLive(),
     };
   } catch (e) {
     console.error('[uploadCustomerDocument] base64 read failed:', e?.message);
@@ -2001,9 +2148,9 @@ function seedDB() {
       { id: 'cn5', customer_id: 'c3', text: 'Muhasebe departmanından Elif Hanım ile iletişime geçilecek, fatura onayı bekleniyor.', category: 'genel', pinned: false, created_at: '2026-04-24T16:30:00' },
     ],
     lawyers: [
-      { id: 'law1', name: 'Av. Mehmet Yılmaz', email: 'mehmet@hukuk.com', phone: '0532 111 22 33', password: 'avukat123', baro: 'İstanbul Barosu', baro_no: '45821', active: true, created_at: '2026-04-10' },
-      { id: 'law2', name: 'Av. Zeynep Demir', email: 'zeynep@hukuk.com', phone: '0533 444 55 66', password: 'avukat123', baro: 'İstanbul Barosu', baro_no: '38764', active: true, created_at: '2026-04-12' },
-      { id: 'law3', name: 'Av. Can Öztürk', email: 'can@hukuk.com', phone: '0535 777 88 99', password: 'avukat123', baro: 'Ankara Barosu', baro_no: '21453', active: true, created_at: '2026-04-15' },
+      { id: 'law1', name: 'Av. Mehmet Yılmaz', email: 'mehmet@hukuk.com', phone: '0532 111 22 33', password: '123', baro: 'İstanbul Barosu', baro_no: '45821', active: true, created_at: '2026-04-10' },
+      { id: 'law2', name: 'Av. Zeynep Demir', email: 'zeynep@hukuk.com', phone: '0533 444 55 66', password: '123', baro: 'İstanbul Barosu', baro_no: '38764', active: true, created_at: '2026-04-12' },
+      { id: 'law3', name: 'Av. Can Öztürk', email: 'can@hukuk.com', phone: '0535 777 88 99', password: '123', baro: 'Ankara Barosu', baro_no: '21453', active: true, created_at: '2026-04-15' },
     ],
     lawyer_assignments: [
       { id: 'la1', lawyer_id: 'law1', customer_id: 'c1', assigned_at: '2026-04-20' },
@@ -2052,6 +2199,13 @@ function seedDB() {
       { id: 'ia2', insurer_id: 'ins2', customer_id: 'c2', assigned_at: '2026-04-18' },
       { id: 'ia3', insurer_id: 'ins1', customer_id: 'c4', assigned_at: '2026-04-20' },
     ],
+    // Kaporta (Karosserie) şirketleri — sigorta şirketleriyle aynı yapı/şifre mekanizması
+    bodyshops: [
+      { id: 'bs1', company: 'AutoLack & Karosserie Köln', name: 'Mehmet Yıldız', email: 'info@autolack-koeln.de', phone: '+49 221 555 1010', password: 'kaporta123', active: true, created_at: '2026-04-02' },
+      { id: 'bs2', company: 'Karosseriebau Schmitz GmbH', name: 'Stefan Schmitz', email: 'kontakt@schmitz-kfz.de', phone: '+49 211 555 2020', password: 'kaporta123', active: true, created_at: '2026-04-06' },
+      { id: 'bs3', company: 'Premium Dellen & Lack', name: 'Ali Demir', email: 'service@premium-lack.de', phone: '+49 231 555 3030', password: 'kaporta123', active: true, created_at: '2026-04-11' },
+    ],
+    bodyshop_assignments: [],
     insurance_permissions: {
       can_view_documents: true,
       can_upload_documents: true,
@@ -2130,6 +2284,8 @@ function loadDB() {
     if (!parsed.insurance_claims) { const s = seedDB(); parsed.insurance_claims = s.insurance_claims; }
     if (!parsed.insurance_assignments) { const s = seedDB(); parsed.insurance_assignments = s.insurance_assignments; }
     if (!parsed.insurance_permissions) { const s = seedDB(); parsed.insurance_permissions = s.insurance_permissions; }
+    if (!parsed.bodyshops) { const s = seedDB(); parsed.bodyshops = s.bodyshops; }
+    if (!parsed.bodyshop_assignments) parsed.bodyshop_assignments = [];
     if (!parsed.insurance_offers) parsed.insurance_offers = [];
     if (!parsed.damage_photos) parsed.damage_photos = [];
     if (!parsed.damage_timeline) { const s = seedDB(); parsed.damage_timeline = s.damage_timeline; }
@@ -2294,9 +2450,11 @@ const KNOWN_COLUMNS = {
   court_dates: ['id', 'lawyer_id', 'case_id', 'title', 'date', 'time', 'court', 'notes', 'created_at'],
   insurers: ['id', 'company', 'name', 'email', 'phone', 'password', 'active', 'created_at'],
   insurance_assignments: ['id', 'insurer_id', 'customer_id', 'assigned_at'],
+  bodyshops: ['id', 'company', 'name', 'email', 'phone', 'password', 'active', 'created_at'],
+  bodyshop_assignments: ['id', 'bodyshop_id', 'customer_id', 'assigned_at'],
   insurance_claims: ['id', 'customer_id', 'vehicle_id', 'insurer_id', 'appraisal_id', 'status', 'claim_date', 'claim_no', 'damage_description', 'claim_amount', 'offer_amount', 'notes', 'created_at', 'updated_at'],
   insurance_offers: ['id', 'claim_id', 'insurer_id', 'amount', 'description', 'notes', 'status', 'valid_until', 'created_at'],
-  damage_photos: ['id', 'vehicle_id', 'appraisal_id', 'type', 'label', 'part', 'url', 'storage_path', 'created_at'],
+  damage_photos: ['id', 'vehicle_id', 'appraisal_id', 'type', 'label', 'part', 'url', 'storage_path', 'storage_bucket', 'public_url', 'created_at'],
   damage_timeline: ['id', 'vehicle_id', 'customer_id', 'event', 'date', 'description', 'actor', 'created_at'],
   messages: ['id', 'contact_id', 'contact_type', 'sender', 'sender_name', 'text', 'attachment_url', 'read_by_admin', 'read_by_customer', 'read_by_lawyer', 'read_by_insurance', 'claim_id', 'case_id', 'created_at'],
   notifications: ['id', 'user_id', 'text', 'type', 'read', 'link', 'created_at'],
@@ -2309,7 +2467,7 @@ const KNOWN_COLUMNS = {
             'customer_id', 'lawyer_id', 'name', 'size', 'mime', 'note', 'tags',
             'category', 'uploaded_at', 'uploaded_by', 'date'],
   reminders: ['id', 'text', 'due_date', 'done', 'priority', 'user_id', 'created_at'],
-  live_feed: ['id', 'type', 'text', 'time', 'date', 'status', 'metadata', 'created_at'],
+  live_feed: ['id', 'type', 'text', 'time', 'date', 'status', 'created_at'],
 };
 
 // Senkron öncesi sanitize:
@@ -2362,8 +2520,8 @@ function sanitizeRecordForSync(table, record) {
 
 // FK bağımlılık sırası — parent önce, child sonra (paralel sync FK ihlal eder)
 const SYNC_TABLE_ORDER = [
-  'user_profiles', 'customers', 'lawyers', 'insurers',           // 0. seviye (parentless)
-  'vehicles', 'lawyer_assignments', 'insurance_assignments',     // 1. seviye (customer'a bağlı)
+  'user_profiles', 'customers', 'lawyers', 'insurers', 'bodyshops',           // 0. seviye (parentless)
+  'vehicles', 'lawyer_assignments', 'insurance_assignments', 'bodyshop_assignments',     // 1. seviye (customer'a bağlı)
   'appraisals', 'paint_maps', 'lawyer_cases', 'insurance_claims',// 2. seviye (vehicle/customer)
   'invoices', 'damage_photos', 'damage_timeline',                // 3. seviye (appraisal'e bağlı olabilir)
   'court_dates', 'insurance_offers',
@@ -2386,32 +2544,180 @@ function sortOpsForFK(ops) {
   });
 }
 
+// ─── Senkron hata sınıflandırma + kendiliğinden iyileşen yazma ────────
+// PostgREST/Supabase hatalarını ayırır:
+//   - unknown_column : DB'de olmayan kolon → o kolonu atıp tekrar dene (şema drift'i tolere)
+//   - network_down   : fetch patladı / client yok → çevrimdışı, deneme sayısını ARTIRMA
+//   - retryable      : 5xx / 429 / FK ihlali (parent henüz sync olmamış) → tekrar dene
+//   - permanent      : not-null / check / RLS → dead-letter (kullanıcıya göster, ASLA sessiz düşürme)
+function classifySyncError(error) {
+  if (!error) return 'ok';
+  const code = String(error.code || '');
+  const msg = String(error.message || '');
+  if (code === 'PGRST204' || code === '42703' ||
+      /Could not find the '.*' column|column .* does not exist/i.test(msg)) {
+    return 'unknown_column';
+  }
+  if (code === '23503') return 'retryable';                       // FK ihlali → sıralama düzeltir
+  if (code === '503' || code === '504' || code === '429') return 'retryable';
+  // Kalıcı: not-null(23502), unique(23505), check(23514), RLS(42501/401/403)
+  if (code === '23502' || code === '23505' || code === '23514' ||
+      code === '42501' || code === '401' || code === '403') return 'permanent';
+  return 'permanent';
+}
+
+function extractUnknownColumn(error) {
+  const msg = String(error?.message || '');
+  let m = msg.match(/find the '([^']+)' column/i);
+  if (m) return m[1];
+  m = msg.match(/column "?([a-zA-Z0-9_]+)"? .*does not exist/i);
+  if (m) return m[1];
+  return null;
+}
+
+// Tek op'u dayanıklı çalıştır. Dönüş: { ok, retry, networkDown, error }
+async function executeSyncOp(op) {
+  const sb = getSupabase();
+  if (!sb) return { ok: false, retry: true, networkDown: true, error: 'no-client' };
+  const table = TABLE_MAP[op.table] || op.table;
+  try {
+    if (op.op === 'delete') {
+      const { error } = await sb.from(table).delete().eq('id', op.id);
+      if (!error) return { ok: true };
+      const kind = classifySyncError(error);
+      // Zaten silinmişse (yok) başarı say
+      if (error.code === 'PGRST116') return { ok: true };
+      return { ok: false, retry: kind === 'retryable', error: error.message };
+    }
+    // upsert (varsayılan): kolon-yok hatasında kolonu atarak en çok 16 kez yeniden dene
+    let rec = sanitizeRecordForSync(op.table, op.record);
+    for (let attempt = 0; attempt < 16; attempt++) {
+      const { error } = await sb.from(table).upsert(rec, { onConflict: 'id', ignoreDuplicates: false });
+      if (!error) return { ok: true };
+      const kind = classifySyncError(error);
+      if (kind === 'unknown_column') {
+        const col = extractUnknownColumn(error);
+        if (col && Object.prototype.hasOwnProperty.call(rec, col)) {
+          const { [col]: _drop, ...rest } = rec;
+          rec = rest;
+          continue; // kolonu attık, tekrar dene
+        }
+        return { ok: false, retry: false, error: `unknown_column: ${error.message}` };
+      }
+      return { ok: false, retry: kind === 'retryable', error: error.message };
+    }
+    return { ok: false, retry: true, error: 'too-many-column-strips' };
+  } catch (e) {
+    // throw → ağ/geçici sorun (çevrimdışı). Deneme sayısını artırma.
+    return { ok: false, retry: true, networkDown: true, error: e?.message || String(e) };
+  }
+}
+
+// ─── Kalıcı Senkron Kuyruğu (Outbox) — "kayıtsız hiçbir şey kalmaz" ───
+// Her yazma önce kuyruğa girer (localStorage), başarılı olunca çıkar. Başarısız
+// olanlar kalıcı olarak saklanıp otomatik retry edilir (timer + online + focus).
+// Düzeltilemeyen (kalıcı) hatalar dead-letter listesine düşer ve UI'da gösterilir
+// — yani bir kayıt ya Supabase'e yazılır ya da kullanıcıya "başarısız" olarak görünür;
+// hiçbir zaman sessizce kaybolmaz.
+const SYNC_QUEUE_KEY = 'gecit_kfz_sync_queue';
+const SYNC_DEAD_KEY  = 'gecit_kfz_sync_failed';
+const SyncQueue = {
+  _flushing: false,
+  _timer: null,
+  _listeners: new Set(),
+  _backoffUntil: 0,
+
+  _readQ()   { try { return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]'); } catch (e) { return []; } },
+  _writeQ(q) { try { localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(q)); } catch (e) {} this._emit(); },
+  _readDead()   { try { return JSON.parse(localStorage.getItem(SYNC_DEAD_KEY) || '[]'); } catch (e) { return []; } },
+  _writeDead(d) { try { localStorage.setItem(SYNC_DEAD_KEY, JSON.stringify(d)); } catch (e) {} this._emit(); },
+
+  status() { return { pending: this._readQ().length, failed: this._readDead().length }; },
+  subscribe(fn) { this._listeners.add(fn); try { fn(this.status()); } catch (e) {} return () => this._listeners.delete(fn); },
+  _emit() { const s = this.status(); this._listeners.forEach(fn => { try { fn(s); } catch (e) {} }); },
+
+  _key(op) { return `${op.table}#${op.op === 'delete' ? op.id : (op.record && op.record.id)}`; },
+
+  enqueue(ops) {
+    const list = Array.isArray(ops) ? ops : [ops];
+    if (list.length === 0) return;
+    const q = this._readQ();
+    const byKey = new Map(q.map(o => [this._key(o), o]));
+    for (const op of list) {
+      if (op.op !== 'upsert' && op.op !== 'delete') continue;
+      byKey.set(this._key(op), { table: op.table, op: op.op, id: op.id, record: op.record, _ts: Date.now(), _tries: 0 });
+    }
+    this._writeQ([...byKey.values()]);
+  },
+
+  async flush() {
+    if (this._flushing) return;
+    if (!DataService.isLive() || !getSupabase()) return;
+    if (Date.now() < this._backoffUntil) return;
+    let q = this._readQ();
+    if (q.length === 0) return;
+    this._flushing = true;
+    try {
+      const ordered = sortOpsForFK(q);
+      const remaining = [];
+      const dead = this._readDead();
+      let networkProblem = false;
+      for (const op of ordered) {
+        const res = await executeSyncOp(op);
+        if (res.ok) continue;
+        if (res.networkDown) {           // çevrimdışı: olduğu gibi koru, sayacı artırma
+          remaining.push(op);
+          networkProblem = true;
+          continue;
+        }
+        const tries = (op._tries || 0) + 1;
+        if (!res.retry) {                // kalıcı hata → dead-letter (kayıp değil, görünür)
+          dead.push({ ...op, _tries: tries, _error: res.error, _failedAt: Date.now() });
+          console.error(`[SyncQueue] ${this._key(op)} kalıcı hata → dead-letter:`, res.error);
+        } else if (tries >= 25) {        // çok denendi, hâlâ olmuyor → dead-letter
+          dead.push({ ...op, _tries: tries, _error: res.error, _failedAt: Date.now() });
+          console.error(`[SyncQueue] ${this._key(op)} ${tries} deneme sonrası bırakıldı:`, res.error);
+        } else {
+          remaining.push({ ...op, _tries: tries, _lastError: res.error });
+        }
+      }
+      this._writeDead(dead);
+      this._writeQ(remaining);
+      if (networkProblem) this._backoffUntil = Date.now() + 10000; // 10sn bekle
+    } finally {
+      this._flushing = false;
+    }
+  },
+
+  // Dead-letter'daki kayıtları tekrar kuyruğa al (kullanıcı "Yeniden Dene" derse)
+  retryFailed() {
+    const dead = this._readDead();
+    if (dead.length === 0) return;
+    this._writeDead([]);
+    this._backoffUntil = 0;
+    this.enqueue(dead.map(({ _error, _failedAt, _tries, _lastError, ...op }) => op));
+    this.flush();
+  },
+
+  start() {
+    if (this._timer) return;
+    this._timer = setInterval(() => this.flush(), 12000);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => { this._backoffUntil = 0; this.flush(); });
+      window.addEventListener('focus', () => this.flush());
+    }
+    this.flush();
+  },
+};
+
+if (typeof window !== 'undefined') window.__gecitSyncQueue = SyncQueue;
+
+// Yazma yolu buraya gelir: kuyruğa al + hemen dene. Kuyruk kalıcı olduğu için
+// başarısız olursa veri localStorage'da bekler ve otomatik retry edilir.
 async function syncToSupabase(ops) {
   if (!ops || ops.length === 0) return;
-  // FK sırasına göre SEQUENTIAL — customer önce, vehicle sonra, appraisal en son.
-  // Paralel olunca FK violation oluşuyordu (vehicles_owner_id_fkey).
-  const sortedOps = sortOpsForFK(ops);
-  const results = [];
-  for (const o of sortedOps) {
-    try {
-      let res = null;
-      if (o.op === 'upsert') {
-        const sanitized = sanitizeRecordForSync(o.table, o.record);
-        res = await SupabaseOps.upsert(o.table, sanitized);
-      } else if (o.op === 'delete') {
-        res = await SupabaseOps.remove(o.table, o.id);
-      }
-      results.push({ status: 'fulfilled', value: res });
-    } catch (err) {
-      results.push({ status: 'rejected', reason: err });
-    }
-  }
-  results.forEach((r, i) => {
-    if (r.status === 'rejected') {
-      const o = sortedOps[i];
-      console.warn(`[Gecit-KFZ sync] ${o.op} ${o.table}#${o.record?.id || o.id} failed:`, r.reason?.message);
-    }
-  });
+  SyncQueue.enqueue(ops);
+  await SyncQueue.flush();
 }
 
 function useDB() {
@@ -2423,6 +2729,7 @@ function useDB() {
   useEffect(() => {
     if (!DataService.isLive()) return;
     let mounted = true;
+    SyncQueue.start(); // kalıcı senkron kuyruğunu başlat (otomatik retry)
 
     (async () => {
       try {
@@ -2446,9 +2753,16 @@ function useDB() {
           const existingIds = new Set((existing || []).map((r) => r.id));
           // NOT NULL ihlali olacak kayıtları daha sokmadan ele
           const requiredText = ['vehicle_notes', 'reminders', 'customer_notes'].includes(table);
+          // İçeriği olmayan dosya/foto kayıtlarını canlıya İTME — yoksa seed/demo
+          // placeholder'lar ("Gutachten_C180.pdf" ama dosya yok) tekrar tekrar geri gelir.
+          const isDocTable = table === 'customer_documents';
+          const isPhotoTable = table === 'damage_photos' || table === 'gallery';
+          const hasContent = (r) => !!(r.storage_path || r.url || r.public_url ||
+            (typeof r.data === 'string' && r.data.startsWith('data:')));
           const orphans = localRows.filter((r) => {
             if (!r?.id || existingIds.has(r.id)) return false;
             if (requiredText && !String(r.text || '').trim()) return false;
+            if ((isDocTable || isPhotoTable) && !hasContent(r)) return false; // içeriksiz placeholder atla
             return true;
           });
           if (orphans.length > 0) {
@@ -2479,7 +2793,13 @@ function useDB() {
               if (!remoteArr || !localArr) continue;
               // ID'ye göre union: remote öncelikli + lokal-only ekstralar
               const remoteIds = new Set(remoteArr.map(r => r?.id).filter(Boolean));
-              const localOnly = localArr.filter(r => r?.id && !remoteIds.has(r.id));
+              // Dosya/foto tablolarında içeriksiz placeholder'ları gösterme
+              // (remote'tan silinmiş seed/demo kayıtların geri gelmesini önler).
+              const fileTable = key === 'customer_documents' || key === 'damage_photos' || key === 'gallery';
+              const hasContent = (r) => !!(r.storage_path || r.url || r.public_url ||
+                (typeof r.data === 'string' && r.data.startsWith('data:')));
+              const localOnly = localArr.filter(r =>
+                r?.id && !remoteIds.has(r.id) && (!fileTable || hasContent(r)));
               if (localOnly.length > 0) {
                 merged[key] = [...remoteArr, ...localOnly];
                 console.log(`[useDB] '${key}': ${localOnly.length} lokal-only kayıt korundu (toplam ${merged[key].length})`);
@@ -2671,6 +2991,9 @@ const ACTION_META = {
   insurer_create:       { label: 'Sigorta şirketi eklendi', severity: 'info' },
   insurer_update:       { label: 'Sigorta şirketi güncellendi', severity: 'info' },
   insurer_delete:       { label: 'Sigorta şirketi silindi', severity: 'critical' },
+  bodyshop_create:      { label: 'Kaporta şirketi eklendi', severity: 'info' },
+  bodyshop_update:      { label: 'Kaporta şirketi güncellendi', severity: 'info' },
+  bodyshop_delete:      { label: 'Kaporta şirketi silindi', severity: 'critical' },
   // Appointment
   appointment_create:   { label: 'Randevu oluşturuldu',    severity: 'info' },
   appointment_update:   { label: 'Randevu güncellendi',    severity: 'info' },
@@ -2956,6 +3279,7 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
     { key: 'file_flows',    label: 'Dosya Akış Motoru',   icon: Zap },
     { key: 'whatsapp_tpl', label: 'WhatsApp Şablonları', icon: MessageIcon },
     { key: 'communications', label: 'İletişim & Davet',  icon: MailIcon },
+    { key: 'musteri_bulma', label: 'Müşteri Bulma',      icon: Target },
     ...(isPrimaryAdmin ? [{ key: 'autoixpert', label: 'AutoiXpert Spiegel', icon: Database }] : []),
     { key: 'activity_logs', label: 'Aktivite Logları',   icon: EyeIcon },
     { key: 'settings',     label: 'Ayarlar',             icon: SettingsIcon },
@@ -3772,6 +4096,7 @@ function brandStyle(brand) {
 
 // ─── Customer list view (bireysel / kurumsal) ──
 function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, currentUser }) {
+  const confirm = useConfirm();
   const [q, setQ] = useState('');
   const [newOpen, setNewOpen] = useState(false);
   const [editCustomer, setEditCustomer] = useState(null);
@@ -3779,9 +4104,15 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
   // Müşteri sil — onayla, sonra customers + bağlı satırları (vehicles, appraisals,
   // customer_documents, customer_notes, lawyer/insurance assignments) yerel state'ten kaldır.
   // DB tarafında FK CASCADE bunları otomatik halleder.
-  const handleDeleteCustomer = (c) => {
+  const handleDeleteCustomer = async (c) => {
     const label = c.full_name || c.company || c.email || c.id;
-    if (!window.confirm(`${label} silinsin mi?\n\nBu müşteriye bağlı tüm araçlar, ekspertizler, belgeler ve notlar da silinecek. Bu işlem geri alınamaz.`)) return;
+    if (!(await confirm({
+      title: 'Müşteri silinsin mi?',
+      subtitle: label,
+      message: 'Bu müşteriye bağlı tüm veriler kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+      bullets: ['Araçlar', 'Ekspertizler', 'Belgeler ve notlar', 'Atamalar, talepler, faturalar'],
+      confirmLabel: 'Evet, sil',
+    }))) return;
     setDb(withLog(
       (prev) => {
         const myVehIds = new Set((prev.vehicles || []).filter(v => v.owner_id === c.id).map(v => v.id));
@@ -4955,6 +5286,26 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
           details: `Sigorta şirketi eklendi: ${insurer.company}`,
         })
       ));
+    } else if (type === 'kaporta') {
+      const bodyshop = {
+        id: 'bs' + uid(),
+        company: form.company || '',
+        name: form.full_name || '',
+        email: form.email || '',
+        phone: form.phone || '',
+        password: form.password || '',
+        notes: form.notes || '',
+        active: true,
+        created_at: new Date().toISOString().slice(0, 10),
+      };
+      setDb(withLog(
+        prev => ({ ...prev, bodyshops: [...(prev.bodyshops || []), bodyshop] }),
+        makeLogEntry({
+          user: currentUser, action: 'bodyshop_create',
+          target: { kind: 'bodyshop', id: bodyshop.id, label: bodyshop.company },
+          details: `Kaporta şirketi eklendi: ${bodyshop.company}`,
+        })
+      ));
     } else {
       // Bireysel/kurumsal: ruhsattan gelen veriler — hem customer hem vehicle oluştur
       // Boş string'ler yerine null gönder — DB'de unique/check constraint çakışmasın
@@ -5135,12 +5486,14 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
     kurumsal: 'Önce ruhsat yükle — firma ve araç bilgileri otomatik dolacak',
     avukat: 'Yeni avukat hesabı oluştur — sisteme giriş yapabilecek',
     sigorta: 'Yeni sigorta şirketi hesabı oluştur — portala giriş yapabilecek',
+    kaporta: 'Yeni kaporta şirketi hesabı oluştur — portala giriş yapabilecek',
   };
   const tabs = [
     { k: 'bireysel', l: 'Bireysel Müşteri' },
     { k: 'kurumsal', l: 'Kurumsal Firma' },
     { k: 'avukat',   l: 'Avukat' },
     { k: 'sigorta',  l: 'Sigorta Şirketi' },
+    { k: 'kaporta',  l: 'Kaporta Şirketi' },
   ];
 
   const TabSwitcher = () => (
@@ -5154,7 +5507,9 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
                   ? 'linear-gradient(135deg, #F59E0B, #FBBF24)'
                   : t.k === 'sigorta'
                     ? 'linear-gradient(135deg, #B0050F, #7A0309)'
-                    : `linear-gradient(135deg, ${C.neon}, ${C.neon2})`)
+                    : t.k === 'kaporta'
+                      ? 'linear-gradient(135deg, #0891B2, #0E7490)'
+                      : `linear-gradient(135deg, ${C.neon}, ${C.neon2})`)
               : 'transparent',
             color: type === t.k ? '#FFFFFF' : C.textDim,
           }}>
@@ -5239,6 +5594,20 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
               </div>
               <Field label="Giriş Şifresi" required><TextInput type="password" value={form.password || ''} onChange={set('password')} required placeholder="En az 4 karakter" /></Field>
               <p className="text-xs px-1" style={{ color: C.textDim }}>Sigorta şirketi bu e-posta ve şifre ile sigortacı portalına giriş yapabilecek.</p>
+            </>
+          )}
+          {type === 'kaporta' && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field label="Firma Adı" required><TextInput value={form.company || ''} onChange={set('company')} required placeholder="Örn: AutoLack & Karosserie Köln" /></Field>
+                <Field label="Yetkili Kişi"><TextInput value={form.full_name || ''} onChange={set('full_name')} placeholder="Örn: Mehmet Yıldız" /></Field>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field label="E-posta" required><TextInput type="email" value={form.email || ''} onChange={set('email')} required placeholder="iletisim@kaporta.de" /></Field>
+                <Field label="Telefon"><TextInput value={form.phone || ''} onChange={set('phone')} placeholder="+49 ..." /></Field>
+              </div>
+              <Field label="Giriş Şifresi" required><TextInput type="password" value={form.password || ''} onChange={set('password')} required placeholder="En az 4 karakter" /></Field>
+              <p className="text-xs px-1" style={{ color: C.textDim }}>Kaporta şirketi bu e-posta ve şifre ile portala giriş yapabilecek.</p>
             </>
           )}
           <Field label="Notlar"><TextInput value={form.notes || ''} onChange={set('notes')} placeholder="İsteğe bağlı" /></Field>
@@ -12924,12 +13293,14 @@ function AdminPartners({ db, setDb, currentUser }) {
   const [tab, setTab] = useState('lawyers');
   const lawyerCount = (db.lawyers || []).length;
   const insurerCount = (db.insurers || []).length;
+  const bodyshopCount = (db.bodyshops || []).length;
   return (
     <>
-      <div className="mb-5 inline-flex rounded-full p-1" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
+      <div className="mb-5 inline-flex rounded-full p-1 flex-wrap" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
         {[
-          { k: 'lawyers',  l: 'Avukatlar',         cnt: lawyerCount,  color: C.neon,  icon: ScaleIcon },
-          { k: 'insurers', l: 'Sigorta Şirketleri', cnt: insurerCount, color: '#B0050F', icon: ShieldIcon },
+          { k: 'lawyers',   l: 'Avukatlar',          cnt: lawyerCount,   color: C.neon,    icon: ScaleIcon },
+          { k: 'insurers',  l: 'Sigorta Şirketleri', cnt: insurerCount,  color: '#B0050F', icon: ShieldIcon },
+          { k: 'bodyshops', l: 'Kaporta Şirketleri', cnt: bodyshopCount, color: '#0891B2', icon: Wrench },
         ].map(t => {
           const active = tab === t.k;
           return (
@@ -12951,12 +13322,14 @@ function AdminPartners({ db, setDb, currentUser }) {
       </div>
       {tab === 'lawyers' && <AdminLawyers db={db} setDb={setDb} currentUser={currentUser} />}
       {tab === 'insurers' && <AdminInsurers db={db} setDb={setDb} currentUser={currentUser} />}
+      {tab === 'bodyshops' && <AdminBodyshops db={db} setDb={setDb} currentUser={currentUser} />}
     </>
   );
 }
 
 // ─── Admin Insurance Companies Management ─────────
 function AdminInsurers({ db, setDb, currentUser }) {
+  const confirm = useConfirm();
   const [editOpen, setEditOpen] = useState(false);
   const [unifiedOpen, setUnifiedOpen] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -13010,9 +13383,15 @@ function AdminInsurers({ db, setDb, currentUser }) {
     ));
   };
 
-  const deleteInsurer = (id) => {
-    if (!window.confirm('Bu sigorta şirketi silinecek. Devam edilsin mi?')) return;
+  const deleteInsurer = async (id) => {
     const ins = (db.insurers || []).find(i => i.id === id);
+    if (!(await confirm({
+      title: 'Sigorta şirketi silinsin mi?',
+      subtitle: ins?.company,
+      message: 'Bu sigorta şirketi ve bağlı müşteri atamaları kaldırılacak. Bu işlem geri alınamaz.',
+      bullets: ['Sigorta firma kaydı', 'Bağlı müşteri atamaları'],
+      confirmLabel: 'Evet, sil',
+    }))) return;
     setDb(withLog(
       prev => ({
         ...prev,
@@ -13118,9 +13497,180 @@ function AdminInsurers({ db, setDb, currentUser }) {
   );
 }
 
+// ─── Admin Body Shop (Kaporta) Management ─────────
+function AdminBodyshops({ db, setDb, currentUser }) {
+  const confirm = useConfirm();
+  const [editOpen, setEditOpen] = useState(false);
+  const [unifiedOpen, setUnifiedOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [form, setForm] = useState({ company: '', name: '', email: '', phone: '', password: '', notes: '' });
+
+  const bodyshops = (db.bodyshops || []).filter(b =>
+    !search ||
+    (b.company || '').toLowerCase().includes(search.toLowerCase()) ||
+    (b.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (b.email || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const openAdd = () => setUnifiedOpen(true);
+  const openEdit = (bs) => {
+    setForm({
+      company: bs.company || '', name: bs.name || '', email: bs.email || '',
+      phone: bs.phone || '', password: bs.password || '', notes: bs.notes || '',
+    });
+    setEditId(bs.id);
+    setEditOpen(true);
+  };
+
+  const saveEdit = (e) => {
+    e?.preventDefault();
+    const before = (db.bodyshops || []).find(b => b.id === editId);
+    setDb(withLog(
+      prev => ({ ...prev, bodyshops: (prev.bodyshops || []).map(b => b.id === editId ? { ...b, ...form } : b) }),
+      makeLogEntry({
+        user: currentUser, action: 'bodyshop_update',
+        target: { kind: 'bodyshop', id: editId, label: form.company || before?.company },
+        details: `Kaporta şirketi güncellendi: ${form.company || before?.company}`,
+        before: before ? { company: before.company, name: before.name, email: before.email, phone: before.phone } : null,
+        after: { company: form.company, name: form.name, email: form.email, phone: form.phone },
+      })
+    ));
+    setEditOpen(false);
+  };
+
+  const toggleActive = (id) => {
+    const bs = (db.bodyshops || []).find(b => b.id === id);
+    if (!bs) return;
+    setDb(withLog(
+      prev => ({ ...prev, bodyshops: (prev.bodyshops || []).map(b => b.id === id ? { ...b, active: !b.active } : b) }),
+      makeLogEntry({
+        user: currentUser, action: 'bodyshop_update',
+        target: { kind: 'bodyshop', id, label: bs.company },
+        details: `${bs.company} ${bs.active ? 'pasifleştirildi' : 'aktifleştirildi'}`,
+        before: { active: bs.active }, after: { active: !bs.active },
+      })
+    ));
+  };
+
+  const deleteBodyshop = async (id) => {
+    const bs = (db.bodyshops || []).find(b => b.id === id);
+    if (!(await confirm({
+      title: 'Kaporta şirketi silinsin mi?',
+      subtitle: bs?.company,
+      message: 'Bu kaporta şirketi ve bağlı müşteri atamaları kaldırılacak. Bu işlem geri alınamaz.',
+      bullets: ['Kaporta firma kaydı', 'Bağlı müşteri atamaları'],
+      confirmLabel: 'Evet, sil',
+    }))) return;
+    setDb(withLog(
+      prev => ({
+        ...prev,
+        bodyshops: (prev.bodyshops || []).filter(b => b.id !== id),
+        bodyshop_assignments: (prev.bodyshop_assignments || []).filter(a => a.bodyshop_id !== id),
+      }),
+      bs ? makeLogEntry({
+        user: currentUser, action: 'bodyshop_delete',
+        target: { kind: 'bodyshop', id, label: bs.company },
+        details: `Kaporta şirketi silindi: ${bs.company}`,
+      }) : null
+    ));
+  };
+
+  const getAssignedCount = (bsId) => (db.bodyshop_assignments || []).filter(a => a.bodyshop_id === bsId).length;
+
+  return (
+    <>
+      <AdminTopbar title="Kaporta Şirketleri" subtitle={`${(db.bodyshops || []).length} kayıtlı kaporta şirketi`}
+        action={<AdminButton variant="primary" onClick={openAdd}><PlusIcon size={14} /> Yeni Kaporta Şirketi</AdminButton>} />
+
+      <div className="mb-5 relative">
+        <SearchIcon size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: C.textDim }} />
+        <input value={search} onChange={(e) => setSearch(e.target.value)}
+          placeholder="Kaporta şirketi ara... (firma, yetkili, e-posta)"
+          className="w-full pl-11 pr-4 py-3 rounded-xl text-sm outline-none"
+          style={{ background: 'rgba(0,0,0,0.04)', color: C.text, border: `1px solid ${C.border}` }} />
+      </div>
+
+      {bodyshops.length === 0 ? (
+        <div className="rounded-2xl p-10 text-center" style={{ border: `1px dashed ${C.border}` }}>
+          <Wrench size={48} style={{ color: C.textDim, margin: '0 auto 16px' }} />
+          <p className="text-sm" style={{ color: C.textDim }}>
+            {search ? 'Aramayla eşleşen kaporta şirketi bulunamadı.' : 'Henüz kaporta şirketi eklenmemiş.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {bodyshops.map(bs => (
+            <GlassCard key={bs.id}>
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(8,145,178,0.08)', border: '1px solid rgba(8,145,178,0.2)' }}>
+                    <Wrench size={18} style={{ color: '#0891B2' }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: C.text }}>{bs.company || '—'}</p>
+                    <p className="text-xs truncate" style={{ color: C.textDim }}>{bs.name || 'Yetkili belirsiz'}</p>
+                  </div>
+                </div>
+                <span className="text-[9px] px-2 py-1 rounded-full uppercase tracking-wider"
+                  style={{
+                    background: bs.active ? 'rgba(52,211,153,0.12)' : 'rgba(0,0,0,0.05)',
+                    color: bs.active ? '#34D399' : C.textDim,
+                    border: `1px solid ${bs.active ? 'rgba(52,211,153,0.3)' : C.border}`,
+                  }}>
+                  {bs.active ? 'Aktif' : 'Pasif'}
+                </span>
+              </div>
+              <div className="space-y-1.5 text-xs mb-4" style={{ color: C.textDim }}>
+                {bs.email && <p className="flex items-center gap-2"><MailIcon size={11} /> {bs.email}</p>}
+                {bs.phone && <p className="flex items-center gap-2"><PhoneIcon size={11} /> {bs.phone}</p>}
+                <p className="flex items-center gap-2"><UsersIcon size={11} /> Atanmış müşteri: <span style={{ color: C.text }}>{getAssignedCount(bs.id)}</span></p>
+              </div>
+              <div className="flex gap-2">
+                <AdminButton size="sm" onClick={() => openEdit(bs)}><EditIcon size={12} /> Düzenle</AdminButton>
+                <AdminButton size="sm" onClick={() => toggleActive(bs.id)}>
+                  {bs.active ? 'Devre Dışı' : 'Aktifleştir'}
+                </AdminButton>
+                <AdminButton size="sm" onClick={() => deleteBodyshop(bs.id)}>
+                  <TrashIcon size={12} /> Sil
+                </AdminButton>
+              </div>
+            </GlassCard>
+          ))}
+        </div>
+      )}
+
+      {/* Add via unified record modal (kaporta tab) */}
+      <NewRecordModal open={unifiedOpen} onClose={() => setUnifiedOpen(false)} defaultType="kaporta" setDb={setDb} currentUser={currentUser} />
+
+      {/* Edit modal */}
+      <GecitKfzModal open={editOpen} onClose={() => setEditOpen(false)} title="Kaporta Şirketi Düzenle">
+        <form onSubmit={saveEdit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Firma Adı" required><TextInput value={form.company} onChange={(e) => setForm(f => ({ ...f, company: e.target.value }))} required placeholder="Örn: AutoLack & Karosserie Köln" /></Field>
+            <Field label="Yetkili Kişi"><TextInput value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Örn: Mehmet Yıldız" /></Field>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="E-posta" required><TextInput type="email" value={form.email} onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))} required placeholder="iletisim@kaporta.de" /></Field>
+            <Field label="Telefon"><TextInput value={form.phone} onChange={(e) => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+49 ..." /></Field>
+          </div>
+          <Field label="Giriş Şifresi" required><TextInput type="password" value={form.password} onChange={(e) => setForm(f => ({ ...f, password: e.target.value }))} required /></Field>
+          <Field label="Notlar"><TextInput value={form.notes} onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="İsteğe bağlı" /></Field>
+          <div className="flex justify-end gap-2 pt-3" style={{ borderTop: `1px solid ${C.border}` }}>
+            <AdminButton onClick={() => setEditOpen(false)}>İptal</AdminButton>
+            <AdminButton variant="primary" type="submit"><Check size={14} /> Güncelle</AdminButton>
+          </div>
+        </form>
+      </GecitKfzModal>
+    </>
+  );
+}
+
 // ─── Admin App shell ────────────────────────────
 // ─── Admin Lawyer Management ──────────────────────
 function AdminLawyers({ db, setDb, currentUser }) {
+  const confirm = useConfirm();
   const [addOpen, setAddOpen] = useState(false);
   const [unifiedOpen, setUnifiedOpen] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -13176,8 +13726,15 @@ function AdminLawyers({ db, setDb, currentUser }) {
     ));
   };
 
-  const deleteLawyer = (id) => {
+  const deleteLawyer = async (id) => {
     const law = (db.lawyers || []).find(l => l.id === id);
+    if (!(await confirm({
+      title: 'Avukat silinsin mi?',
+      subtitle: law?.name,
+      message: 'Bu avukat ve bağlı müşteri atamaları kaldırılacak. Bu işlem geri alınamaz.',
+      bullets: ['Avukat kaydı', 'Bağlı müşteri atamaları'],
+      confirmLabel: 'Evet, sil',
+    }))) return;
     setDb(withLog(
       prev => ({
         ...prev,
@@ -15311,6 +15868,250 @@ function ActivityLogPanel({ db, setDb }) {
   );
 }
 
+// ─── Test Hesapları Yönetimi (yalnızca dev) ─────────────────────────
+// Vite dev plugin'i (service-role) ile giriş yapabilen test firmaları
+// üretir/listeler/siler. Tüm veri @gecit-test.local etiketlidir; gerçek
+// veriye asla dokunulmaz. Silme her zaman güzel ConfirmDialog ister.
+const TEST_ROLE_META = {
+  lawyer:    { label: 'Avukat',  color: '#F59E0B', icon: ScaleIcon },
+  insurance: { label: 'Sigorta', color: '#B0050F', icon: ShieldIcon },
+  kaporta:   { label: 'Kaporta', color: '#0891B2', icon: Wrench },
+};
+
+function AdminTestAccounts() {
+  const confirm = useConfirm();
+  const [accounts, setAccounts] = useState([]);
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [migrationNeeded, setMigrationNeeded] = useState(false);
+  const [counts, setCounts] = useState({ lawyer: 2, insurance: 2, kaporta: 2 });
+  const [withDemoData, setWithDemoData] = useState(true);
+  const [created, setCreated] = useState([]);
+
+  const api = async (path, opts) => {
+    const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    return j;
+  };
+
+  const refresh = useCallback(async () => {
+    setLoading(true); setErr('');
+    try {
+      const j = await api('/api/dev/test-accounts');
+      setAccounts(j.accounts || []);
+      setPassword(j.password || '');
+    } catch (e) {
+      setErr('Liste alınamadı: ' + e.message + ' — dev sunucusu yeniden başlatılmış olmalı (vite.config değişti).');
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const total = (Number(counts.lawyer) || 0) + (Number(counts.insurance) || 0) + (Number(counts.kaporta) || 0);
+
+  const handleSeed = async () => {
+    if (total <= 0) return;
+    setBusy(true); setErr(''); setCreated([]); setMigrationNeeded(false);
+    try {
+      const j = await api('/api/dev/test-accounts/seed', { method: 'POST', body: JSON.stringify({ counts, withDemoData }) });
+      setCreated(j.created || []);
+      if (j.errors?.length) {
+        if (j.errors.some(e => /kaporta.*CHECK|migration_kaporta|23514/i.test(e.error || ''))) setMigrationNeeded(true);
+        setErr(`${j.errors.length} hesap üretilemedi: ` + j.errors.map(e => `${e.role} (${e.error})`).join(' · '));
+      }
+      await refresh();
+    } catch (e) { setErr('Üretim hatası: ' + e.message); }
+    finally { setBusy(false); }
+  };
+
+  const handleDeleteOne = async (acc) => {
+    const meta = TEST_ROLE_META[acc.role];
+    const ok = await confirm({
+      title: `${meta?.label} test hesabı silinsin mi?`,
+      subtitle: acc.company,
+      message: 'Bu test firması ve giriş hesabı kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+      bullets: [
+        `Giriş hesabı: ${acc.email}`,
+        `Firma kaydı (${meta?.label})`,
+        acc.assigned > 0 ? `${acc.assigned} bağlı demo müşteri + araç/ekspertiz` : 'Bağlı demo veri',
+      ],
+      confirmLabel: 'Evet, sil',
+    });
+    if (!ok) return;
+    setBusy(true); setErr('');
+    try {
+      const j = await api('/api/dev/test-accounts/delete', { method: 'POST', body: JSON.stringify({ targets: [{ role: acc.role, linkedId: acc.linkedId }] }) });
+      if (j.errors?.length) setErr('Silme uyarısı: ' + j.errors.map(e => e.error).join(' · '));
+      await refresh();
+    } catch (e) { setErr('Silme hatası: ' + e.message); }
+    finally { setBusy(false); }
+  };
+
+  const handleDeleteAll = async () => {
+    if (accounts.length === 0) return;
+    const ok = await confirm({
+      title: 'TÜM test hesapları silinsin mi?',
+      subtitle: `${accounts.length} firma + giriş hesabı + bağlı demo veri`,
+      message: 'Üretilen tüm test verileri (avukat, sigorta, kaporta) ve giriş hesapları kalıcı olarak silinecek. Gerçek müşteri/firma verilerine dokunulmaz.',
+      bullets: [
+        `${accounts.filter(a => a.role === 'lawyer').length} avukat`,
+        `${accounts.filter(a => a.role === 'insurance').length} sigorta`,
+        `${accounts.filter(a => a.role === 'kaporta').length} kaporta`,
+        'Tüm bağlı demo müşteri/araç/ekspertiz kayıtları',
+      ],
+      requireText: 'SİL',
+      confirmLabel: 'Tümünü sil',
+    });
+    if (!ok) return;
+    setBusy(true); setErr('');
+    try {
+      const j = await api('/api/dev/test-accounts/delete', { method: 'POST', body: JSON.stringify({ all: true }) });
+      if (j.errors?.length) setErr('Silme uyarısı: ' + j.errors.map(e => e.error).join(' · '));
+      await refresh();
+    } catch (e) { setErr('Silme hatası: ' + e.message); }
+    finally { setBusy(false); }
+  };
+
+  const copyAll = () => {
+    const lines = accounts.map(a => `${TEST_ROLE_META[a.role]?.label}\t${a.email}\t${password}`);
+    try { navigator.clipboard.writeText(['rol\temail\tşifre', ...lines].join('\n')); } catch {}
+  };
+
+  const byRole = (role) => accounts.filter(a => a.role === role);
+
+  return (
+    <>
+      <AdminTopbar title="🧪 Test Hesapları" subtitle="Giriş yapabilen sahte avukat / sigorta / kaporta firmaları üret ve sil"
+        action={
+          <div className="flex gap-2">
+            <AdminButton size="sm" onClick={refresh} disabled={busy || loading}>Yenile</AdminButton>
+            <AdminButton size="sm" variant="danger" onClick={handleDeleteAll} disabled={busy || accounts.length === 0}>
+              <TrashIcon size={12} /> Tümünü Sil
+            </AdminButton>
+          </div>
+        } />
+
+      {/* Güvenlik notu */}
+      <div className="rounded-2xl p-4 mb-4 text-xs" style={{ background: `${C.cyan || '#06B6D4'}12`, border: `1px solid ${C.cyan || '#06B6D4'}33`, color: C.textDim }}>
+        Tüm test verileri <b style={{ color: C.text }}>@gecit-test.local</b> etiketiyle üretilir. Silme işlemi yalnızca bu etiketli kayıtları kaldırır — gerçek müşteri/firma verilerine <b style={{ color: C.text }}>asla</b> dokunulmaz.
+      </div>
+
+      {/* Migration uyarısı */}
+      {migrationNeeded && (
+        <div className="rounded-2xl p-4 mb-4 text-sm" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', color: '#FBBF24' }}>
+          <b>Kaporta rolü için migration gerekli.</b> <code>supabase_migration_kaporta_role.sql</code> dosyasını Supabase → SQL Editor'de bir kez çalıştırın, sonra tekrar üretin. (Avukat ve sigorta migration olmadan da çalışır.)
+        </div>
+      )}
+
+      {err && (
+        <div className="rounded-2xl p-4 mb-4 text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FCA5A5' }}>{err}</div>
+      )}
+
+      {/* Üretim paneli */}
+      <GlassCard className="mb-5" padding="p-5">
+        <p className="text-sm font-semibold mb-3" style={{ color: C.text }}>Yeni test firmaları üret</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          {Object.entries(TEST_ROLE_META).map(([role, m]) => (
+            <div key={role} className="rounded-xl p-3 flex items-center gap-3" style={{ background: 'rgba(0,0,0,0.04)', border: `1px solid ${C.border}` }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${m.color}1f`, color: m.color }}>
+                <m.icon size={16} />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs" style={{ color: C.textDim }}>{m.label}</p>
+              </div>
+              <input type="number" min="0" max="20" value={counts[role]}
+                onChange={(e) => setCounts(c => ({ ...c, [role]: Math.max(0, Math.min(20, Number(e.target.value) || 0)) }))}
+                className="w-16 px-2 py-1.5 rounded-lg text-sm text-center outline-none"
+                style={{ background: 'rgba(0,0,0,0.06)', color: C.text, border: `1px solid ${C.border}` }} />
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: C.textDim }}>
+            <input type="checkbox" checked={withDemoData} onChange={(e) => setWithDemoData(e.target.checked)} />
+            Bağlı demo veri de üret (müşteri / araç / dava-talep)
+          </label>
+          <AdminButton variant="primary" onClick={handleSeed} disabled={busy || total <= 0}>
+            <PlusIcon size={14} /> {busy ? 'Üretiliyor…' : `${total} hesap üret`}
+          </AdminButton>
+        </div>
+      </GlassCard>
+
+      {/* Yeni üretilen kimlik bilgileri */}
+      {created.length > 0 && (
+        <GlassCard className="mb-5" padding="p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Check size={16} style={{ color: '#34D399' }} />
+            <p className="text-sm font-semibold" style={{ color: C.text }}>{created.length} hesap üretildi — giriş bilgileri</p>
+          </div>
+          <p className="text-xs mb-3" style={{ color: C.textDim }}>
+            Tümünün şifresi: <b style={{ color: '#34D399', fontFamily: 'monospace' }}>{password}</b> · Çıkış yapıp bu e-postalarla giriş yapabilirsiniz.
+          </p>
+          <div className="space-y-1.5">
+            {created.map((c, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs font-mono p-2 rounded-lg" style={{ background: 'rgba(0,0,0,0.04)', color: C.text }}>
+                <span className="px-1.5 py-0.5 rounded" style={{ background: `${TEST_ROLE_META[c.role]?.color}22`, color: TEST_ROLE_META[c.role]?.color }}>{TEST_ROLE_META[c.role]?.label}</span>
+                <span>{c.email}</span>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
+
+      {/* Mevcut test hesapları */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm uppercase" style={{ color: C.textDim, letterSpacing: '0.15em' }}>Mevcut test hesapları ({accounts.length})</h3>
+        {accounts.length > 0 && <AdminButton size="sm" onClick={copyAll}>Tümünü Kopyala</AdminButton>}
+      </div>
+
+      {loading ? (
+        <p className="text-sm" style={{ color: C.textDim }}>Yükleniyor…</p>
+      ) : accounts.length === 0 ? (
+        <div className="rounded-2xl p-10 text-center" style={{ border: `1px dashed ${C.border}` }}>
+          <p className="text-sm" style={{ color: C.textDim }}>Henüz test hesabı yok. Yukarıdan üretin.</p>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {['lawyer', 'insurance', 'kaporta'].map(role => {
+            const list = byRole(role); if (!list.length) return null;
+            const m = TEST_ROLE_META[role];
+            return (
+              <div key={role}>
+                <div className="flex items-center gap-2 mb-2">
+                  <m.icon size={14} style={{ color: m.color }} />
+                  <span className="text-sm font-semibold" style={{ color: C.text }}>{m.label} ({list.length})</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {list.map(a => (
+                    <div key={a.linkedId} className="rounded-2xl p-4" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate" style={{ color: C.text }}>{a.company}</p>
+                          <p className="text-xs font-mono truncate" style={{ color: C.textDim }}>{a.email}</p>
+                          <div className="flex items-center gap-3 mt-1.5 text-[11px]" style={{ color: C.textDim }}>
+                            <span className="flex items-center gap-1"><UsersIcon size={11} /> {a.assigned} demo müşteri</span>
+                            {a.userId ? <span style={{ color: '#34D399' }}>● giriş aktif</span> : <span style={{ color: '#FBBF24' }}>● giriş yok</span>}
+                          </div>
+                        </div>
+                        <AdminButton size="sm" variant="danger" onClick={() => handleDeleteOne(a)} disabled={busy}>
+                          <TrashIcon size={12} /> Sil
+                        </AdminButton>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
 function AdminApp({ user, onLogout, onHome }) {
   const [section, setSection] = useState('home');
   const [db, setDb] = useDB();
@@ -15345,7 +16146,10 @@ function AdminApp({ user, onLogout, onHome }) {
     autoixpert: 'AutoiXpert Spiegel',
     report_create: 'Rapor Oluştur',
     communications: 'Kommunikation & Einladung',
+    musteri_bulma: 'Müşteri Bulma',
+    test_accounts: '🧪 Test Hesapları',
   };
+  const canManageTests = ['super_admin', 'admin'].includes(user?.role);
   const reminderCount = (db.reminders || []).filter(r => r.status === 'active').length;
   const adminNavItems = [
     { key: 'home',          label: 'Übersicht',           icon: LayoutDashboard },
@@ -15362,7 +16166,9 @@ function AdminApp({ user, onLogout, onHome }) {
     { key: 'file_flows',    label: 'Dateifluss-Engine',   icon: Zap },
     { key: 'whatsapp_tpl',  label: 'WhatsApp-Vorlagen',  icon: MessageIcon },
     { key: 'communications', label: 'Kommunikation',     icon: MailIcon },
+    { key: 'musteri_bulma', label: 'Müşteri Bulma',      icon: Target },
     { key: 'activity_logs', label: 'Aktivitätsprotokolle', icon: EyeIcon },
+    ...(canManageTests ? [{ key: 'test_accounts', label: '🧪 Test Hesapları', icon: UsersGroupIcon }] : []),
     { key: 'settings',      label: 'Einstellungen',        icon: SettingsIcon },
   ];
   return (
@@ -15387,7 +16193,9 @@ function AdminApp({ user, onLogout, onHome }) {
         {section === 'gallery' && <AdminGallery db={db} setDb={setDb} />}
         {section === 'reminders' && <AdminReminders db={db} setDb={setDb} />}
         {section === 'communications' && <CommunicationsPanel db={db} setDb={setDb} currentUser={user} />}
+        {section === 'musteri_bulma' && <MusteriBulmaPanel currentUser={user} />}
         {section === 'autoixpert' && (user?.email || '').trim().toLowerCase() === 'cevikademm@gmail.com' && <AdminAutoiXpert mode="admin" />}
+        {section === 'test_accounts' && canManageTests && <AdminTestAccounts />}
         {section === 'settings' && <AdminSettings user={user} db={db} setDb={setDb} />}
 
 
@@ -17537,9 +18345,276 @@ function AppointmentBookingModal({ open, onClose, onBook }) {
 }
 
 // ─── AppPanel dispatcher (role-based routing) ───
+// ─── Kaporta (Body Shop) Portalı ───────────────────────────────────
+// Kaportacı firması giriş yapınca burayı görür. Veri user.bodyshop_id ile
+// kapsamlanır (RLS de aynı kapsamı sunucu tarafında zorunlu kılar).
+const KAPORTA_C = '#0891B2';
+const APPRAISAL_STATUS_META = {
+  bekliyor: { label: 'Bekliyor', color: '#9CA3AF' },
+  teslim_alindi: { label: 'Teslim Alındı', color: '#60A5FA' },
+  inceleniyor: { label: 'İnceleniyor', color: '#60A5FA' },
+  mekanik: { label: 'Mekanik', color: '#A78BFA' },
+  kaporta: { label: 'Kaporta / Boya', color: '#0891B2' },
+  rapor: { label: 'Rapor', color: '#F59E0B' },
+  rapor_yaziliyor: { label: 'Rapor Yazılıyor', color: '#F59E0B' },
+  tamamlandi: { label: 'Tamamlandı', color: '#34D399' },
+};
+
+function BodyshopApp({ user, onLogout, onHome }) {
+  const [db, setDb] = useDB();
+  const [section, setSection] = useState('home');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const isMobile = useIsMobile();
+
+  const shop = (db.bodyshops || []).find(b => b.id === user.bodyshop_id);
+  const myAssignments = (db.bodyshop_assignments || []).filter(a => a.bodyshop_id === user.bodyshop_id);
+  const myCustomerIds = myAssignments.map(a => a.customer_id);
+  const myCustomers = (db.customers || []).filter(c => myCustomerIds.includes(c.id));
+  const shopActor = { id: user.bodyshop_id || user.email, name: shop?.company || shop?.name || user.name || user.email, role: 'kaporta' };
+
+  const getVehicles = (custId) => (db.vehicles || []).filter(v => v.owner_id === custId);
+  const getAppraisals = (custId) => {
+    const vIds = getVehicles(custId).map(v => v.id);
+    return (db.appraisals || []).filter(a => vIds.includes(a.vehicle_id));
+  };
+
+  const allVehicles = myCustomerIds.flatMap(getVehicles);
+  const allAppraisals = myCustomerIds.flatMap(getAppraisals);
+  const openAppraisals = allAppraisals.filter(a => a.status !== 'tamamlandi');
+
+  useEffect(() => {
+    const sessionKey = 'gecit_kfz_session_logged_' + (user?.email || user?.id || 'anon');
+    if (!sessionStorage.getItem(sessionKey)) {
+      logActivity(setDb, makeLogEntry({ user: shopActor, action: 'login', details: `Kaporta ${shopActor.name} portala giriş yaptı` }));
+      sessionStorage.setItem(sessionKey, '1');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleLogout = () => {
+    const sessionKey = 'gecit_kfz_session_logged_' + (user?.email || user?.id || 'anon');
+    sessionStorage.removeItem(sessionKey);
+    logActivity(setDb, makeLogEntry({ user: shopActor, action: 'logout', details: `Kaporta ${shopActor.name} çıkış yaptı` }));
+    onLogout();
+  };
+
+  const navItems = [
+    { key: 'home', label: 'Genel Bakış', icon: LayoutDashboard },
+    { key: 'customers', label: 'Atanmış Araçlar', icon: CarIcon, badge: myCustomers.length },
+    { key: 'profile', label: 'Firma Bilgileri', icon: Building },
+  ];
+  const sectionLabel = (navItems.find(i => i.key === section)?.label) || 'Kaporta Portalı';
+
+  const StatCard = ({ icon: Icon, label, value }) => (
+    <div className="rounded-2xl p-4" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: `${KAPORTA_C}18`, color: KAPORTA_C, border: `1px solid ${KAPORTA_C}40` }}>
+          <Icon size={20} />
+        </div>
+        <div>
+          <p className="text-2xl font-bold leading-none" style={{ color: C.text }}>{value}</p>
+          <p className="text-xs mt-1" style={{ color: C.textDim }}>{label}</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const StatusPill = ({ status }) => {
+    const m = APPRAISAL_STATUS_META[status] || { label: status || '—', color: '#9CA3AF' };
+    return (
+      <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: `${m.color}1f`, color: m.color, border: `1px solid ${m.color}44` }}>
+        {m.label}
+      </span>
+    );
+  };
+
+  const CustomerCard = ({ c }) => {
+    const vehicles = getVehicles(c.id);
+    const appraisals = getAppraisals(c.id);
+    return (
+      <div className="rounded-2xl p-5" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: `${KAPORTA_C}15`, color: KAPORTA_C }}>
+            <UsersIcon size={18} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold truncate" style={{ color: C.text }}>{c.type === 'kurumsal' ? c.company : c.full_name}</p>
+            <p className="text-xs truncate" style={{ color: C.textDim }}>{c.email || c.phone || '—'}</p>
+          </div>
+        </div>
+        {vehicles.length === 0 ? (
+          <p className="text-xs" style={{ color: C.textDim }}>Araç kaydı yok.</p>
+        ) : (
+          <div className="space-y-2">
+            {vehicles.map(v => {
+              const vAppr = appraisals.filter(a => a.vehicle_id === v.id);
+              return (
+                <div key={v.id} className="rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CarIcon size={14} style={{ color: KAPORTA_C, flexShrink: 0 }} />
+                      <span className="text-sm font-mono font-semibold" style={{ color: C.text }}>{v.plate}</span>
+                      <span className="text-xs truncate" style={{ color: C.textDim }}>{v.brand} {v.model}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 justify-end">
+                      {vAppr.length ? vAppr.map(a => <StatusPill key={a.id} status={a.status} />) : <span className="text-[10px]" style={{ color: C.textDim }}>ekspertiz yok</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col lg:flex-row" style={{ background: C.bg }}>
+      <MobileTopbar onMenuClick={() => setMobileNavOpen(true)} role="kaporta"
+        sectionLabel={sectionLabel} onLogout={handleLogout} />
+      {mobileNavOpen && (
+        <div onClick={() => setMobileNavOpen(false)} className="lg:hidden fixed inset-0 z-40"
+          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} />
+      )}
+      <aside className="flex flex-col"
+        style={{
+          background: C.surface, borderRight: `1px solid ${C.border}`,
+          ...(isMobile ? {
+            width: 280, maxWidth: '85vw', position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 50,
+            transform: mobileNavOpen ? 'translateX(0)' : 'translateX(-100%)',
+            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)',
+          } : { width: 260, height: '100vh', position: 'sticky', top: 0, flexShrink: 0 }),
+        }}>
+        <div className="px-5 py-5 flex items-center gap-3" style={{ borderBottom: `1px solid ${C.border}` }}>
+          <div className="flex items-center gap-0 font-mono text-xl flex-shrink-0" style={{ color: C.text }}>
+            <span>GE</span><span style={{ color: C.neon, textShadow: `0 0 12px ${C.glow}` }}>C</span><span>IT</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] uppercase font-medium" style={{ color: KAPORTA_C, letterSpacing: '0.2em' }}>Kaporta</p>
+            <p className="text-xs font-semibold truncate" style={{ color: C.text }} title={shop?.company || user.name}>
+              {shop?.company || shop?.name || user.name || 'Kaporta'}
+            </p>
+          </div>
+        </div>
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {navItems.map(it => (
+            <button key={it.key} onClick={() => { setSection(it.key); setMobileNavOpen(false); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-left transition-all relative active:scale-[0.98]"
+              style={{
+                background: section === it.key ? `linear-gradient(135deg, ${KAPORTA_C}26, ${KAPORTA_C}0d)` : 'transparent',
+                border: `1px solid ${section === it.key ? `${KAPORTA_C}55` : 'transparent'}`,
+                color: section === it.key ? C.text : C.textDim,
+              }}>
+              <it.icon size={18} strokeWidth={1.8} />
+              <span className={section === it.key ? 'font-medium' : ''}>{it.label}</span>
+              {it.badge > 0 && <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: KAPORTA_C, color: '#fff' }}>{it.badge}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="p-4 space-y-2" style={{ borderTop: `1px solid ${C.border}` }}>
+          <button onClick={() => { onHome(); setMobileNavOpen(false); }} className="w-full text-xs px-3 py-2 rounded-full transition-colors hover:bg-black/5"
+            style={{ color: C.textDim, border: `1px solid ${C.border}` }}>← Ana Sayfa</button>
+          <div className="flex items-center gap-3 px-2 py-3 rounded-xl" style={{ background: `${KAPORTA_C}10` }}>
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: `linear-gradient(135deg, ${KAPORTA_C}, #0E7490)`, color: '#fff' }}>
+              <Wrench size={16} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm truncate" style={{ color: C.text }}>{user?.name}</p>
+              <p className="text-xs truncate" style={{ color: C.textDim }}>{user?.email}</p>
+            </div>
+            <button onClick={handleLogout} className="p-1.5 rounded-lg hover:bg-black/5 transition" style={{ color: C.textDim }}>
+              <LogOutIcon size={14} />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <main className="flex-1 min-w-0 px-4 py-4 lg:px-8 lg:py-8" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 90px)' }}>
+        {!shop && (
+          <div className="rounded-2xl p-6 mb-6" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#FCA5A5' }}>
+            Firma kaydı yükleniyor veya bulunamadı. Veri senkronize olduğunda burada görünecek.
+          </div>
+        )}
+
+        {section === 'home' && (
+          <>
+            <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+              className="mb-6 rounded-2xl overflow-hidden relative p-6"
+              style={{ background: `linear-gradient(135deg, ${KAPORTA_C}1f, rgba(14,116,144,0.12), rgba(0,0,0,0.02))`, border: `1px solid ${C.border}` }}>
+              <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full" style={{ background: `radial-gradient(circle, ${KAPORTA_C}30, transparent 70%)`, filter: 'blur(40px)' }} />
+              <p className="text-[10px] uppercase font-bold relative" style={{ color: KAPORTA_C, letterSpacing: '0.2em' }}>Kaporta Portalı</p>
+              <h1 className="text-2xl font-bold mt-1 relative" style={{ color: C.text }}>{shop?.company || 'Kaporta Firması'}</h1>
+              <p className="text-sm mt-1 relative" style={{ color: C.textDim }}>Hoş geldiniz, {shop?.name || user.name}. Atanmış araç ve ekspertizlerinizi buradan takip edin.</p>
+            </motion.div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <StatCard icon={UsersIcon} label="Atanmış müşteri" value={myCustomers.length} />
+              <StatCard icon={CarIcon} label="Araç sayısı" value={allVehicles.length} />
+              <StatCard icon={Wrench} label="Açık ekspertiz" value={openAppraisals.length} />
+            </div>
+            <h3 className="text-sm uppercase mb-3" style={{ color: C.textDim, letterSpacing: '0.15em' }}>Son Araçlar</h3>
+            {myCustomers.length === 0 ? (
+              <div className="rounded-2xl p-10 text-center" style={{ border: `1px dashed ${C.border}` }}>
+                <CarIcon size={40} style={{ color: C.textDim, margin: '0 auto 12px' }} />
+                <p className="text-sm" style={{ color: C.textDim }}>Henüz size atanmış araç yok.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {myCustomers.slice(0, 4).map(c => <CustomerCard key={c.id} c={c} />)}
+              </div>
+            )}
+          </>
+        )}
+
+        {section === 'customers' && (
+          <>
+            <h2 className="text-xl font-bold mb-1" style={{ color: C.text }}>Atanmış Araçlar</h2>
+            <p className="text-sm mb-5" style={{ color: C.textDim }}>{myCustomers.length} müşteri · {allVehicles.length} araç</p>
+            {myCustomers.length === 0 ? (
+              <div className="rounded-2xl p-10 text-center" style={{ border: `1px dashed ${C.border}` }}>
+                <CarIcon size={40} style={{ color: C.textDim, margin: '0 auto 12px' }} />
+                <p className="text-sm" style={{ color: C.textDim }}>Henüz size atanmış araç yok.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {myCustomers.map(c => <CustomerCard key={c.id} c={c} />)}
+              </div>
+            )}
+          </>
+        )}
+
+        {section === 'profile' && (
+          <>
+            <h2 className="text-xl font-bold mb-5" style={{ color: C.text }}>Firma Bilgileri</h2>
+            <div className="rounded-2xl p-6 max-w-lg" style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${C.border}` }}>
+              {[
+                ['Firma', shop?.company],
+                ['Yetkili', shop?.name],
+                ['E-posta', shop?.email || user.email],
+                ['Telefon', shop?.phone],
+                ['Durum', shop?.active === false ? 'Pasif' : 'Aktif'],
+              ].map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between py-3" style={{ borderBottom: `1px solid ${C.border}` }}>
+                  <span className="text-xs uppercase" style={{ color: C.textDim, letterSpacing: '0.1em' }}>{k}</span>
+                  <span className="text-sm font-medium" style={{ color: C.text }}>{v || '—'}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
 function AppPanel({ user, onHome, onLogout }) {
   if (user?.role === 'customer') return <CustomerApp user={user} onLogout={onLogout} onHome={onHome} />;
   if (user?.role === 'lawyer') return <LawyerApp user={user} onLogout={onLogout} onHome={onHome} />;
+  if (user?.role === 'kaporta') return <BodyshopApp user={user} onLogout={onLogout} onHome={onHome} />;
   return <AdminApp user={user} onLogout={onLogout} onHome={onHome} />;
 }
 
@@ -17596,6 +18671,46 @@ function GlobalServiceInfo() {
   );
 }
 
+// ─── Senkron Durum Göstergesi ─────────────────────────────────────
+// Sağ-alt köşede YALNIZCA bekleyen/başarısız kayıt varken görünür.
+// "Kayıtsız hiçbir şey kalmaz" garantisinin kullanıcıya görünür yüzü:
+// kayıt Supabase'e gidene kadar "eşitleniyor", kalıcı hata olursa
+// "eşitlenemedi + Yeniden Dene" gösterilir. Hiçbir kayıt sessizce kaybolmaz.
+function SyncStatusBadge() {
+  const [st, setSt] = useState({ pending: 0, failed: 0 });
+  useEffect(() => {
+    if (!DataService.isLive()) return;
+    return SyncQueue.subscribe(setSt);
+  }, []);
+  if (!st || (st.pending === 0 && st.failed === 0)) return null;
+  const hasFail = st.failed > 0;
+  return (
+    <div style={{
+      position: 'fixed', right: 16, bottom: 16, zIndex: 9999,
+      background: hasFail ? '#7A0309' : '#111827', color: '#fff',
+      borderRadius: 12, padding: '10px 14px', fontSize: 13,
+      boxShadow: '0 6px 24px rgba(0,0,0,0.25)', display: 'flex',
+      alignItems: 'center', gap: 10, fontFamily: 'system-ui, sans-serif',
+      maxWidth: 'calc(100vw - 32px)',
+    }}>
+      {hasFail ? (
+        <>
+          <span style={{ fontWeight: 600 }}>⚠ {st.failed} kayıt eşitlenemedi</span>
+          <button
+            onClick={() => SyncQueue.retryFailed()}
+            style={{ background: '#fff', color: '#7A0309', border: 'none', borderRadius: 8, padding: '4px 10px', fontWeight: 700, cursor: 'pointer' }}
+          >Yeniden Dene</button>
+        </>
+      ) : (
+        <>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#fbbf24', display: 'inline-block' }} />
+          <span>{st.pending} kayıt eşitleniyor…</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── App ────────────────────────────────────────
 function App() {
   const [user, setUser] = useState(null);
@@ -17622,6 +18737,7 @@ function App() {
           name: p.full_name || session.user.email,
           lawyer_id: p.role === 'lawyer' ? p.linked_id : undefined,
           insurer_id: p.role === 'insurance' ? p.linked_id : undefined,
+          bodyshop_id: p.role === 'kaporta' ? p.linked_id : undefined,
         });
 
         const cached = readCachedProfileLS(session.user.id);
@@ -17691,12 +18807,15 @@ function App() {
   );
 
   return (
-    <div className="flex flex-col min-h-screen pt-[26px]">
-      <GlobalServiceInfo />
-      <main className="flex-1 flex flex-col relative">
-        {content}
-      </main>
-    </div>
+    <ConfirmProvider>
+      <div className="flex flex-col min-h-screen pt-[26px]">
+        <GlobalServiceInfo />
+        <main className="flex-1 flex flex-col relative">
+          {content}
+        </main>
+        <SyncStatusBadge />
+      </div>
+    </ConfirmProvider>
   );
 }
 

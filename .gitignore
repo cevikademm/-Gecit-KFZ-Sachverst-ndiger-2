@@ -60,3 +60,7 @@ GA-HS-*_files/
 klon/
 verify-*.json
 supabase/migrations_fresh/_temp_*.sql
+
+# Yerel temizlik yedekleri (commit edilmez)
+cleanup_backup_*.json
+.openapi_tmp.json

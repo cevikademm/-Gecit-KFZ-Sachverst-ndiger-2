@@ -168,5 +168,6 @@ export function buildSessionUser(authUser, profile) {
     name: profile.full_name || authUser.email,
     lawyer_id: profile.role === 'lawyer' ? profile.linked_id : undefined,
     insurer_id: profile.role === 'insurance' ? profile.linked_id : undefined,
+    bodyshop_id: profile.role === 'kaporta' ? profile.linked_id : undefined,
   };
 }
