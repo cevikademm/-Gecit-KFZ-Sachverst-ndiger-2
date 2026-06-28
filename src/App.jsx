@@ -36,6 +36,8 @@ import PhotoEditor from './components/PhotoEditor.jsx';
 import CaseStatusBoard from './components/CaseStatusBoard.jsx';
 import CaseStatusWidget from './components/CaseStatusWidget.jsx';
 import CaseTimeline from './components/CaseTimeline.jsx';
+import HataBildirWidget from './components/HataBildirWidget.jsx';
+import HataBildirimleriPanel from './components/HataBildirimleriPanel.jsx';
 import { parseRuhsatMock, getRuhsatGroups } from './utils/ruhsatParser.js';
 import { parseRuhsatWithClaude } from './utils/ruhsatOcrClient.js';
 import { useLang } from './i18n/LangContext.jsx';
@@ -1536,6 +1538,7 @@ const TABLE_MAP = {
   gallery: 'gallery',
   reminders: 'reminders',
   live_feed: 'live_feed',
+  error_reports: 'error_reports',
 };
 
 // Supabase client singleton
@@ -2186,9 +2189,9 @@ function seedDB() {
       { id: 'lf4', type: 'giden', text: 'Ayşe Kara — Megane teslim edildi', time: '14:00', date: '2026-04-24', status: 'bitti' },
     ],
     insurers: [
-      { id: 'ins1', company: 'Allianz Versicherung', name: 'Thomas Müller', email: 'mueller@allianz.de', phone: '+49 170 111 2233', password: 'sigorta123', active: true, created_at: '2026-04-01' },
-      { id: 'ins2', company: 'HUK-COBURG', name: 'Anna Schmidt', email: 'schmidt@huk.de', phone: '+49 171 444 5566', password: 'sigorta123', active: true, created_at: '2026-04-05' },
-      { id: 'ins3', company: 'DEVK Versicherung', name: 'Klaus Weber', email: 'weber@devk.de', phone: '+49 172 777 8899', password: 'sigorta123', active: true, created_at: '2026-04-10' },
+      { id: 'ins1', company: 'Allianz Versicherung', name: 'Thomas Müller', email: 'mueller@allianz.de', phone: '+49 170 111 2233', password: '123', active: true, created_at: '2026-04-01' },
+      { id: 'ins2', company: 'HUK-COBURG', name: 'Anna Schmidt', email: 'schmidt@huk.de', phone: '+49 171 444 5566', password: '123', active: true, created_at: '2026-04-05' },
+      { id: 'ins3', company: 'DEVK Versicherung', name: 'Klaus Weber', email: 'weber@devk.de', phone: '+49 172 777 8899', password: '123', active: true, created_at: '2026-04-10' },
     ],
     insurance_claims: [
       { id: 'ic1', customer_id: 'c1', vehicle_id: 'v1', insurer_id: 'ins1', appraisal_id: 'ap1', status: 'inceleniyor', claim_date: '2026-04-22', damage_description: 'Arka sol tampon hasarı, park halinde çarpılma', claim_amount: 2500, offer_amount: null, notes: '' },
@@ -2201,9 +2204,9 @@ function seedDB() {
     ],
     // Kaporta (Karosserie) şirketleri — sigorta şirketleriyle aynı yapı/şifre mekanizması
     bodyshops: [
-      { id: 'bs1', company: 'AutoLack & Karosserie Köln', name: 'Mehmet Yıldız', email: 'info@autolack-koeln.de', phone: '+49 221 555 1010', password: 'kaporta123', active: true, created_at: '2026-04-02' },
-      { id: 'bs2', company: 'Karosseriebau Schmitz GmbH', name: 'Stefan Schmitz', email: 'kontakt@schmitz-kfz.de', phone: '+49 211 555 2020', password: 'kaporta123', active: true, created_at: '2026-04-06' },
-      { id: 'bs3', company: 'Premium Dellen & Lack', name: 'Ali Demir', email: 'service@premium-lack.de', phone: '+49 231 555 3030', password: 'kaporta123', active: true, created_at: '2026-04-11' },
+      { id: 'bs1', company: 'AutoLack & Karosserie Köln', name: 'Mehmet Yıldız', email: 'info@autolack-koeln.de', phone: '+49 221 555 1010', password: '123', active: true, created_at: '2026-04-02' },
+      { id: 'bs2', company: 'Karosseriebau Schmitz GmbH', name: 'Stefan Schmitz', email: 'kontakt@schmitz-kfz.de', phone: '+49 211 555 2020', password: '123', active: true, created_at: '2026-04-06' },
+      { id: 'bs3', company: 'Premium Dellen & Lack', name: 'Ali Demir', email: 'service@premium-lack.de', phone: '+49 231 555 3030', password: '123', active: true, created_at: '2026-04-11' },
     ],
     bodyshop_assignments: [],
     insurance_permissions: {
@@ -2293,6 +2296,7 @@ function loadDB() {
     if (!parsed.file_flows) { const s = seedDB(); parsed.file_flows = s.file_flows; }
     if (!parsed.whatsapp_templates) { const s = seedDB(); parsed.whatsapp_templates = s.whatsapp_templates; }
     if (!parsed.external_tuv_records) parsed.external_tuv_records = [];
+    if (!parsed.error_reports) parsed.error_reports = [];
     // Migration: add TÜV templates if missing
     const tuvIds = ['wt_tuv60', 'wt_tuv30', 'wt_tuv_gecmis'];
     const existingIds = (parsed.whatsapp_templates || []).map(t => t.id);
@@ -2468,6 +2472,9 @@ const KNOWN_COLUMNS = {
             'category', 'uploaded_at', 'uploaded_by', 'date'],
   reminders: ['id', 'text', 'due_date', 'done', 'priority', 'user_id', 'created_at'],
   live_feed: ['id', 'type', 'text', 'time', 'date', 'status', 'created_at'],
+  error_reports: ['id', 'reporter_name', 'reporter_email', 'reporter_role', 'description',
+    'page_url', 'page_path', 'user_agent', 'screen_size', 'app_version', 'severity', 'status',
+    'screenshot_path', 'screenshot_url', 'screenshot_data', 'console_errors', 'created_at', 'resolved_at'],
 };
 
 // Senkron öncesi sanitize:
@@ -2515,6 +2522,11 @@ function sanitizeRecordForSync(table, record) {
     out = { ...out, data: null };
   }
 
+  // Hata bildirimi: ekran görüntüsü Storage'a gittiyse base64'ü DB'ye yazma.
+  if (table === 'error_reports' && record.screenshot_path && out.screenshot_data) {
+    out = { ...out, screenshot_data: null };
+  }
+
   return out;
 }
 
@@ -2529,6 +2541,7 @@ const SYNC_TABLE_ORDER = [
   'messages', 'notifications', 'activity_logs', 'satisfaction_surveys',
   'objection_templates', 'file_flows', 'whatsapp_templates',
   'gallery', 'reminders', 'live_feed', 'appointments',
+  'error_reports',
 ];
 function sortOpsForFK(ops) {
   const idx = (t) => {
@@ -5192,11 +5205,14 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
   const [pendingRuhsatFile, setPendingRuhsatFile] = useState(null);
 
   const isRuhsatType = (t) => t === 'bireysel' || t === 'kurumsal';
+  const isAccountType = (t) => t === 'avukat' || t === 'sigorta' || t === 'kaporta';
+  // Test kolaylığı: avukat/sigorta/kaporta hesaplarında şifre '123' ön-dolu gelir.
+  const initialForm = (t) => (isAccountType(t) ? { password: '123' } : {});
 
   useEffect(() => {
     if (!open) return;
     setType(defaultType);
-    setForm({});
+    setForm(initialForm(defaultType));
     setRuhsatPreview(null);
     setOcrConfidence(null);
     setPendingRuhsatFile(null);
@@ -5207,7 +5223,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
   // Tip değişince stage'i resetle
   const switchType = (newType) => {
     setType(newType);
-    setForm({});
+    setForm(initialForm(newType));
     setRuhsatPreview(null);
     setOcrConfidence(null);
     setPendingRuhsatFile(null);
@@ -5579,7 +5595,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
                 <Field label="Baro"><TextInput value={form.baro || ''} onChange={set('baro')} placeholder="İstanbul Barosu" /></Field>
                 <Field label="Baro Sicil No"><TextInput value={form.baro_no || ''} onChange={set('baro_no')} placeholder="45821" /></Field>
               </div>
-              <p className="text-xs px-1" style={{ color: C.textDim }}>Avukat bu e-posta ve şifre ile sisteme giriş yapabilecek.</p>
+              <p className="text-xs px-1" style={{ color: C.textDim }}>Avukat bu e-posta ve şifre ile sisteme giriş yapabilecek. <b>Test için şifre 123 ön-dolu geldi.</b></p>
             </>
           )}
           {type === 'sigorta' && (
@@ -5593,7 +5609,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
                 <Field label="Telefon"><TextInput value={form.phone || ''} onChange={set('phone')} placeholder="+49 ..." /></Field>
               </div>
               <Field label="Giriş Şifresi" required><TextInput type="password" value={form.password || ''} onChange={set('password')} required placeholder="En az 4 karakter" /></Field>
-              <p className="text-xs px-1" style={{ color: C.textDim }}>Sigorta şirketi bu e-posta ve şifre ile sigortacı portalına giriş yapabilecek.</p>
+              <p className="text-xs px-1" style={{ color: C.textDim }}>Sigorta şirketi bu e-posta ve şifre ile sigortacı portalına giriş yapabilecek. <b>Test için şifre 123 ön-dolu geldi.</b></p>
             </>
           )}
           {type === 'kaporta' && (
@@ -5607,7 +5623,7 @@ function NewRecordModal({ open, onClose, defaultType = 'bireysel', setDb, curren
                 <Field label="Telefon"><TextInput value={form.phone || ''} onChange={set('phone')} placeholder="+49 ..." /></Field>
               </div>
               <Field label="Giriş Şifresi" required><TextInput type="password" value={form.password || ''} onChange={set('password')} required placeholder="En az 4 karakter" /></Field>
-              <p className="text-xs px-1" style={{ color: C.textDim }}>Kaporta şirketi bu e-posta ve şifre ile portala giriş yapabilecek.</p>
+              <p className="text-xs px-1" style={{ color: C.textDim }}>Kaporta şirketi bu e-posta ve şifre ile portala giriş yapabilecek. <b>Test için şifre 123 ön-dolu geldi.</b></p>
             </>
           )}
           <Field label="Notlar"><TextInput value={form.notes || ''} onChange={set('notes')} placeholder="İsteğe bağlı" /></Field>
@@ -16148,8 +16164,11 @@ function AdminApp({ user, onLogout, onHome }) {
     communications: 'Kommunikation & Einladung',
     musteri_bulma: 'Müşteri Bulma',
     test_accounts: '🧪 Test Hesapları',
+    error_reports: '🐞 Hata Bildirimleri',
   };
   const canManageTests = ['super_admin', 'admin'].includes(user?.role);
+  const isAdminRole = ['super_admin', 'admin'].includes(user?.role);
+  const openErrorReports = (db.error_reports || []).filter(r => (r.status || 'new') !== 'resolved').length;
   const reminderCount = (db.reminders || []).filter(r => r.status === 'active').length;
   const adminNavItems = [
     { key: 'home',          label: 'Übersicht',           icon: LayoutDashboard },
@@ -16168,6 +16187,7 @@ function AdminApp({ user, onLogout, onHome }) {
     { key: 'communications', label: 'Kommunikation',     icon: MailIcon },
     { key: 'musteri_bulma', label: 'Müşteri Bulma',      icon: Target },
     { key: 'activity_logs', label: 'Aktivitätsprotokolle', icon: EyeIcon },
+    ...(isAdminRole ? [{ key: 'error_reports', label: 'Hata Bildirimleri', icon: AlertTriangle, badge: openErrorReports }] : []),
     ...(canManageTests ? [{ key: 'test_accounts', label: '🧪 Test Hesapları', icon: UsersGroupIcon }] : []),
     { key: 'settings',      label: 'Einstellungen',        icon: SettingsIcon },
   ];
@@ -16196,6 +16216,7 @@ function AdminApp({ user, onLogout, onHome }) {
         {section === 'musteri_bulma' && <MusteriBulmaPanel currentUser={user} />}
         {section === 'autoixpert' && (user?.email || '').trim().toLowerCase() === 'cevikademm@gmail.com' && <AdminAutoiXpert mode="admin" />}
         {section === 'test_accounts' && canManageTests && <AdminTestAccounts />}
+        {section === 'error_reports' && isAdminRole && <HataBildirimleriPanel db={db} setDb={setDb} />}
         {section === 'settings' && <AdminSettings user={user} db={db} setDb={setDb} />}
 
 
@@ -16620,6 +16641,11 @@ function AdminApp({ user, onLogout, onHome }) {
       <MobileBottomNav items={adminNavItems} active={section} onChange={setSection}
         onHome={onHome} onLogout={handleLogout} />
       {openCustomer && <CustomerDetailDrawer customer={openCustomer} db={db} setDb={setDb} onClose={() => setOpenCustomer(null)} currentUser={user} />}
+      {/* Hata Bildir — yalnızca admin (super_admin/admin) girişinde görünür FAB */}
+      <HataBildirWidget
+        user={user}
+        onSubmit={(rec) => setDb((prev) => ({ ...prev, error_reports: [rec, ...(prev.error_reports || [])] }))}
+      />
     </div>
   );
 }
