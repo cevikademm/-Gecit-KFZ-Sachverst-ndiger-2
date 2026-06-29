@@ -8,6 +8,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { C } from '../utils/tokens.js';
+import { CopyableEmail } from './Copyable.jsx';
 
 // ─── Alıcı tipleri ─────────────────────────────────────────────────────────
 const RECIPIENT_TYPES = [
@@ -563,7 +564,7 @@ function EmailVersandCard({ contact, recipientType, state, onChange, onInsertTem
                 <span style={{ cursor: 'pointer', color: C.textDim }}>✎</span>
               </div>
             ) : (
-              <div style={{ fontSize: 12, color: C.textDim, marginTop: 2 }}>{contact.email}</div>
+              <CopyableEmail value={contact.email} style={{ fontSize: 12, color: C.textDim, marginTop: 2 }} iconSize={11} />
             )}
             <div style={{ fontSize: 12, color: C.textDim, marginTop: 2 }}>{contact.role}</div>
           </div>

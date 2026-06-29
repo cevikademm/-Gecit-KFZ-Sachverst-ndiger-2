@@ -6,6 +6,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { C } from '../utils/tokens.js';
+import { CopyableEmail } from './Copyable.jsx';
 
 // ─── Yardımcılar ─────────────────────────────────────────────────────
 
@@ -152,7 +153,7 @@ function PartySection({ title, icon, party }) {
         <Field label="Name" value={fullName} />
       )}
       <FieldGrid>
-        <Field label="E-Mail" value={party.email} />
+        <Field label="E-Mail" value={party.email && <CopyableEmail value={party.email} />} />
         <Field label="Telefon" value={party.phone} mono />
         {party.phone2 && <Field label="Telefon 2" value={party.phone2} mono />}
         {party.license_plate && <Field label="Kennzeichen" value={party.license_plate} mono />}
@@ -490,7 +491,7 @@ export function ContactDetail({ contact, onBack }) {
 
       <Section title="Kontakt" icon="📞">
         <FieldGrid>
-          <Field label="E-Mail" value={c.email} />
+          <Field label="E-Mail" value={c.email && <CopyableEmail value={c.email} />} />
           <Field label="Telefon" value={c.phone} mono />
           <Field label="Telefon 2" value={c.phone2} mono />
         </FieldGrid>
@@ -600,7 +601,7 @@ export function InvoiceDetail({ invoice, onBack }) {
             <Field label="Anrede" value={i.recipient.salutation} />
             <Field label="Name" value={[i.recipient.first_name, i.recipient.last_name].filter(Boolean).join(' ')} />
             <Field label="Firma" value={i.recipient.organization_name} />
-            <Field label="E-Mail" value={i.recipient.email} />
+            <Field label="E-Mail" value={i.recipient.email && <CopyableEmail value={i.recipient.email} />} />
             <Field label="Telefon" value={i.recipient.phone} mono />
           </FieldGrid>
           <Field label="Adresse" value={[i.recipient.street_and_housenumber_or_lockbox, [i.recipient.zip, i.recipient.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')} />

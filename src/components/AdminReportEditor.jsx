@@ -4,6 +4,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { C } from '../utils/tokens.js';
+import { CopyableEmail } from './Copyable.jsx';
 import { getSupabaseClient } from '../utils/supabaseAuth.js';
 import FahrzeugauswahlPanel from './FahrzeugauswahlPanel.jsx';
 import DruckVersandPanel from './DruckVersandPanel.jsx';
@@ -2825,7 +2826,7 @@ function CustomerSearchInput({ customers, vehicles, onSelect }) {
                       )}
                     </div>
                     <div className="text-[11px] truncate" style={{ color: C.textDim }}>
-                      {c.email || c.phone || '—'}
+                      {c.email ? <CopyableEmail value={c.email} className="truncate" /> : (c.phone || '—')}
                     </div>
                   </div>
                   {ovCount > 0 && (

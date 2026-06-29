@@ -38,6 +38,7 @@ import CaseStatusWidget from './components/CaseStatusWidget.jsx';
 import CaseTimeline from './components/CaseTimeline.jsx';
 import HataBildirWidget from './components/HataBildirWidget.jsx';
 import HataBildirimleriPanel from './components/HataBildirimleriPanel.jsx';
+import { CopyableEmail } from './components/Copyable.jsx';
 import { parseRuhsatMock, getRuhsatGroups } from './utils/ruhsatParser.js';
 import { parseRuhsatWithClaude } from './utils/ruhsatOcrClient.js';
 import { useLang } from './i18n/LangContext.jsx';
@@ -336,7 +337,7 @@ function Navbar({ user, onLoginClick, onLogout, onEnterApp, onBook }) {
                     style={{ background: '#FFFFFF', border: `1px solid ${C.border}`,
                       boxShadow: '0 12px 40px -8px rgba(0,0,0,0.15)' }}>
                     <div className="px-3 py-2" style={{ color: C.textDim }}>
-                      <p className="truncate" style={{ color: C.text }}>{user.email}</p>
+                      <CopyableEmail value={user.email} className="truncate" style={{ color: C.text, display: 'flex' }} />
                       <p className="text-xs mt-0.5" style={{ color: C.neon }}>
                         {user.role === 'super_admin' ? '● Super Admin' : '● Benutzer'}
                       </p>
@@ -3364,7 +3365,7 @@ function AdminSidebar({ active, onNav, user, onLogout, onHome, reminderCount, mo
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm truncate" style={{ color: C.text }}>{user?.name || 'Admin'}</p>
-            <p className="text-xs truncate" style={{ color: C.textDim }}>{user?.email}</p>
+            <CopyableEmail value={user?.email} className="text-xs truncate" style={{ color: C.textDim, display: 'flex' }} />
           </div>
           <button onClick={onLogout} title="Çıkış Yap"
             className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/5 transition"
@@ -4474,9 +4475,13 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                   <h3 className="text-lg font-bold leading-tight truncate" style={{ color: C.text, letterSpacing: '-0.01em' }}>
                     {isKurum ? c.company : c.full_name}
                   </h3>
-                  <p className="text-xs mt-1 truncate" style={{ color: C.textDim }}>
-                    {isKurum ? `Ansprechpartner: ${c.full_name}` : (c.email || 'Keine E-Mail')}
-                  </p>
+                  {isKurum ? (
+                    <p className="text-xs mt-1 truncate" style={{ color: C.textDim }}>{`Ansprechpartner: ${c.full_name}`}</p>
+                  ) : c.email ? (
+                    <CopyableEmail value={c.email} className="text-xs mt-1 truncate" style={{ color: C.textDim, display: 'flex' }} />
+                  ) : (
+                    <p className="text-xs mt-1 truncate" style={{ color: C.textDim }}>Keine E-Mail</p>
+                  )}
 
                   {/* Featured stat row */}
                   <div className="flex items-center gap-4 mt-5 pb-5" style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -4513,7 +4518,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                           style={{ background: 'rgba(0,0,0,0.04)' }}>
                           <MailIcon size={12} style={{ color: C.textDim }} />
                         </div>
-                        <span className="truncate" style={{ color: C.text }}>{c.email}</span>
+                        <CopyableEmail value={c.email} className="truncate" style={{ color: C.text }} />
                       </div>
                     )}
                     {isKurum && c.email && (
@@ -4522,7 +4527,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                           style={{ background: 'rgba(0,0,0,0.04)' }}>
                           <MailIcon size={12} style={{ color: C.textDim }} />
                         </div>
-                        <span className="truncate" style={{ color: C.text }}>{c.email}</span>
+                        <CopyableEmail value={c.email} className="truncate" style={{ color: C.text }} />
                       </div>
                     )}
                     {isKurum && c.tax_no && (
@@ -4718,7 +4723,7 @@ function CustomerListView({ title, type, subtitle, db, setDb, onOpenCustomer, cu
                   {c.email && (
                     <p className="text-[11px] mt-0.5 truncate flex items-center gap-1" style={{ color: C.textDim }}>
                       <MailIcon size={10} style={{ opacity: 0.7, flexShrink: 0 }} />
-                      <span className="truncate">{c.email}</span>
+                      <CopyableEmail value={c.email} className="truncate" iconSize={10} />
                     </p>
                   )}
                   {c.phone && (
@@ -8727,7 +8732,7 @@ function CustomerDetailDrawer({ customer, db, setDb, onClose, currentUser }) {
                     className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all hover:scale-[1.02] hover:shadow-md"
                     style={{ background: 'rgba(0,0,0,0.04)', color: C.textDim, border: `1px solid ${C.border}` }}>
                     <MailIcon size={12} className="group-hover:scale-110 transition-transform" style={{ color: C.neon }} />
-                    <span className="truncate max-w-[200px]">{customer.email}</span>
+                    <CopyableEmail value={customer.email} className="truncate max-w-[200px]" iconSize={11} />
                   </a>
                 )}
                 {customer.phone && (
@@ -10580,7 +10585,7 @@ function TuvNotifyModal({ open, onClose, vehicle, customer, db, setDb, currentUs
         </Field>
         <div className="text-xs p-3 rounded-xl" style={{ background: 'rgba(227,6,19,0.04)', border: `1px solid ${C.border}`, color: C.textDim }}>
           <strong style={{ color: C.text }}>Alıcı:</strong> {customer?.full_name || customer?.company || '—'}
-          {customer?.email ? ` · ${customer.email}` : ' · (e-posta yok)'}
+          {customer?.email ? <> · <CopyableEmail value={customer.email} style={{ display: 'inline-flex' }} /></> : ' · (e-posta yok)'}
           {customer?.phone ? ` · ${customer.phone}` : ' · (telefon yok)'}
         </div>
         {savedHint && (
@@ -10763,7 +10768,7 @@ function BulkTuvActionsModal({ open, onClose, vehicles, db, setDb, currentUser }
                   <td className="px-3 py-2 font-mono" style={{ color: C.text }}>{it.v.plate}</td>
                   <td className="px-3 py-2" style={{ color: C.text }}>{it.owner?.full_name || it.owner?.company || '—'}</td>
                   <td className="px-3 py-2" style={{ color: it.owner?.email ? '#34D399' : '#EF4444' }}>
-                    {it.owner?.email || 'YOK'}
+                    {it.owner?.email ? <CopyableEmail value={it.owner.email} /> : 'YOK'}
                   </td>
                   <td className="px-3 py-2 font-mono" style={{ color: it.owner?.phone ? C.cyan : '#EF4444' }}>
                     {it.owner?.phone || 'YOK'}
@@ -13469,7 +13474,7 @@ function AdminInsurers({ db, setDb, currentUser }) {
                 </span>
               </div>
               <div className="space-y-1.5 text-xs mb-4" style={{ color: C.textDim }}>
-                {ins.email && <p className="flex items-center gap-2"><MailIcon size={11} /> {ins.email}</p>}
+                {ins.email && <p className="flex items-center gap-2"><MailIcon size={11} /> <CopyableEmail value={ins.email} iconSize={11} /></p>}
                 {ins.phone && <p className="flex items-center gap-2"><PhoneIcon size={11} /> {ins.phone}</p>}
                 <p className="flex items-center gap-2"><UsersIcon size={11} /> Atanmış müşteri: <span style={{ color: C.text }}>{getAssignedCount(ins.id)}</span></p>
               </div>
@@ -13639,7 +13644,7 @@ function AdminBodyshops({ db, setDb, currentUser }) {
                 </span>
               </div>
               <div className="space-y-1.5 text-xs mb-4" style={{ color: C.textDim }}>
-                {bs.email && <p className="flex items-center gap-2"><MailIcon size={11} /> {bs.email}</p>}
+                {bs.email && <p className="flex items-center gap-2"><MailIcon size={11} /> <CopyableEmail value={bs.email} iconSize={11} /></p>}
                 {bs.phone && <p className="flex items-center gap-2"><PhoneIcon size={11} /> {bs.phone}</p>}
                 <p className="flex items-center gap-2"><UsersIcon size={11} /> Atanmış müşteri: <span style={{ color: C.text }}>{getAssignedCount(bs.id)}</span></p>
               </div>
@@ -13813,7 +13818,7 @@ function AdminLawyers({ db, setDb, currentUser }) {
               </div>
               <div className="space-y-1.5 mb-3">
                 <div className="flex items-center gap-2 text-xs" style={{ color: C.textDim }}>
-                  <MailIcon size={12} /> {l.email}
+                  <MailIcon size={12} /> <CopyableEmail value={l.email} />
                 </div>
                 <div className="flex items-center gap-2 text-xs" style={{ color: C.textDim }}>
                   <PhoneIcon size={12} /> {l.phone}
@@ -14065,7 +14070,7 @@ function LawyerApp({ user, onLogout, onHome }) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm truncate" style={{ color: C.text }}>{user?.name}</p>
-              <p className="text-xs truncate" style={{ color: C.textDim }}>{user?.email}</p>
+              <CopyableEmail value={user?.email} className="text-xs truncate" style={{ color: C.textDim, display: 'flex' }} />
             </div>
             <button onClick={handleLogout} className="p-1.5 rounded-lg hover:bg-black/5 transition" style={{ color: C.textDim }}>
               <LogOutIcon size={14} />
@@ -14156,7 +14161,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                       </div>
                       <div>
                         <p className="text-sm font-medium" style={{ color: C.text }}>{c.type === 'kurumsal' ? c.company : c.full_name}</p>
-                        <p className="text-xs" style={{ color: C.textDim }}>{c.email} · {getCustomerDocs(c.id).length} belge</p>
+                        <p className="text-xs" style={{ color: C.textDim }}>{c.email ? <CopyableEmail value={c.email} iconSize={11} /> : '—'} · {getCustomerDocs(c.id).length} belge</p>
                       </div>
                     </div>
                     <span className="text-xs" style={{ color: C.neon }}>Görüntüle →</span>
@@ -14215,7 +14220,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                             {isCorp ? c.company : c.full_name}
                           </p>
                           {perms.can_view_contact_info ? (
-                            <p className="text-xs truncate" style={{ color: C.textDim }}>{c.email}</p>
+                            <CopyableEmail value={c.email} className="text-xs truncate" style={{ color: C.textDim, display: 'flex' }} />
                           ) : (
                             <p className="text-xs italic" style={{ color: C.textDim, opacity: 0.6 }}>İletişim gizli</p>
                           )}
@@ -14316,7 +14321,7 @@ function LawyerApp({ user, onLogout, onHome }) {
                   </h2>
                   {perms.can_view_contact_info ? (
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs" style={{ color: C.textDim }}>
-                      {selectedCustomer.email && <span className="flex items-center gap-1.5"><MailIcon size={12} /> {selectedCustomer.email}</span>}
+                      {selectedCustomer.email && <span className="flex items-center gap-1.5"><MailIcon size={12} /> <CopyableEmail value={selectedCustomer.email} /></span>}
                       {selectedCustomer.phone && <span className="flex items-center gap-1.5 font-mono"><PhoneIcon size={12} /> {selectedCustomer.phone}</span>}
                     </div>
                   ) : (
@@ -14755,7 +14760,9 @@ function LawyerApp({ user, onLogout, onHome }) {
                         </div>
                         <div>
                           <p className="text-sm font-medium" style={{ color: C.text }}>{selectedContact.type === 'kurumsal' ? selectedContact.company : selectedContact.full_name}</p>
-                          <p className="text-xs" style={{ color: C.textDim }}>{selectedContact.email}</p>
+                          {selectedContact.email
+                            ? <CopyableEmail value={selectedContact.email} className="text-xs" style={{ color: C.textDim, display: 'flex' }} />
+                            : <p className="text-xs" style={{ color: C.textDim }}>—</p>}
                         </div>
                       </div>
                       <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -15304,7 +15311,7 @@ Tarih: ${new Date().toLocaleDateString('tr-TR')}`;
                       </div>
                       <div>
                         <p className="text-xl font-bold" style={{ color: C.text }}>{data.cust.full_name || data.cust.company}</p>
-                        <p className="text-sm" style={{ color: C.textDim }}>{data.cust.email} · {data.cust.phone || '—'}</p>
+                        <p className="text-sm" style={{ color: C.textDim }}>{data.cust.email ? <CopyableEmail value={data.cust.email} /> : '—'} · {data.cust.phone || '—'}</p>
                         <span className="text-[10px] px-2 py-0.5 rounded-full uppercase mt-1 inline-block"
                           style={{ color: '#F59E0B', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', letterSpacing: '0.1em' }}>
                           {data.cust.type === 'kurumsal' ? 'Kurumsal' : 'Bireysel'}
@@ -15902,6 +15909,7 @@ function AdminTestAccounts() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [migrationNeeded, setMigrationNeeded] = useState(false);
+  const [serverRef, setServerRef] = useState(null);
   const [counts, setCounts] = useState({ lawyer: 2, insurance: 2, kaporta: 2 });
   const [withDemoData, setWithDemoData] = useState(true);
   const [created, setCreated] = useState([]);
@@ -15919,6 +15927,7 @@ function AdminTestAccounts() {
       const j = await api('/api/dev/test-accounts');
       setAccounts(j.accounts || []);
       setPassword(j.password || '');
+      setServerRef(j.projectRef || null);
     } catch (e) {
       setErr('Liste alınamadı: ' + e.message + ' — dev sunucusu yeniden başlatılmış olmalı (vite.config değişti).');
     } finally { setLoading(false); }
@@ -15998,6 +16007,31 @@ function AdminTestAccounts() {
 
   const byRole = (role) => accounts.filter(a => a.role === role);
 
+  // Bağlantı teşhisi: tarayıcının bağlandığı proje ile hesapların oluşturulduğu
+  // (dev sunucu / .env) proje farklıysa giriş başarısız olur — en sık sessiz hata.
+  const browserRef = (String(SUPABASE_CONFIG.url || '').match(/https:\/\/([a-z0-9]+)\.supabase\.co/i) || [])[1] || null;
+  const projectMismatch = !!(serverRef && browserRef && serverRef !== browserRef);
+  const resetSupabaseConn = async () => {
+    const ok = await confirm({
+      title: 'Tarayıcı Supabase bağlantısı sıfırlansın mı?',
+      subtitle: 'Giriş yapılamıyorsa bunu deneyin',
+      message: 'Tarayıcıda kayıtlı eski Supabase ayarı silinip uygulama .env projesine (test hesaplarının bulunduğu yere) bağlanacak. Sayfa yenilenecek.',
+      bullets: ['localStorage Supabase URL/anahtarı silinir', 'Önbellekteki profiller temizlenir', 'Sayfa yeniden yüklenir'],
+      confirmLabel: 'Sıfırla ve yenile',
+    });
+    if (!ok) return;
+    try {
+      localStorage.removeItem('gecit_kfz_supabase_url');
+      localStorage.removeItem('gecit_kfz_supabase_key');
+      localStorage.removeItem('gecit_kfz_mode');
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('gecit_kfz_profile_')) localStorage.removeItem(k);
+      }
+    } catch {}
+    location.reload();
+  };
+
   return (
     <>
       <AdminTopbar title="🧪 Test Hesapları" subtitle="Giriş yapabilen sahte avukat / sigorta / kaporta firmaları üret ve sil"
@@ -16013,6 +16047,26 @@ function AdminTestAccounts() {
       {/* Güvenlik notu */}
       <div className="rounded-2xl p-4 mb-4 text-xs" style={{ background: `${C.cyan || '#06B6D4'}12`, border: `1px solid ${C.cyan || '#06B6D4'}33`, color: C.textDim }}>
         Tüm test verileri <b style={{ color: C.text }}>@gecit-test.local</b> etiketiyle üretilir. Silme işlemi yalnızca bu etiketli kayıtları kaldırır — gerçek müşteri/firma verilerine <b style={{ color: C.text }}>asla</b> dokunulmaz.
+      </div>
+
+      {/* Bağlantı teşhisi — giriş yapılamıyorsa en olası neden */}
+      <div className="rounded-2xl p-4 mb-4 text-xs" style={{ background: projectMismatch ? 'rgba(239,68,68,0.1)' : 'rgba(0,0,0,0.03)', border: `1px solid ${projectMismatch ? 'rgba(239,68,68,0.4)' : C.border}`, color: C.textDim }}>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <span>Sunucu (hesaplar burada oluşur): </span><b style={{ color: C.text, fontFamily: 'monospace' }}>{serverRef || '—'}</b>
+            <span style={{ margin: '0 8px' }}>·</span>
+            <span>Tarayıcı girişi bağlandığı proje: </span><b style={{ color: projectMismatch ? '#FCA5A5' : '#34D399', fontFamily: 'monospace' }}>{browserRef || '—'}</b>
+            {!projectMismatch && serverRef && browserRef && <span style={{ color: '#34D399' }}> ✓ eşleşiyor</span>}
+          </div>
+          {projectMismatch && (
+            <AdminButton size="sm" variant="danger" onClick={resetSupabaseConn}>Bağlantıyı sıfırla</AdminButton>
+          )}
+        </div>
+        {projectMismatch && (
+          <p className="mt-2" style={{ color: '#FCA5A5' }}>
+            ⚠ Tarayıcınız <b>farklı</b> bir Supabase projesine bağlı. Test hesapları <b>{serverRef}</b> projesinde oluşturuluyor ama girişiniz <b>{browserRef}</b> projesine gidiyor → bu yüzden "giriş yapılamadı" diyor. Yukarıdaki <b>Bağlantıyı sıfırla</b> düğmesine basın.
+          </p>
+        )}
       </div>
 
       {/* Migration uyarısı */}
@@ -16070,7 +16124,7 @@ function AdminTestAccounts() {
             {created.map((c, i) => (
               <div key={i} className="flex items-center gap-2 text-xs font-mono p-2 rounded-lg" style={{ background: 'rgba(0,0,0,0.04)', color: C.text }}>
                 <span className="px-1.5 py-0.5 rounded" style={{ background: `${TEST_ROLE_META[c.role]?.color}22`, color: TEST_ROLE_META[c.role]?.color }}>{TEST_ROLE_META[c.role]?.label}</span>
-                <span>{c.email}</span>
+                <CopyableEmail value={c.email} />
               </div>
             ))}
           </div>
@@ -16106,7 +16160,7 @@ function AdminTestAccounts() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold truncate" style={{ color: C.text }}>{a.company}</p>
-                          <p className="text-xs font-mono truncate" style={{ color: C.textDim }}>{a.email}</p>
+                          <CopyableEmail value={a.email} className="text-xs font-mono truncate" style={{ color: C.textDim, display: 'flex' }} />
                           <div className="flex items-center gap-3 mt-1.5 text-[11px]" style={{ color: C.textDim }}>
                             <span className="flex items-center gap-1"><UsersIcon size={11} /> {a.assigned} demo müşteri</span>
                             {a.userId ? <span style={{ color: '#34D399' }}>● giriş aktif</span> : <span style={{ color: '#FBBF24' }}>● giriş yok</span>}
@@ -18467,7 +18521,9 @@ function BodyshopApp({ user, onLogout, onHome }) {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold truncate" style={{ color: C.text }}>{c.type === 'kurumsal' ? c.company : c.full_name}</p>
-            <p className="text-xs truncate" style={{ color: C.textDim }}>{c.email || c.phone || '—'}</p>
+            {c.email
+              ? <CopyableEmail value={c.email} className="text-xs truncate" style={{ color: C.textDim, display: 'flex' }} />
+              : <p className="text-xs truncate" style={{ color: C.textDim }}>{c.phone || '—'}</p>}
           </div>
         </div>
         {vehicles.length === 0 ? (
@@ -18551,7 +18607,7 @@ function BodyshopApp({ user, onLogout, onHome }) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm truncate" style={{ color: C.text }}>{user?.name}</p>
-              <p className="text-xs truncate" style={{ color: C.textDim }}>{user?.email}</p>
+              <CopyableEmail value={user?.email} className="text-xs truncate" style={{ color: C.textDim, display: 'flex' }} />
             </div>
             <button onClick={handleLogout} className="p-1.5 rounded-lg hover:bg-black/5 transition" style={{ color: C.textDim }}>
               <LogOutIcon size={14} />
@@ -18626,7 +18682,9 @@ function BodyshopApp({ user, onLogout, onHome }) {
               ].map(([k, v]) => (
                 <div key={k} className="flex items-center justify-between py-3" style={{ borderBottom: `1px solid ${C.border}` }}>
                   <span className="text-xs uppercase" style={{ color: C.textDim, letterSpacing: '0.1em' }}>{k}</span>
-                  <span className="text-sm font-medium" style={{ color: C.text }}>{v || '—'}</span>
+                  {k === 'E-posta' && v
+                    ? <CopyableEmail value={v} className="text-sm font-medium" style={{ color: C.text }} />
+                    : <span className="text-sm font-medium" style={{ color: C.text }}>{v || '—'}</span>}
                 </div>
               ))}
             </div>

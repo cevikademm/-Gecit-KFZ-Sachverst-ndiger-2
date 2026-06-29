@@ -4,6 +4,7 @@
 // FAB/gönderim: src/components/HataBildirWidget.jsx
 import React, { useState, useMemo } from 'react';
 import { C } from '../utils/tokens.js';
+import { CopyableEmail } from './Copyable.jsx';
 import { buildWhatsAppText, openWhatsApp } from '../utils/errorReportClient.js';
 
 const SEV = {
@@ -128,7 +129,7 @@ export default function HataBildirimleriPanel({ db, setDb }) {
                   {/* Meta */}
                   <div style={{ fontSize: 11.5, color: C.textDim, lineHeight: 1.6, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
                     <div><b>Sayfa:</b> {r.page_path || '—'}</div>
-                    <div><b>Bildiren:</b> {r.reporter_name || '—'} {r.reporter_email ? `· ${r.reporter_email}` : ''}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}><b>Bildiren:</b> {r.reporter_name || '—'} {r.reporter_email ? <>· <CopyableEmail value={r.reporter_email} iconSize={11} /></> : ''}</div>
                     <div><b>Ekran:</b> {r.screen_size || '—'}</div>
                   </div>
 

@@ -48,7 +48,8 @@ export default function testAccountsDevPlugin(env = {}) {
 
         try {
           if (req.method === 'GET' && path === '/api/dev/test-accounts') {
-            return send(res, 200, await listTestAccounts(sb));
+            const projectRef = (String(url).match(/https:\/\/([a-z0-9]+)\.supabase\.co/i) || [])[1] || null;
+            return send(res, 200, { ...(await listTestAccounts(sb)), projectRef });
           }
           if (req.method === 'POST' && path === '/api/dev/test-accounts/seed') {
             const body = await readBody(req);

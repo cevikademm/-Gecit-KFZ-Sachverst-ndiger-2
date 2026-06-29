@@ -17,6 +17,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { C } from '../utils/tokens.js';
+import { CopyableEmail } from './Copyable.jsx';
 import { getSupabaseClient } from '../utils/supabaseAuth.js';
 import { ReportDetail, ContactDetail, InvoiceDetail } from './AutoiXpertDetail.jsx';
 import GutachtenWorkbench from './GutachtenWorkbench.jsx';
@@ -385,7 +386,7 @@ function ContactsTable({ rows, onRowClick }) {
           <tr key={r.id} onClick={() => onRowClick(r)} className="cursor-pointer transition-colors hover:bg-black/5">
             <Td><Badge tone="info">{r.organization_type}</Badge></Td>
             <Td>{r.organization_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || '—'}</Td>
-            <Td className="text-xs">{r.email || '—'}</Td>
+            <Td className="text-xs">{r.email ? <CopyableEmail value={r.email} /> : '—'}</Td>
             <Td className="text-xs font-mono">{r.phone || '—'}</Td>
             <Td>{r.city || '—'}</Td>
             <Td className="text-xs whitespace-nowrap">{formatDate(r.created_at)}</Td>

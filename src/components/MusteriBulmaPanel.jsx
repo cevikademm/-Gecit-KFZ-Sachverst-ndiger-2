@@ -21,6 +21,7 @@ import {
   SearchIcon, Target, MailIcon, DownloadIcon, TrashIcon, StarIcon,
   PhoneIcon, GlobeIcon, Building, PinIcon, Check, XClose, Database, PlusIcon,
 } from './icons.jsx';
+import { CopyableEmail } from './Copyable.jsx';
 
 const C = {
   surface: '#FFFFFF', border: '#E5E5EA', borderSoft: '#F0F0F2',
@@ -541,7 +542,7 @@ function BusinessTable({ rows, keyOf, selectable, allSelected, onToggleAll, isSe
   const Contact = ({ r, small }) => (
     <div className={`flex flex-col gap-0.5 ${small ? 'text-xs' : 'text-xs'}`}>
       {r.telefon && <a href={`tel:${r.telefon}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1" style={{ color: C.text }}><PhoneIcon size={12} /> {r.telefon}</a>}
-      {r.email ? <a href={`mailto:${r.email}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 truncate" style={{ color: C.blue }}><MailIcon size={12} /> {r.email}</a> : <span style={{ color: C.textMute }} className="flex items-center gap-1"><MailIcon size={12} /> e-posta yok</span>}
+      {r.email ? <span className="flex items-center gap-1 truncate" style={{ color: C.blue }}><MailIcon size={12} /> <CopyableEmail value={r.email} className="truncate" /></span> : <span style={{ color: C.textMute }} className="flex items-center gap-1"><MailIcon size={12} /> e-posta yok</span>}
       {r.website && <a href={r.website} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 truncate" style={{ color: C.textDim }}><GlobeIcon size={12} /> Web sitesi</a>}
     </div>
   );

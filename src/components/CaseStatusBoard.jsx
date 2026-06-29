@@ -12,6 +12,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { C, PARTY_COLORS, PARTY_LABELS } from '../utils/tokens.js';
+import { CopyableEmail } from './Copyable.jsx';
 import {
   ActivityIcon, AlertTriangle, SearchIcon, ClockIcon, ChevronRight, Zap, FolderCheckIcon,
 } from './icons.jsx';
@@ -261,7 +262,7 @@ export default function CaseStatusBoard({
                         {customer?.full_name || customer?.company || '—'}
                       </p>
                       {customer?.email && (
-                        <p className="text-[10px] truncate max-w-[180px]" style={{ color: C.textDim }}>{customer.email}</p>
+                        <CopyableEmail value={customer.email} className="text-[10px] truncate max-w-[180px]" style={{ color: C.textDim, display: 'flex' }} iconSize={10} />
                       )}
                     </td>
                     <td className="px-4 py-3">
