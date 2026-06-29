@@ -438,10 +438,13 @@ function LoginDrawer({ open, onClose, onLogin }) {
       const { user, error: signErr } = await supabaseSignIn(em, password);
       if (signErr || !user) {
         const msg = String(signErr || '');
-        if (msg.toLowerCase().includes('invalid login') || msg.toLowerCase().includes('email not confirmed')) {
+        const m = msg.toLowerCase();
+        if (m.includes('invalid login') || m.includes('email not confirmed')) {
           setError('E-Mail veya şifre hatalı.');
-        } else if (msg.toLowerCase().includes('supabase')) {
-          setError('Bağlantı hatası: F12 → Console → localStorage.clear() → yenileyin');
+        } else if (m.includes('ayarları eksik') || m.includes('not initialized') || m.includes('not configured')) {
+          setError('Yapılandırma hatası. Lütfen yöneticiyle iletişime geçin.');
+        } else if (m.includes('fetch') || m.includes('network') || m.includes('supabase') || m.includes('timeout')) {
+          setError('Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
         } else {
           setError('Giriş yapılamadı: ' + (signErr || 'bilinmeyen'));
         }

@@ -396,10 +396,13 @@ function LoginDrawer({ open, onClose, onLogin }) {
       const { user, error: signErr } = await SupabaseAuth.signIn(em, password);
       if (signErr || !user) {
         const msg = String(signErr || '');
-        if (msg.toLowerCase().includes('invalid login') || msg.toLowerCase().includes('email not confirmed')) {
+        const m = msg.toLowerCase();
+        if (m.includes('invalid login') || m.includes('email not confirmed')) {
           setError('E-Mail veya şifre hatalı.');
-        } else if (msg.toLowerCase().includes('supabase') || msg.toLowerCase().includes('initialized')) {
-          setError('Bağlantı hatası: Supabase ayarları eksik. (F12 → Konsol → localStorage.clear() → yenileyin)');
+        } else if (m.includes('ayarları eksik') || m.includes('initialized') || m.includes('not configured')) {
+          setError('Yapılandırma hatası. Lütfen yöneticiyle iletişime geçin.');
+        } else if (m.includes('fetch') || m.includes('network') || m.includes('supabase') || m.includes('timeout')) {
+          setError('Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
         } else {
           setError('Giriş yapılamadı: ' + (signErr || 'bilinmeyen hata'));
         }
@@ -1487,19 +1490,31 @@ const isValidKey = (v) => typeof v === 'string'
 let _lsUrl = (() => { try { return localStorage.getItem('gecit_kfz_supabase_url'); } catch (e) { return null; } })();
 let _lsKey = (() => { try { return localStorage.getItem('gecit_kfz_supabase_key'); } catch (e) { return null; } })();
 
-// Silinmiş eski projenin localStorage cache'i varsa scrub et — yeni env'e bağlanılsın.
-if (containsDeadRef(_lsUrl) || containsDeadRef(_lsKey)) {
-  try {
-    localStorage.removeItem('gecit_kfz_supabase_url');
-    localStorage.removeItem('gecit_kfz_supabase_key');
-  } catch (e) {}
-  _lsUrl = null;
-  _lsKey = null;
+// Bir URL'den Supabase proje ref'ini çıkar: https://<ref>.supabase.co
+const projectRef = (v) => (typeof v === 'string' && (v.match(/https:\/\/([a-z0-9]+)\.supabase\.co/i) || [])[1]) || null;
+const ENV_REF = projectRef(ENV_SUPABASE_URL);
+
+// localStorage override'ı SCRUB et: silinmiş eski ref, VEYA env geçerliyken FARKLI projeye
+// işaret eden bayat override (migration kalıntısı — yanlış projeye bağlanıp "Bağlantı hatası"
+// verir). Otomatik scrub: kullanıcının elle localStorage.clear() yapmasına gerek kalmaz.
+{
+  const lsRef = projectRef(_lsUrl);
+  const stale = containsDeadRef(_lsUrl) || containsDeadRef(_lsKey) || (ENV_REF && lsRef && lsRef !== ENV_REF);
+  if (stale) {
+    try {
+      localStorage.removeItem('gecit_kfz_supabase_url');
+      localStorage.removeItem('gecit_kfz_supabase_key');
+    } catch (e) {}
+    _lsUrl = null;
+    _lsKey = null;
+  }
 }
 
+// ENV ÖNCELİKLİ: deploy edilen env config doğruluk kaynağıdır; localStorage override yalnızca
+// env yoksa (lokal/dev) devreye girer. Böylece bayat bir override canlı girişi BOZAMAZ.
 const SUPABASE_CONFIG = {
-  url: (isValidUrl(_lsUrl) && _lsUrl) || (isValidUrl(ENV_SUPABASE_URL) && ENV_SUPABASE_URL) || '',
-  anonKey: (isValidKey(_lsKey) && _lsKey) || (isValidKey(ENV_SUPABASE_ANON_KEY) && ENV_SUPABASE_ANON_KEY) || '',
+  url: (isValidUrl(ENV_SUPABASE_URL) && ENV_SUPABASE_URL) || (isValidUrl(_lsUrl) && _lsUrl) || '',
+  anonKey: (isValidKey(ENV_SUPABASE_ANON_KEY) && ENV_SUPABASE_ANON_KEY) || (isValidKey(_lsKey) && _lsKey) || '',
 };
 
 // Env'de geçerli URL/Key varsa otomatik canlı moda geç.

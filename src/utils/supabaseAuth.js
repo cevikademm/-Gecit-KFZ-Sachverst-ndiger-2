@@ -36,17 +36,32 @@ const isValidKey = (v) => typeof v === 'string'
 let _lsUrl = readLocalStorage('gecit_kfz_supabase_url');
 let _lsKey = readLocalStorage('gecit_kfz_supabase_key');
 
-// Silinmiş eski projenin localStorage cache'i varsa scrub et — yeni env'e bağlanılsın.
-if (containsDeadRef(_lsUrl) || containsDeadRef(_lsKey)) {
-  removeLocalStorage('gecit_kfz_supabase_url');
-  removeLocalStorage('gecit_kfz_supabase_key');
-  _lsUrl = null;
-  _lsKey = null;
+// Bir URL'den Supabase proje ref'ini çıkar: https://<ref>.supabase.co
+const projectRef = (v) => (typeof v === 'string' && (v.match(/https:\/\/([a-z0-9]+)\.supabase\.co/i) || [])[1]) || null;
+const ENV_REF = projectRef(ENV_SUPABASE_URL);
+
+// localStorage override'ı SCRUB et eğer:
+//  (a) silinmiş eski proje ref'i içeriyorsa, VEYA
+//  (b) env geçerli bir projeye işaret ediyor ama override FARKLI bir projeye işaret ediyorsa.
+// (b) eski bir migration'dan kalan bayat değerdir: client yanlış projeye bağlanır, istek
+// başarısız olur ve hata mesajı 'supabase.co' içerdiği için UI yanıltıcı "Bağlantı hatası" verir.
+// Otomatik scrub sayesinde kullanıcının elle localStorage.clear() yapmasına gerek kalmaz.
+{
+  const lsRef = projectRef(_lsUrl);
+  const stale = containsDeadRef(_lsUrl) || containsDeadRef(_lsKey) || (ENV_REF && lsRef && lsRef !== ENV_REF);
+  if (stale) {
+    removeLocalStorage('gecit_kfz_supabase_url');
+    removeLocalStorage('gecit_kfz_supabase_key');
+    _lsUrl = null;
+    _lsKey = null;
+  }
 }
 
+// ENV ÖNCELİKLİ: deploy edilen env config doğruluk kaynağıdır; localStorage override yalnızca
+// env yoksa (lokal/dev) devreye girer. Böylece bayat bir override canlı girişi BOZAMAZ.
 const SUPABASE_CONFIG = {
-  url: (isValidUrl(_lsUrl) && _lsUrl) || (isValidUrl(ENV_SUPABASE_URL) && ENV_SUPABASE_URL) || '',
-  anonKey: (isValidKey(_lsKey) && _lsKey) || (isValidKey(ENV_SUPABASE_ANON_KEY) && ENV_SUPABASE_ANON_KEY) || '',
+  url: (isValidUrl(ENV_SUPABASE_URL) && ENV_SUPABASE_URL) || (isValidUrl(_lsUrl) && _lsUrl) || '',
+  anonKey: (isValidKey(ENV_SUPABASE_ANON_KEY) && ENV_SUPABASE_ANON_KEY) || (isValidKey(_lsKey) && _lsKey) || '',
 };
 
 let _client = null;
